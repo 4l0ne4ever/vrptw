@@ -1,6 +1,6 @@
 """
-Hanoi map visualization for VRP solutions.
-Creates interactive maps using Folium for mockup datasets with real Hanoi coordinates.
+Enhanced Hanoi map visualization with real routing.
+Creates interactive maps using Folium with real road routes instead of straight lines.
 """
 
 import folium
@@ -8,15 +8,16 @@ import numpy as np
 from typing import List, Dict, Optional, Tuple
 from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
+from src.data_processing.enhanced_hanoi_coordinates import EnhancedHanoiCoordinateGenerator
 import json
 
 
-class HanoiMapVisualizer:
-    """Creates interactive Hanoi map visualizations for VRP solutions."""
+class EnhancedHanoiMapVisualizer:
+    """Creates interactive Hanoi map visualizations with real routing."""
     
     def __init__(self, problem: VRPProblem, config: Optional[Dict] = None):
         """
-        Initialize Hanoi map visualizer.
+        Initialize enhanced Hanoi map visualizer.
         
         Args:
             problem: VRP problem instance
@@ -34,17 +35,25 @@ class HanoiMapVisualizer:
             '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
             '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
         ]
+        
+        # Initialize enhanced coordinate generator
+        self.coord_generator = EnhancedHanoiCoordinateGenerator()
+        
+        # Cache for routes to avoid repeated API calls
+        self.route_cache = {}
     
     def create_map(self, individual: Individual, 
-                   title: str = "VRP Routes - Hanoi",
-                   save_path: Optional[str] = None) -> folium.Map:
+                   title: str = "VRP Routes - Hanoi (Real Routes)",
+                   save_path: Optional[str] = None,
+                   use_real_routes: bool = True) -> folium.Map:
         """
-        Create interactive map with routes.
+        Create interactive map with real routes.
         
         Args:
             individual: VRP solution individual
             title: Map title
             save_path: Path to save map HTML file
+            use_real_routes: Whether to use real routing or straight lines
             
         Returns:
             Folium map object
@@ -75,23 +84,12 @@ class HanoiMapVisualizer:
                 
             color = self.colors[i % len(self.colors)]
             
-            # Add route line
-            route_coords = []
-            for customer_id in route:
-                if customer_id == 0:  # Depot
-                    route_coords.append(depot_coords)
-                else:
-                    customer = self._get_customer_by_id(customer_id)
-                    route_coords.append([customer.y, customer.x])
-            
-            # Draw route line
-            folium.PolyLine(
-                route_coords,
-                color=color,
-                weight=3,
-                opacity=0.8,
-                popup=f"Route {i+1}<br>Customers: {len(route)-1}<br>Load: {self._calculate_route_load(route)}"
-            ).add_to(m)
+            if use_real_routes:
+                # Use real routing
+                self._add_real_route(m, route, color, i)
+            else:
+                # Use straight lines (fallback)
+                self._add_straight_route(m, route, color, i)
             
             # Add customer markers
             for j, customer_id in enumerate(route):
@@ -112,7 +110,7 @@ class HanoiMapVisualizer:
                 ).add_to(m)
         
         # Add legend
-        self._add_legend(m, routes)
+        self._add_legend(m, routes, use_real_routes)
         
         # Add title
         title_html = f'''
@@ -129,22 +127,99 @@ class HanoiMapVisualizer:
         # Save map if path provided
         if save_path:
             m.save(save_path)
-            print(f"Map saved to: {save_path}")
+            print(f"Enhanced map saved to: {save_path}")
         
         return m
     
+    def _add_real_route(self, m: folium.Map, route: List[int], color: str, route_id: int):
+        """Add real route to map."""
+        route_coords = []
+        for customer_id in route:
+            if customer_id == 0:  # Depot
+                depot_coords = [self.problem.depot.y, self.problem.depot.x]
+                route_coords.append(depot_coords)
+            else:
+                customer = self._get_customer_by_id(customer_id)
+                route_coords.append([customer.y, customer.x])
+        
+        # Draw real route segments
+        for i in range(len(route_coords) - 1):
+            start = route_coords[i]
+            end = route_coords[i + 1]
+            
+            # Get real route between two points
+            real_route = self._get_cached_route(start, end)
+            
+            if real_route and len(real_route) > 1:
+                # Draw real route
+                folium.PolyLine(
+                    real_route,
+                    color=color,
+                    weight=3,
+                    opacity=0.8,
+                    popup=f"Route {route_id+1} Segment {i+1}"
+                ).add_to(m)
+            else:
+                # Fallback to straight line
+                folium.PolyLine(
+                    [start, end],
+                    color=color,
+                    weight=2,
+                    opacity=0.6,
+                    dash_array='5, 5',
+                    popup=f"Route {route_id+1} Segment {i+1} (Straight)"
+                ).add_to(m)
+    
+    def _add_straight_route(self, m: folium.Map, route: List[int], color: str, route_id: int):
+        """Add straight line route to map."""
+        route_coords = []
+        for customer_id in route:
+            if customer_id == 0:  # Depot
+                depot_coords = [self.problem.depot.y, self.problem.depot.x]
+                route_coords.append(depot_coords)
+            else:
+                customer = self._get_customer_by_id(customer_id)
+                route_coords.append([customer.y, customer.x])
+        
+        # Draw straight line route
+        folium.PolyLine(
+            route_coords,
+            color=color,
+            weight=3,
+            opacity=0.8,
+            popup=f"Route {route_id+1}<br>Customers: {len(route)-1}<br>Load: {self._calculate_route_load(route)}"
+        ).add_to(m)
+    
+    def _get_cached_route(self, start: Tuple[float, float], end: Tuple[float, float]) -> Optional[List[Tuple[float, float]]]:
+        """Get route from cache or API."""
+        # Create cache key
+        cache_key = f"{start[0]:.6f},{start[1]:.6f}_{end[0]:.6f},{end[1]:.6f}"
+        
+        if cache_key in self.route_cache:
+            return self.route_cache[cache_key]
+        
+        # Get route from API
+        route = self.coord_generator.get_real_route(start, end)
+        
+        # Cache the result
+        self.route_cache[cache_key] = route
+        
+        return route
+    
     def create_comparison_map(self, ga_individual: Individual, 
                             nn_individual: Individual,
-                            title: str = "VRP Comparison - Hanoi",
-                            save_path: Optional[str] = None) -> folium.Map:
+                            title: str = "VRP Comparison - Hanoi (Real Routes)",
+                            save_path: Optional[str] = None,
+                            use_real_routes: bool = True) -> folium.Map:
         """
-        Create comparison map with GA and NN solutions.
+        Create comparison map with GA and NN solutions using real routes.
         
         Args:
             ga_individual: GA solution
             nn_individual: NN solution
             title: Map title
             save_path: Path to save map HTML file
+            use_real_routes: Whether to use real routing
             
         Returns:
             Folium map object
@@ -172,22 +247,11 @@ class HanoiMapVisualizer:
                 continue
                 
             color = self.colors[i % len(self.colors)]
-            route_coords = []
             
-            for customer_id in route:
-                if customer_id == 0:
-                    route_coords.append(depot_coords)
-                else:
-                    customer = self._get_customer_by_id(customer_id)
-                    route_coords.append([customer.y, customer.x])
-            
-            folium.PolyLine(
-                route_coords,
-                color=color,
-                weight=4,
-                opacity=0.9,
-                popup=f"GA Route {i+1}"
-            ).add_to(m)
+            if use_real_routes:
+                self._add_real_route(m, route, color, i)
+            else:
+                self._add_straight_route(m, route, color, i)
         
         # Add NN routes (dashed lines)
         nn_routes = self._decode_routes(nn_individual)
@@ -196,8 +260,9 @@ class HanoiMapVisualizer:
                 continue
                 
             color = self.colors[i % len(self.colors)]
-            route_coords = []
             
+            # NN routes with dashed style
+            route_coords = []
             for customer_id in route:
                 if customer_id == 0:
                     route_coords.append(depot_coords)
@@ -228,7 +293,7 @@ class HanoiMapVisualizer:
             ).add_to(m)
         
         # Add comparison legend
-        self._add_comparison_legend(m, ga_routes, nn_routes)
+        self._add_comparison_legend(m, ga_routes, nn_routes, use_real_routes)
         
         # Add title
         title_html = f'''
@@ -244,7 +309,7 @@ class HanoiMapVisualizer:
         
         if save_path:
             m.save(save_path)
-            print(f"Comparison map saved to: {save_path}")
+            print(f"Enhanced comparison map saved to: {save_path}")
         
         return m
     
@@ -270,15 +335,16 @@ class HanoiMapVisualizer:
                 total_load += customer.demand
         return total_load
     
-    def _add_legend(self, m: folium.Map, routes: List[List[int]]):
+    def _add_legend(self, m: folium.Map, routes: List[List[int]], use_real_routes: bool):
         """Add route legend to map."""
-        legend_html = '''
+        route_type = "Real Routes" if use_real_routes else "Straight Lines"
+        legend_html = f'''
         <div style="position: fixed; 
-                    bottom: 50px; right: 50px; width: 200px; height: auto;
+                    bottom: 50px; right: 50px; width: 250px; height: auto;
                     background-color: white; border:2px solid grey; z-index:9999; 
                     font-size:14px; padding: 10px; border-radius: 5px;
                     box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-        <p><b>Routes Legend</b></p>
+        <p><b>Routes Legend ({route_type})</b></p>
         '''
         
         for i, route in enumerate(routes):
@@ -293,15 +359,16 @@ class HanoiMapVisualizer:
         legend_html += '</div>'
         m.get_root().html.add_child(folium.Element(legend_html))
     
-    def _add_comparison_legend(self, m: folium.Map, ga_routes: List[List[int]], nn_routes: List[List[int]]):
+    def _add_comparison_legend(self, m: folium.Map, ga_routes: List[List[int]], nn_routes: List[List[int]], use_real_routes: bool):
         """Add comparison legend to map."""
-        legend_html = '''
+        route_type = "Real Routes" if use_real_routes else "Straight Lines"
+        legend_html = f'''
         <div style="position: fixed; 
-                    bottom: 50px; right: 50px; width: 250px; height: auto;
+                    bottom: 50px; right: 50px; width: 280px; height: auto;
                     background-color: white; border:2px solid grey; z-index:9999; 
                     font-size:14px; padding: 10px; border-radius: 5px;
                     box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-        <p><b>Comparison Legend</b></p>
+        <p><b>Comparison Legend ({route_type})</b></p>
         <p><b>GA Solution:</b> Solid lines</p>
         <p><b>NN Solution:</b> Dashed lines</p>
         '''
@@ -310,33 +377,36 @@ class HanoiMapVisualizer:
         m.get_root().html.add_child(folium.Element(legend_html))
 
 
-def create_hanoi_map(problem: VRPProblem, 
-                    individual: Individual,
-                    title: str = "VRP Routes - Hanoi",
-                    save_path: Optional[str] = None) -> folium.Map:
+def create_enhanced_hanoi_map(problem: VRPProblem, 
+                            individual: Individual,
+                            title: str = "VRP Routes - Hanoi (Real Routes)",
+                            save_path: Optional[str] = None,
+                            use_real_routes: bool = True) -> folium.Map:
     """
-    Convenience function to create Hanoi map.
+    Convenience function to create enhanced Hanoi map.
     
     Args:
         problem: VRP problem instance
         individual: VRP solution individual
         title: Map title
         save_path: Path to save map HTML file
+        use_real_routes: Whether to use real routing
         
     Returns:
         Folium map object
     """
-    visualizer = HanoiMapVisualizer(problem)
-    return visualizer.create_map(individual, title, save_path)
+    visualizer = EnhancedHanoiMapVisualizer(problem)
+    return visualizer.create_map(individual, title, save_path, use_real_routes)
 
 
-def create_hanoi_comparison_map(problem: VRPProblem,
-                              ga_individual: Individual,
-                              nn_individual: Individual,
-                              title: str = "VRP Comparison - Hanoi",
-                              save_path: Optional[str] = None) -> folium.Map:
+def create_enhanced_hanoi_comparison_map(problem: VRPProblem,
+                                       ga_individual: Individual,
+                                       nn_individual: Individual,
+                                       title: str = "VRP Comparison - Hanoi (Real Routes)",
+                                       save_path: Optional[str] = None,
+                                       use_real_routes: bool = True) -> folium.Map:
     """
-    Convenience function to create Hanoi comparison map.
+    Convenience function to create enhanced Hanoi comparison map.
     
     Args:
         problem: VRP problem instance
@@ -344,9 +414,10 @@ def create_hanoi_comparison_map(problem: VRPProblem,
         nn_individual: NN solution
         title: Map title
         save_path: Path to save map HTML file
+        use_real_routes: Whether to use real routing
         
     Returns:
         Folium map object
     """
-    visualizer = HanoiMapVisualizer(problem)
-    return visualizer.create_comparison_map(ga_individual, nn_individual, title, save_path)
+    visualizer = EnhancedHanoiMapVisualizer(problem)
+    return visualizer.create_comparison_map(ga_individual, nn_individual, title, save_path, use_real_routes)

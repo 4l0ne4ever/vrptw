@@ -1,0 +1,20 @@
+=== LỘ TRÌNH TỐI ƯU GA ===
+
+Tổng số xe sử dụng: 2
+Tổng quãng đường: 3.36 km
+Tổng chi phí vận chuyển: 3.36
+Tổng phí giao hàng: 5,949,386 VND
+Dịch vụ: express
+
+Xe 1:
+  Lộ trình: Depot → KH_27 → KH_23 → KH_30 → KH_38 → KH_20 → KH_46 → KH_36 → KH_44 → KH_45 → KH_35 → KH_47 → KH_5 → KH_17 → KH_15 → KH_2 → KH_8 → KH_13 → KH_14 → KH_7 → KH_1 → KH_6 → KH_18 → KH_31 → KH_32 → KH_4 → KH_11 → KH_3 → Depot
+  Quãng đường: 1.47 km
+  Tải trọng: 194.0/200 (97.0%)
+  Phí giao hàng: 3,320,448 VND
+
+Xe 2:
+  Lộ trình: Depot → KH_12 → KH_19 → KH_25 → KH_43 → KH_37 → KH_34 → KH_41 → KH_40 → KH_50 → KH_39 → KH_24 → KH_29 → KH_33 → KH_21 → KH_28 → KH_48 → KH_26 → KH_22 → KH_49 → KH_42 → KH_16 → KH_9 → KH_10 → Depot
+  Quãng đường: 1.89 km
+  Tải trọng: 168.0/200 (84.0%)
+  Phí giao hàng: 2,628,937 VND
+

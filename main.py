@@ -22,6 +22,7 @@ from src.algorithms.local_search import TwoOptOptimizer
 from src.algorithms.nearest_neighbor import NearestNeighborHeuristic
 from src.evaluation.metrics import KPICalculator
 from src.evaluation.comparator import SolutionComparator
+from src.evaluation.result_exporter import ResultExporter
 from src.visualization.reporter import ReportGenerator
 from config import GA_CONFIG, VRP_CONFIG, MOCKUP_CONFIG
 
@@ -47,6 +48,9 @@ def main():
             return
         elif args.create_samples:
             create_sample_datasets()
+            return
+        elif args.solomon_batch:
+            run_solomon_batch(args)
             return
         
         # Run appropriate mode
@@ -102,6 +106,9 @@ Examples:
   
   # Solve mockup dataset
   python main.py --mockup-dataset small_random
+  
+  # Run all Solomon datasets in batch
+  python main.py --solomon-batch --generations 100 --population 50
   
   # Auto-detect dataset type
   python main.py --dataset C101
@@ -167,6 +174,10 @@ Examples:
                        help='Convert all Solomon datasets to JSON format')
     parser.add_argument('--create-samples', action='store_true',
                        help='Create sample mockup datasets')
+    
+    # Batch processing
+    parser.add_argument('--solomon-batch', action='store_true',
+                       help='Run all Solomon datasets in batch mode')
     
     # Output options
     parser.add_argument('--output', type=str, default='results',
@@ -312,6 +323,123 @@ def create_depot_from_dict(depot_dict):
     )
 
 
+def run_solomon_batch(args):
+    """Run VRP solver on all Solomon datasets individually."""
+    print("=" * 60)
+    print("VRP-GA System - Solomon Batch Mode")
+    print("=" * 60)
+    
+    # Load dataset catalog
+    loader = JSONDatasetLoader()
+    solomon_datasets = loader.list_available_datasets('solomon')
+    
+    if not solomon_datasets:
+        print("No Solomon datasets found!")
+        return
+    
+    print(f"Found {len(solomon_datasets)} Solomon datasets")
+    
+    # Results storage
+    batch_results = []
+    
+    # Run each dataset
+    for i, dataset_info in enumerate(solomon_datasets):
+        dataset_name = dataset_info['name']
+        print(f"\n{'='*50}")
+        print(f"Running dataset {i+1}/{len(solomon_datasets)}: {dataset_name}")
+        print(f"{'='*50}")
+        
+        try:
+            # Load dataset
+            data, distance_matrix = loader.load_dataset_with_distance_matrix(
+                dataset_name, args.traffic_factor, 'solomon'
+            )
+            
+            # Create VRP problem
+            problem = create_vrp_problem_from_dict(data, distance_matrix)
+            
+            print(f"Problem: {len(problem.customers)} customers, "
+                  f"capacity {problem.vehicle_capacity}, {problem.num_vehicles} vehicles")
+            
+            # Run optimization
+            ga_solution, evolution_data = run_single_optimization(problem, args)
+            
+            # Calculate KPIs
+            kpi_calculator = KPICalculator(problem)
+            ga_kpis = kpi_calculator.calculate_kpis(ga_solution)
+            
+            # Store results
+            result = {
+                'dataset': dataset_name,
+                'customers': len(problem.customers),
+                'capacity': problem.vehicle_capacity,
+                'vehicles': problem.num_vehicles,
+                'ga_distance': ga_kpis['total_distance'],
+                'ga_cost': ga_kpis['total_cost'],
+                'ga_routes': ga_kpis['num_routes'],
+                'ga_utilization': ga_kpis['avg_utilization'],
+                'ga_efficiency': ga_kpis['efficiency_score'],
+                'ga_feasible': ga_kpis['is_feasible'],
+                'generations': args.generations,
+                'population': args.population
+            }
+            
+            batch_results.append(result)
+            
+            print(f"Completed: Distance={ga_kpis['total_distance']:.2f}, "
+                  f"Routes={ga_kpis['num_routes']}, "
+                  f"Utilization={ga_kpis['avg_utilization']:.1f}%")
+            
+        except Exception as e:
+            print(f"Error processing {dataset_name}: {e}")
+            continue
+    
+    # Export batch summary
+    if batch_results:
+        exporter = ResultExporter(args.output)
+        summary_file = exporter.export_solomon_summary(batch_results)
+        print(f"\nBatch summary exported to: {summary_file}")
+        
+        # Print summary statistics
+        print(f"\nBatch Summary:")
+        print(f"  Total datasets processed: {len(batch_results)}")
+        print(f"  Average distance: {sum(r['ga_distance'] for r in batch_results) / len(batch_results):.2f}")
+        print(f"  Average routes: {sum(r['ga_routes'] for r in batch_results) / len(batch_results):.1f}")
+        print(f"  Average utilization: {sum(r['ga_utilization'] for r in batch_results) / len(batch_results):.1f}%")
+
+
+def run_single_optimization(problem, args):
+    """Run optimization for a single problem (without full reporting)."""
+    # Set random seed if specified
+    if args.seed:
+        import random
+        import numpy as np
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+    
+    # Create GA configuration
+    ga_config = GA_CONFIG.copy()
+    ga_config.update({
+        'generations': args.generations,
+        'population_size': args.population,
+        'crossover_prob': args.crossover_prob,
+        'mutation_prob': args.mutation_prob,
+        'tournament_size': args.tournament_size,
+        'elitism_rate': args.elitism_rate
+    })
+    
+    # Initialize and run GA
+    ga = GeneticAlgorithm(problem, ga_config)
+    ga_solution, evolution_data = ga.evolve()
+    
+    # Apply 2-opt if not disabled
+    if not args.no_local_search:
+        optimizer = TwoOptOptimizer(problem)
+        ga_solution = optimizer.optimize_individual(ga_solution)
+    
+    return ga_solution, evolution_data
+
+
 def run_optimization(problem, args, mode_name):
     """Run the optimization process."""
     # Set random seed if specified
@@ -348,7 +476,7 @@ def run_optimization(problem, args, mode_name):
     print(f"Running GA for {ga_config['generations']} generations...")
     start_time = time.time()
     
-    ga_solution = ga.evolve()
+    ga_solution, evolution_data = ga.evolve()
     ga_execution_time = time.time() - start_time
     
     print(f"GA completed in {ga_execution_time:.2f} seconds")
@@ -403,6 +531,38 @@ def run_optimization(problem, args, mode_name):
         print(f"  Distance Improvement: {distance_improvement:.2f} ({distance_improvement_percent:.1f}%)")
         print(f"  Cost Improvement: {nn_kpis['total_cost'] - ga_kpis['total_cost']:.2f}")
         print(f"  Efficiency Improvement: {ga_kpis['efficiency_score'] - nn_kpis['efficiency_score']:.3f}")
+    
+    # Export detailed results
+    print(f"\nExporting detailed results...")
+    
+    # Create result exporter
+    exporter = ResultExporter(args.output)
+    
+    # Export evolution data
+    evolution_file = exporter.export_evolution_data(evolution_data)
+    
+    # Export optimal routes
+    routes_file = exporter.export_optimal_routes(ga_solution, problem)
+    
+    # Export KPI comparison if NN solution exists
+    if nn_solution:
+        ga_stats = ga.get_statistics()
+        ga_stats['execution_time'] = ga_execution_time
+        
+        nn_stats = {'execution_time': 0}  # NN execution time is negligible
+        
+        kpi_file = exporter.export_kpi_comparison(
+            ga_solution, nn_solution, problem, ga_stats, nn_stats
+        )
+        
+        print(f"Results exported:")
+        print(f"  Evolution data: {evolution_file}")
+        print(f"  Optimal routes: {routes_file}")
+        print(f"  KPI comparison: {kpi_file}")
+    else:
+        print(f"Results exported:")
+        print(f"  Evolution data: {evolution_file}")
+        print(f"  Optimal routes: {routes_file}")
     
     # Generate report and visualizations
     if not args.no_report or not args.no_plots:

@@ -2,10 +2,12 @@
 
 ## Tổng quan
 
-VRP-GA System là một hệ thống giải quyết bài toán Vehicle Routing Problem (VRP) sử dụng thuật toán di truyền (Genetic Algorithm) với tối ưu hóa tìm kiếm cục bộ 2-opt. Hệ thống hỗ trợ **hai loại visualization**:
+VRP-GA System là một hệ thống giải quyết bài toán Vehicle Routing Problem (VRP) sử dụng thuật toán di truyền (Genetic Algorithm) với tối ưu hóa tìm kiếm cục bộ 2-opt. Hệ thống hỗ trợ:
 
 - **Map Hà Nội tương tác** cho mockup datasets (tọa độ thực tế)
 - **Visualization truyền thống** cho Solomon datasets (tọa độ giả lập)
+- **Tính phí giao hàng thực tế** theo mô hình Ahamove với các phụ phí dịch vụ
+- **Xuất kết quả chi tiết** bao gồm evolution data, optimal routes, và KPI comparison
 
 ## Yêu cầu hệ thống
 
@@ -85,6 +87,9 @@ python main.py --solomon-dataset C101 --generations 500 --population 100
 
 # Chạy với dataset R101 (100 khách hàng)
 python main.py --solomon-dataset R101 --generations 500 --population 100
+
+# Chạy tất cả Solomon datasets trong batch mode
+python main.py --solomon-batch --generations 100 --population 50
 ```
 
 ### 3. Auto-detect dataset type
@@ -156,19 +161,48 @@ python main.py --convert-solomon
 
 ## Kết quả đầu ra
 
+### Files kết quả chi tiết (Tất cả datasets)
+
+Hệ thống tự động tạo các file kết quả chi tiết:
+
+#### 1. Evolution Data (Quá trình tiến hóa GA)
+
+- `evolution_data_YYYYMMDD_HHMMSS.csv` - Dữ liệu tiến hóa qua các thế hệ
+- **Nội dung**: generation, evaluated_individuals, min_fitness, max_fitness, avg_fitness, std_fitness, best_distance, avg_distance, diversity
+
+#### 2. Optimal Routes (Lộ trình tối ưu)
+
+- `optimal_routes_YYYYMMDD_HHMMSS.txt` - Lộ trình chi tiết từng xe
+- **Nội dung**:
+  - Xe 1: Depot → KH_5 → KH_12 → ... → Depot
+  - Xe 2: Depot → KH_3 → KH_8 → ... → Depot
+  - Tổng km, tải trọng mỗi xe, **phí giao hàng từng tuyến**
+
+#### 3. KPI Comparison (So sánh GA vs Nearest Neighbor)
+
+- `kpi_comparison_YYYYMMDD_HHMMSS.csv` - So sánh hiệu suất
+- **Nội dung**: Tổng km, chi phí, số xe, thời gian tính toán, **phí giao hàng**, tỷ lệ cải thiện (%)
+
 ### Mockup Datasets (Map Hà Nội)
 
 Sau khi chạy mockup dataset, hệ thống tạo:
 
 #### 1. Bản đồ tương tác HTML
 
-- `ga_hanoi_map.html` - GA solution trên bản đồ Hà Nội
-- `nn_hanoi_map.html` - NN solution trên bản đồ Hà Nội
-- `comparison_hanoi_map.html` - So sánh GA vs NN
+- `ga_hanoi_map_real.html` - GA solution với tuyến đường thực tế
+- `ga_hanoi_map_straight.html` - GA solution với đường thẳng
+- `nn_hanoi_map_real.html` - NN solution với tuyến đường thực tế
+- `comparison_hanoi_map_real.html` - So sánh GA vs NN (tuyến thực tế)
+- `comparison_hanoi_map_straight.html` - So sánh GA vs NN (đường thẳng)
 
 #### 2. Báo cáo văn bản
 
 - `report.txt` - Báo cáo chi tiết với thống kê
+
+#### 3. Solomon Batch Summary (Chỉ khi chạy --solomon-batch)
+
+- `solomon_summary_YYYYMMDD_HHMMSS.csv` - Tổng hợp tất cả Solomon datasets
+- **Nội dung**: dataset, customers, capacity, vehicles, ga_distance, ga_cost, ga_routes, ga_utilization, ga_efficiency, ga_feasible
 
 ### Solomon Datasets (Visualization truyền thống)
 
@@ -195,8 +229,12 @@ Sau khi chạy Solomon dataset, hệ thống tạo:
 python main.py --mockup-dataset small_random --generations 100 --population 30
 ```
 
-**Kết quả**: 3 file HTML map tương tác + report.txt
-**Thời gian chạy**: 5-15 giây
+**Kết quả**:
+
+- 5 file HTML map tương tác (real routes + straight lines)
+- 3 file CSV kết quả chi tiết (evolution, routes, KPI comparison)
+- Report.txt với thống kê và **phí giao hàng**
+  **Thời gian chạy**: 5-15 giây
 
 ### Ví dụ 2: Map Hà Nội - Bài toán trung bình
 
@@ -204,8 +242,11 @@ python main.py --mockup-dataset small_random --generations 100 --population 30
 python main.py --mockup-dataset medium_kmeans --generations 200 --population 50
 ```
 
-**Kết quả**: 3 file HTML map tương tác + report.txt
-**Thời gian chạy**: 30-60 giây
+**Kết quả**:
+
+- 5 file HTML map tương tác + 3 file CSV + report.txt
+- **Phí giao hàng**: ~1,000,000-2,000,000 VND
+  **Thời gian chạy**: 30-60 giây
 
 ### Ví dụ 3: Solomon - Bài toán lớn
 
@@ -213,18 +254,24 @@ python main.py --mockup-dataset medium_kmeans --generations 200 --population 50
 python main.py --solomon-dataset C101 --generations 500 --population 100
 ```
 
-**Kết quả**: 6+ file PNG + report.txt
-**Thời gian chạy**: 1-3 phút
+**Kết quả**:
 
-### Ví dụ 4: So sánh hiệu suất
+- 6+ file PNG + 3 file CSV + report.txt
+- **Phí giao hàng**: Tính theo mô hình Ahamove
+  **Thời gian chạy**: 1-3 phút
+
+### Ví dụ 4: Solomon Batch Processing
 
 ```bash
-# Test với dataset nhỏ
-python main.py --mockup-dataset small_random --generations 50 --population 20
-
-# Test với dataset lớn
-python main.py --solomon-dataset C101 --generations 100 --population 50
+python main.py --solomon-batch --generations 100 --population 50
 ```
+
+**Kết quả**:
+
+- File tổng hợp: `solomon_summary_YYYYMMDD_HHMMSS.csv`
+- **55 Solomon datasets** được xử lý
+- **Phí giao hàng** cho từng dataset
+  **Thời gian chạy**: 10-30 phút
 
 ## Xử lý lỗi thường gặp
 
@@ -364,6 +411,40 @@ self.districts['my_dong'] = {
 - Auto-conversion từ Solomon CSV
 - Metadata và catalog management
 
+### 4. Tính phí giao hàng thực tế
+
+Hệ thống tích hợp tính phí giao hàng theo mô hình **Ahamove**:
+
+#### Công thức tính phí:
+
+```
+Cước phí = (Giá cơ bản × Số km) + Phụ phí dịch vụ
+```
+
+#### Các loại phí:
+
+- **Phí cơ bản**: Theo khoảng cách (Express: 15,709 VND/2km đầu)
+- **Phí điểm dừng**: 5,500 VND/điểm dừng thêm
+- **Phí COD**: 0.6% giá trị đơn hàng
+- **Phí chờ**: 60,000 VND/giờ sau 15 phút miễn phí
+
+#### Ví dụ tính phí:
+
+- Khoảng cách: 5km, 2 điểm dừng
+- **Kết quả**: 51,645 VND (khớp với mô tả)
+
+#### Xuất trong kết quả:
+
+- **Optimal Routes**: Phí giao hàng từng tuyến
+- **KPI Comparison**: Tổng phí giao hàng, phí/km, phí/khách hàng
+- **Chi tiết**: Phân tích từng thành phần phí (cơ bản, COD, chờ, điểm dừng)
+
+### 5. Batch Processing cho Solomon Datasets
+
+- Chạy tất cả Solomon datasets cùng lúc: `--solomon-batch`
+- Tạo file tổng hợp: `solomon_summary_YYYYMMDD_HHMMSS.csv`
+- So sánh hiệu suất trên nhiều test cases
+
 ## Hỗ trợ và góp ý
 
 Nếu gặp vấn đề hoặc có góp ý:
@@ -392,13 +473,22 @@ pip install -r requirements.txt
 python main.py --create-samples
 python main.py --convert-solomon
 
-# 3. Chạy map Hà Nội
+# 3. Chạy map Hà Nội với phí giao hàng
 python main.py --mockup-dataset small_random --generations 50 --population 20
 
-# 4. Chạy Solomon
+# 4. Chạy Solomon với phí giao hàng
 python main.py --solomon-dataset C101 --generations 100 --population 50
 
-# 5. Xem kết quả trong thư mục results/
+# 5. Chạy batch tất cả Solomon datasets
+python main.py --solomon-batch --generations 50 --population 30
+
+# 6. Xem kết quả trong thư mục results/
+# - evolution_data_*.csv: Quá trình tiến hóa GA
+# - optimal_routes_*.txt: Lộ trình + phí giao hàng
+# - kpi_comparison_*.csv: So sánh GA vs NN + phí giao hàng
+# - solomon_summary_*.csv: Tổng hợp Solomon datasets
+# - *.html: Map Hà Nội tương tác
+# - *.png: Visualization truyền thống
 ```
 
-Chúc bạn sử dụng thành công hệ thống VRP-GA với map Hà Nội! 🗺️🚚
+Chúc bạn sử dụng thành công hệ thống VRP-GA với map Hà Nội và tính phí giao hàng thực tế! 🗺️🚚💰

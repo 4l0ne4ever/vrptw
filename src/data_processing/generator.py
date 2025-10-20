@@ -6,10 +6,16 @@ Creates synthetic customer data with various clustering patterns.
 import numpy as np
 import pandas as pd
 from typing import List, Tuple, Dict, Optional
-from sklearn.cluster import KMeans
 import os
 from config import MOCKUP_CONFIG
-from .hanoi_coordinates import HanoiCoordinateGenerator
+from .enhanced_hanoi_coordinates import EnhancedHanoiCoordinateGenerator
+
+# Optional import for KMeans
+try:
+    from sklearn.cluster import KMeans
+    HAS_SKLEARN = True
+except ImportError:
+    HAS_SKLEARN = False
 
 
 class MockupDataGenerator:
@@ -28,8 +34,8 @@ class MockupDataGenerator:
         self.vehicle_capacity = None
         self.num_vehicles = None
         
-        # Initialize Hanoi coordinate generator
-        self.hanoi_generator = HanoiCoordinateGenerator()
+        # Initialize enhanced Hanoi coordinate generator
+        self.hanoi_generator = EnhancedHanoiCoordinateGenerator()
         
         # Set random seed for reproducibility
         np.random.seed(self.config['seed'])

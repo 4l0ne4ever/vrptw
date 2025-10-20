@@ -8,6 +8,7 @@ from typing import List, Dict, Tuple, Optional
 import numpy as np
 from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
+from src.evaluation.shipping_cost import ShippingCostCalculator
 
 
 class KPICalculator:
@@ -101,7 +102,54 @@ class KPICalculator:
             'penalty': individual.penalty
         }
         
+        # Add shipping cost calculation
+        shipping_cost_data = self._calculate_shipping_cost(individual)
+        kpis.update(shipping_cost_data)
+        
         return kpis
+    
+    def _calculate_shipping_cost(self, individual: Individual) -> Dict:
+        """Calculate shipping cost for the solution."""
+        try:
+            # Initialize shipping cost calculator
+            shipping_calculator = ShippingCostCalculator(cost_model="ahamove")
+            
+            # Decode routes
+            from src.algorithms.decoder import RouteDecoder
+            decoder = RouteDecoder(self.problem)
+            routes = decoder.decode_chromosome(individual.chromosome)
+            
+            # Generate order values and waiting times
+            order_values = shipping_calculator.generate_order_values(self.problem.customers)
+            waiting_times = shipping_calculator.generate_waiting_times(self.problem.customers)
+            
+            # Calculate shipping cost
+            shipping_cost_data = shipping_calculator.calculate_solution_cost(
+                routes, self.problem, service_type="express", 
+                order_values=order_values, waiting_times=waiting_times
+            )
+            
+            return {
+                'shipping_total_cost': shipping_cost_data['total_cost'],
+                'shipping_cost_per_km': shipping_cost_data['total_cost'] / max(individual.total_distance, 1),
+                'shipping_cost_per_customer': shipping_cost_data['total_cost'] / max(individual.get_customer_count(), 1),
+                'shipping_cost_per_route': shipping_cost_data['total_cost'] / max(individual.get_route_count(), 1),
+                'shipping_service_type': shipping_cost_data['service_type'],
+                'shipping_cost_model': shipping_cost_data['cost_model'],
+                'shipping_route_costs': shipping_cost_data['route_costs']
+            }
+            
+        except Exception as e:
+            # Return default values if calculation fails
+            return {
+                'shipping_total_cost': 0.0,
+                'shipping_cost_per_km': 0.0,
+                'shipping_cost_per_customer': 0.0,
+                'shipping_cost_per_route': 0.0,
+                'shipping_service_type': 'unknown',
+                'shipping_cost_model': 'unknown',
+                'shipping_route_costs': []
+            }
     
     def _get_empty_kpis(self) -> Dict:
         """Get KPIs for empty solution."""

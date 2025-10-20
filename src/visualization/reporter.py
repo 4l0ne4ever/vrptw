@@ -12,7 +12,7 @@ from src.models.vrp_model import VRPProblem
 from src.evaluation.metrics import KPICalculator
 from src.evaluation.comparator import SolutionComparator
 from src.visualization.mapper import RouteMapper
-from src.visualization.hanoi_map import HanoiMapVisualizer
+from src.visualization.enhanced_hanoi_map import EnhancedHanoiMapVisualizer
 from src.visualization.plotter import Plotter
 
 
@@ -133,34 +133,59 @@ class ReportGenerator:
         return False
     
     def _generate_hanoi_visualizations(self, ga_solution: Individual, nn_solution: Individual, report_dir: str):
-        """Generate Hanoi map visualizations for mockup datasets."""
-        # Create Hanoi map visualizer
-        hanoi_visualizer = HanoiMapVisualizer(self.problem)
+        """Generate enhanced Hanoi map visualizations for mockup datasets."""
+        # Create enhanced Hanoi map visualizer
+        hanoi_visualizer = EnhancedHanoiMapVisualizer(self.problem)
         
-        # GA solution map
+        # GA solution map with real routes
         hanoi_visualizer.create_map(
             ga_solution, 
-            "GA Solution - Hanoi",
-            os.path.join(report_dir, "ga_hanoi_map.html")
+            "GA Solution - Hanoi (Real Routes)",
+            os.path.join(report_dir, "ga_hanoi_map_real.html"),
+            use_real_routes=True
         )
         
-        # NN solution map
+        # GA solution map with straight lines (for comparison)
+        hanoi_visualizer.create_map(
+            ga_solution, 
+            "GA Solution - Hanoi (Straight Lines)",
+            os.path.join(report_dir, "ga_hanoi_map_straight.html"),
+            use_real_routes=False
+        )
+        
+        # NN solution map with real routes
         hanoi_visualizer.create_map(
             nn_solution, 
-            "Nearest Neighbor Solution - Hanoi",
-            os.path.join(report_dir, "nn_hanoi_map.html")
+            "Nearest Neighbor Solution - Hanoi (Real Routes)",
+            os.path.join(report_dir, "nn_hanoi_map_real.html"),
+            use_real_routes=True
         )
         
-        # Comparison map
+        # Comparison map with real routes
         hanoi_visualizer.create_comparison_map(
             ga_solution, 
             nn_solution,
-            "GA vs NN Comparison - Hanoi",
-            os.path.join(report_dir, "comparison_hanoi_map.html")
+            "GA vs NN Comparison - Hanoi (Real Routes)",
+            os.path.join(report_dir, "comparison_hanoi_map_real.html"),
+            use_real_routes=True
         )
         
-        # Skip traditional plots for Hanoi datasets to avoid color errors
-        print("Hanoi map visualizations generated successfully!")
+        # Comparison map with straight lines
+        hanoi_visualizer.create_comparison_map(
+            ga_solution, 
+            nn_solution,
+            "GA vs NN Comparison - Hanoi (Straight Lines)",
+            os.path.join(report_dir, "comparison_hanoi_map_straight.html"),
+            use_real_routes=False
+        )
+        
+        print("Enhanced Hanoi map visualizations generated successfully!")
+        print("Files created:")
+        print("  - ga_hanoi_map_real.html (GA with real routes)")
+        print("  - ga_hanoi_map_straight.html (GA with straight lines)")
+        print("  - nn_hanoi_map_real.html (NN with real routes)")
+        print("  - comparison_hanoi_map_real.html (Comparison with real routes)")
+        print("  - comparison_hanoi_map_straight.html (Comparison with straight lines)")
     
     def _generate_traditional_visualizations(self, ga_solution: Individual, nn_solution: Individual,
                                           convergence_data: Optional[Dict], report_dir: str):

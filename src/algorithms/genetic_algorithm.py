@@ -199,7 +199,7 @@ class GeneticAlgorithm:
         
         return chromosome
     
-    def evolve(self, max_generations: Optional[int] = None) -> Individual:
+    def evolve(self, max_generations: Optional[int] = None) -> Tuple[Individual, List[Dict]]:
         """
         Run GA evolution process.
         
@@ -207,7 +207,7 @@ class GeneticAlgorithm:
             max_generations: Maximum number of generations
             
         Returns:
-            Best solution found
+            Tuple of (best_solution, evolution_data)
         """
         max_generations = max_generations or self.config['generations']
         start_time = time.time()
@@ -215,6 +215,9 @@ class GeneticAlgorithm:
         # Initialize population if not done
         if self.population.is_empty():
             self.initialize_population()
+        
+        # Evolution data collection
+        evolution_data = []
         
         # Evolution loop
         for generation in range(max_generations):
@@ -225,6 +228,20 @@ class GeneticAlgorithm:
             
             # Update statistics
             self._update_statistics()
+            
+            # Collect evolution data
+            gen_data = {
+                'generation': generation,
+                'evaluated_individuals': len(self.population.individuals),
+                'min_fitness': min(ind.fitness for ind in self.population.individuals),
+                'max_fitness': max(ind.fitness for ind in self.population.individuals),
+                'avg_fitness': np.mean([ind.fitness for ind in self.population.individuals]),
+                'std_fitness': np.std([ind.fitness for ind in self.population.individuals]),
+                'best_distance': self.population.get_best_individual().total_distance,
+                'avg_distance': np.mean([ind.total_distance for ind in self.population.individuals]),
+                'diversity': self._calculate_diversity()
+            }
+            evolution_data.append(gen_data)
             
             # Check convergence
             if self._check_convergence():
@@ -238,7 +255,24 @@ class GeneticAlgorithm:
         # Get best solution
         self.best_solution = self.population.get_best_individual()
         
-        return self.best_solution
+        return self.best_solution, evolution_data
+        
+    def _calculate_diversity(self) -> float:
+        """Calculate population diversity."""
+        if len(self.population.individuals) < 2:
+            return 0.0
+        
+        # Calculate average pairwise distance between chromosomes
+        distances = []
+        individuals = self.population.individuals
+        
+        for i in range(len(individuals)):
+            for j in range(i + 1, len(individuals)):
+                # Calculate Hamming distance
+                dist = sum(1 for a, b in zip(individuals[i].chromosome, individuals[j].chromosome) if a != b)
+                distances.append(dist)
+        
+        return np.mean(distances) if distances else 0.0
     
     def _create_next_generation(self):
         """Create next generation using selection, crossover, and mutation."""
@@ -380,7 +414,7 @@ class GeneticAlgorithm:
 
 def run_genetic_algorithm(problem: VRPProblem, 
                          config: Optional[Dict] = None,
-                         max_generations: Optional[int] = None) -> Tuple[Individual, Dict]:
+                         max_generations: Optional[int] = None) -> Tuple[Individual, Dict, List[Dict]]:
     """
     Convenience function to run GA.
     
@@ -390,10 +424,10 @@ def run_genetic_algorithm(problem: VRPProblem,
         max_generations: Maximum generations
         
     Returns:
-        Tuple of (best_solution, statistics)
+        Tuple of (best_solution, statistics, evolution_data)
     """
     ga = GeneticAlgorithm(problem, config)
-    best_solution = ga.evolve(max_generations)
+    best_solution, evolution_data = ga.evolve(max_generations)
     statistics = ga.get_statistics()
     
-    return best_solution, statistics
+    return best_solution, statistics, evolution_data
