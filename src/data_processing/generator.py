@@ -9,6 +9,7 @@ from typing import List, Tuple, Dict, Optional
 from sklearn.cluster import KMeans
 import os
 from config import MOCKUP_CONFIG
+from .hanoi_coordinates import HanoiCoordinateGenerator
 
 
 class MockupDataGenerator:
@@ -27,12 +28,15 @@ class MockupDataGenerator:
         self.vehicle_capacity = None
         self.num_vehicles = None
         
+        # Initialize Hanoi coordinate generator
+        self.hanoi_generator = HanoiCoordinateGenerator()
+        
         # Set random seed for reproducibility
         np.random.seed(self.config['seed'])
     
     def generate_customers(self, n_customers: Optional[int] = None) -> List[Dict]:
         """
-        Generate customer data with specified clustering pattern.
+        Generate customer data with specified clustering pattern using Hanoi coordinates.
         
         Args:
             n_customers: Number of customers to generate
@@ -42,15 +46,12 @@ class MockupDataGenerator:
         """
         n_customers = n_customers or self.config['n_customers']
         
-        # Generate coordinates based on clustering method
-        if self.config['clustering'] == 'random':
-            coordinates = self._generate_random_coordinates(n_customers)
-        elif self.config['clustering'] == 'kmeans':
-            coordinates = self._generate_kmeans_coordinates(n_customers)
-        elif self.config['clustering'] == 'radial':
-            coordinates = self._generate_radial_coordinates(n_customers)
-        else:
-            raise ValueError(f"Unknown clustering method: {self.config['clustering']}")
+        # Generate Hanoi coordinates
+        customer_coords, depot_coords = self.hanoi_generator.generate_coordinates(
+            n_customers, 
+            self.config['clustering'],
+            'hoan_kiem_lake'  # Default depot location
+        )
         
         # Generate demands using Poisson distribution
         demands = self._generate_demands(n_customers)
@@ -64,10 +65,11 @@ class MockupDataGenerator:
         # Create customer dictionaries
         self.customers = []
         for i in range(n_customers):
+            lat, lon = customer_coords[i]
             customer = {
                 'id': i + 1,  # Start from 1, depot will be 0
-                'x': coordinates[i][0],
-                'y': coordinates[i][1],
+                'x': lon,     # Longitude (x-coordinate)
+                'y': lat,     # Latitude (y-coordinate)
                 'demand': demands[i],
                 'ready_time': time_windows[i][0],
                 'due_date': time_windows[i][1],
@@ -75,30 +77,42 @@ class MockupDataGenerator:
             }
             self.customers.append(customer)
         
+        # Store depot coordinates for later use
+        self._depot_coords = depot_coords
+        
         return self.customers
     
     def generate_depot(self, x: Optional[float] = None, y: Optional[float] = None) -> Dict:
         """
-        Generate depot location.
+        Generate depot location using Hanoi coordinates.
         
         Args:
-            x: Depot x-coordinate (random if None)
-            y: Depot y-coordinate (random if None)
+            x: Depot longitude (uses generated if None)
+            y: Depot latitude (uses generated if None)
             
         Returns:
             Depot dictionary
         """
-        if x is None or y is None:
-            # Place depot at center of area
-            x_min, x_max = self.config['area_bounds']
-            y_min, y_max = self.config['area_bounds']
-            x = (x_min + x_max) / 2
-            y = (y_min + y_max) / 2
+        if hasattr(self, '_depot_coords'):
+            # Use generated depot coordinates
+            lat, lon = self._depot_coords
+            depot_x = lon  # Longitude
+            depot_y = lat  # Latitude
+        else:
+            # Fallback to Hoan Kiem Lake coordinates
+            depot_x = 105.8542  # Longitude
+            depot_y = 21.0285    # Latitude
+        
+        # Override with provided coordinates if any
+        if x is not None:
+            depot_x = x
+        if y is not None:
+            depot_y = y
         
         self.depot = {
             'id': 0,
-            'x': x,
-            'y': y,
+            'x': depot_x,
+            'y': depot_y,
             'demand': 0,
             'ready_time': 0,
             'due_date': 1000,  # Large time window for depot

@@ -12,7 +12,8 @@ from typing import Dict, Optional
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.data_processing.loader import load_solomon_dataset
+from src.data_processing.json_loader import JSONDatasetLoader
+from src.data_processing.dataset_converter import DatasetConverter
 from src.data_processing.generator import generate_mockup_data
 from src.data_processing.distance import DistanceCalculator
 from src.models.vrp_model import create_vrp_problem_from_dict
@@ -31,13 +32,40 @@ def main():
     args = parser.parse_args()
     
     try:
-        if args.solomon:
-            run_solomon_mode(args)
+        # Handle dataset management commands
+        if args.list_datasets:
+            list_datasets("all")
+            return
+        elif args.list_solomon:
+            list_datasets("solomon")
+            return
+        elif args.list_mockup:
+            list_datasets("mockup")
+            return
+        elif args.convert_solomon:
+            convert_solomon_datasets()
+            return
+        elif args.create_samples:
+            create_sample_datasets()
+            return
+        
+        # Run appropriate mode
+        if args.dataset:
+            run_dataset_mode(args, dataset_type=None)
+        elif args.solomon_dataset:
+            run_dataset_mode(args, dataset_type="solomon")
+        elif args.mockup_dataset:
+            run_dataset_mode(args, dataset_type="mockup")
         elif args.generate:
             run_mockup_mode(args)
         else:
-            parser.print_help()
-            sys.exit(1)
+            # Check if any dataset management command was used
+            if (args.list_datasets or args.list_solomon or args.list_mockup or 
+                args.convert_solomon or args.create_samples):
+                pass  # Already handled above
+            else:
+                parser.print_help()
+                sys.exit(1)
             
     except KeyboardInterrupt:
         print("\nOperation cancelled by user.")
@@ -54,21 +82,46 @@ def create_argument_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # List all datasets
+  python main.py --list-datasets
+  
+  # List Solomon datasets only
+  python main.py --list-solomon
+  
+  # List mockup datasets only
+  python main.py --list-mockup
+  
+  # Convert Solomon datasets to JSON
+  python main.py --convert-solomon
+  
+  # Create sample datasets
+  python main.py --create-samples
+  
   # Solve Solomon dataset
-  python main.py --solomon data/solomon_dataset/C1/C101.csv
+  python main.py --solomon-dataset C101
+  
+  # Solve mockup dataset
+  python main.py --mockup-dataset small_random
+  
+  # Auto-detect dataset type
+  python main.py --dataset C101
   
   # Generate and solve mockup data
   python main.py --generate --customers 50 --capacity 200
   
   # Custom GA parameters
-  python main.py --solomon data/solomon_dataset/C1/C101.csv --generations 2000 --population 150
+  python main.py --solomon-dataset C101 --generations 2000 --population 150
         """
     )
     
     # Data source options
-    data_group = parser.add_mutually_exclusive_group(required=True)
-    data_group.add_argument('--solomon', type=str, 
-                           help='Path to Solomon dataset CSV file')
+    data_group = parser.add_mutually_exclusive_group(required=False)
+    data_group.add_argument('--dataset', type=str, 
+                           help='Name of JSON dataset to load')
+    data_group.add_argument('--solomon-dataset', type=str, 
+                           help='Name of Solomon JSON dataset to load')
+    data_group.add_argument('--mockup-dataset', type=str, 
+                           help='Name of mockup JSON dataset to load')
     data_group.add_argument('--generate', action='store_true',
                            help='Generate mockup data')
     
@@ -103,6 +156,18 @@ Examples:
     parser.add_argument('--traffic-factor', type=float, default=1.0,
                        help='Traffic factor for distance calculation (default: 1.0)')
     
+    # Dataset management options
+    parser.add_argument('--list-datasets', action='store_true',
+                       help='List all available datasets')
+    parser.add_argument('--list-solomon', action='store_true',
+                       help='List Solomon datasets only')
+    parser.add_argument('--list-mockup', action='store_true',
+                       help='List mockup datasets only')
+    parser.add_argument('--convert-solomon', action='store_true',
+                       help='Convert all Solomon datasets to JSON format')
+    parser.add_argument('--create-samples', action='store_true',
+                       help='Create sample mockup datasets')
+    
     # Output options
     parser.add_argument('--output', type=str, default='results',
                        help='Output directory (default: results)')
@@ -128,39 +193,38 @@ Examples:
     return parser
 
 
-def run_solomon_mode(args):
-    """Run VRP solver with Solomon dataset."""
+def run_dataset_mode(args, dataset_type: str = None):
+    """Run VRP solver with JSON dataset."""
     print("=" * 60)
-    print("VRP-GA System - Solomon Dataset Mode")
+    print("VRP-GA System - JSON Dataset Mode")
     print("=" * 60)
     
-    # Load Solomon dataset
-    print(f"Loading Solomon dataset: {args.solomon}")
-    data = load_solomon_dataset(args.solomon)
+    # Determine dataset name
+    if args.dataset:
+        dataset_name = args.dataset
+    elif args.solomon_dataset:
+        dataset_name = args.solomon_dataset
+    elif args.mockup_dataset:
+        dataset_name = args.mockup_dataset
+    else:
+        raise ValueError("No dataset specified")
     
-    # Override vehicle capacity if specified
-    if args.capacity:
-        data['vehicle_capacity'] = args.capacity
+    # Load JSON dataset
+    print(f"Loading JSON dataset: {dataset_name}")
     
-    # Override number of vehicles if specified
-    if args.vehicles:
-        data['num_vehicles'] = args.vehicles
-    
-    # Calculate distance matrix
-    print("Calculating distance matrix...")
-    distance_calculator = DistanceCalculator(args.traffic_factor)
-    coordinates = [(data['depot']['x'], data['depot']['y'])]
-    coordinates.extend([(c['x'], c['y']) for c in data['customers']])
-    distance_matrix = distance_calculator.calculate_distance_matrix(coordinates)
+    loader = JSONDatasetLoader()
+    data, distance_matrix = loader.load_dataset_with_distance_matrix(
+        dataset_name, args.traffic_factor, dataset_type
+    )
     
     # Create VRP problem
     problem = create_vrp_problem_from_dict(data, distance_matrix)
     
-    print(f"Problem loaded: {problem.get_problem_info()['num_customers']} customers, "
+    print(f"Problem loaded: {len(problem.customers)} customers, "
           f"capacity {problem.vehicle_capacity}, {problem.num_vehicles} vehicles")
     
     # Run optimization
-    run_optimization(problem, args, "Solomon")
+    run_optimization(problem, args, data['metadata']['name'])
 
 
 def run_mockup_mode(args):
@@ -194,12 +258,12 @@ def run_mockup_mode(args):
     os.makedirs(args.output, exist_ok=True)
     
     from src.data_processing.generator import MockupDataGenerator
-    generator = MockupDataGenerator()
-    generator.customers = [create_customer_from_dict(c) for c in data['customers']]
-    generator.depot = create_depot_from_dict(data['depot'])
-    generator.vehicle_capacity = data['vehicle_capacity']
-    generator.num_vehicles = data['num_vehicles']
-    generator.export_to_csv(output_file)
+    temp_generator = MockupDataGenerator()
+    temp_generator.customers = data['customers']  # Keep as dictionaries
+    temp_generator.depot = data['depot']  # Keep as dictionary
+    temp_generator.vehicle_capacity = data['vehicle_capacity']
+    temp_generator.num_vehicles = data['num_vehicles']
+    temp_generator.export_to_csv(output_file)
     
     print(f"Generated data saved to: {output_file}")
     
@@ -380,6 +444,88 @@ def run_optimization(problem, args, mode_name):
     
     print(f"\nOptimization completed successfully!")
     print(f"Results saved in: {args.output}")
+
+
+def list_datasets(dataset_type: str = "all"):
+    """List all available datasets."""
+    print("=" * 60)
+    print(f"AVAILABLE DATASETS ({dataset_type.upper()})")
+    print("=" * 60)
+    
+    loader = JSONDatasetLoader()
+    datasets = loader.list_available_datasets(dataset_type)
+    
+    if not datasets:
+        print(f"No {dataset_type} datasets found. Run --convert-solomon or --create-samples first.")
+        return
+    
+    print(f"Found {len(datasets)} datasets:\n")
+    
+    # Group by type for better display
+    solomon_datasets = [d for d in datasets if d['type'] == 'solomon']
+    mockup_datasets = [d for d in datasets if d['type'] == 'mockup']
+    
+    if solomon_datasets:
+        print("SOLOMON DATASETS:")
+        for dataset in solomon_datasets:
+            print(f"  {dataset['name']}")
+            print(f"    Description: {dataset['metadata']['description']}")
+            print(f"    Customers: {dataset['num_customers']}")
+            print(f"    Capacity: {dataset['vehicle_capacity']}")
+            print(f"    Vehicles: {dataset['num_vehicles']}")
+            print()
+    
+    if mockup_datasets:
+        print("MOCKUP DATASETS:")
+        for dataset in mockup_datasets:
+            print(f"  {dataset['name']}")
+            print(f"    Description: {dataset['metadata']['description']}")
+            print(f"    Customers: {dataset['num_customers']}")
+            print(f"    Capacity: {dataset['vehicle_capacity']}")
+            print(f"    Vehicles: {dataset['num_vehicles']}")
+            print()
+
+
+def convert_solomon_datasets():
+    """Convert all Solomon datasets to JSON format."""
+    print("=" * 60)
+    print("CONVERTING SOLOMON DATASETS TO JSON")
+    print("=" * 60)
+    
+    converter = DatasetConverter()
+    converter.convert_all_solomon_datasets()
+    converter.create_dataset_catalog()
+    
+    print("\nConversion completed!")
+
+
+def create_sample_datasets():
+    """Create sample mockup datasets."""
+    print("=" * 60)
+    print("CREATING SAMPLE DATASETS")
+    print("=" * 60)
+    
+    converter = DatasetConverter()
+    
+    # Create various sample datasets
+    datasets = [
+        (10, 50, 'random', 'small_random'),
+        (20, 100, 'kmeans', 'medium_kmeans'),
+        (30, 150, 'radial', 'medium_radial'),
+        (50, 200, 'kmeans', 'large_kmeans'),
+        (100, 300, 'kmeans', 'xlarge_kmeans')
+    ]
+    
+    for n_customers, capacity, clustering, name in datasets:
+        converter.create_mockup_dataset(
+            n_customers=n_customers,
+            vehicle_capacity=capacity,
+            clustering=clustering,
+            name=name
+        )
+    
+    converter.create_dataset_catalog()
+    print("\nSample datasets created!")
 
 
 if __name__ == "__main__":

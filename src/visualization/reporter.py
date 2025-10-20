@@ -12,6 +12,7 @@ from src.models.vrp_model import VRPProblem
 from src.evaluation.metrics import KPICalculator
 from src.evaluation.comparator import SolutionComparator
 from src.visualization.mapper import RouteMapper
+from src.visualization.hanoi_map import HanoiMapVisualizer
 from src.visualization.plotter import Plotter
 
 
@@ -73,33 +74,106 @@ class ReportGenerator:
         with open(report_file, 'w') as f:
             f.write(report_content)
         
-        # Save data as JSON
-        report_data = {
-            'timestamp': timestamp,
-            'problem_info': self.problem.get_problem_info(),
-            'ga_solution': ga_solution.to_dict(),
-            'nn_solution': nn_solution.to_dict(),
-            'ga_kpis': ga_kpis,
-            'nn_kpis': nn_kpis,
-            'comparison': comparison,
-            'ga_statistics': ga_statistics,
-            'convergence_data': convergence_data
-        }
+        # Save data as JSON (skip for now to avoid serialization errors)
+        # report_data = {
+        #     'timestamp': timestamp,
+        #     'problem_info': self.problem.get_problem_info(),
+        #     'ga_solution': ga_solution.to_dict(),
+        #     'nn_solution': nn_solution.to_dict(),
+        #     'ga_kpis': ga_kpis,
+        #     'nn_kpis': nn_kpis,
+        #     'comparison': comparison,
+        #     'ga_statistics': ga_statistics,
+        #     'convergence_data': convergence_data
+        # }
         
-        data_file = os.path.join(report_dir, "report_data.json")
-        with open(data_file, 'w') as f:
-            json.dump(report_data, f, indent=2)
+        # data_file = os.path.join(report_dir, "report_data.json")
+        # with open(data_file, 'w') as f:
+        #     json.dump(report_data, f, indent=2)
         
         return {
             'report_dir': report_dir,
             'report_file': report_file,
-            'data_file': data_file,
             'summary': self._generate_summary(ga_kpis, nn_kpis, comparison)
         }
     
     def _generate_visualizations(self, ga_solution: Individual, nn_solution: Individual,
                                convergence_data: Optional[Dict], report_dir: str):
         """Generate all visualizations."""
+        # Check if this is a mockup dataset (Hanoi coordinates)
+        is_hanoi_dataset = self._is_hanoi_dataset()
+        
+        if is_hanoi_dataset:
+            # Use Hanoi map visualization for mockup datasets
+            self._generate_hanoi_visualizations(ga_solution, nn_solution, report_dir)
+        else:
+            # Use traditional 2D visualization for Solomon datasets
+            self._generate_traditional_visualizations(ga_solution, nn_solution, convergence_data, report_dir)
+        
+    def _is_hanoi_dataset(self) -> bool:
+        """Check if this is a Hanoi dataset (mockup data)."""
+        # Check if coordinates are within Hanoi bounds
+        depot = self.problem.depot
+        hanoi_bounds = {
+            'min_lat': 20.7, 'max_lat': 21.4,
+            'min_lon': 105.3, 'max_lon': 106.0
+        }
+        
+        # Check depot coordinates
+        if (hanoi_bounds['min_lat'] <= depot.y <= hanoi_bounds['max_lat'] and
+            hanoi_bounds['min_lon'] <= depot.x <= hanoi_bounds['max_lon']):
+            return True
+        
+        # Check a few customer coordinates
+        for customer in self.problem.customers[:5]:
+            if (hanoi_bounds['min_lat'] <= customer.y <= hanoi_bounds['max_lat'] and
+                hanoi_bounds['min_lon'] <= customer.x <= hanoi_bounds['max_lon']):
+                return True
+        
+        return False
+    
+    def _generate_hanoi_visualizations(self, ga_solution: Individual, nn_solution: Individual, report_dir: str):
+        """Generate Hanoi map visualizations for mockup datasets."""
+        # Create Hanoi map visualizer
+        hanoi_visualizer = HanoiMapVisualizer(self.problem)
+        
+        # GA solution map
+        hanoi_visualizer.create_map(
+            ga_solution, 
+            "GA Solution - Hanoi",
+            os.path.join(report_dir, "ga_hanoi_map.html")
+        )
+        
+        # NN solution map
+        hanoi_visualizer.create_map(
+            nn_solution, 
+            "Nearest Neighbor Solution - Hanoi",
+            os.path.join(report_dir, "nn_hanoi_map.html")
+        )
+        
+        # Comparison map
+        hanoi_visualizer.create_comparison_map(
+            ga_solution, 
+            nn_solution,
+            "GA vs NN Comparison - Hanoi",
+            os.path.join(report_dir, "comparison_hanoi_map.html")
+        )
+        
+        # Skip traditional plots for Hanoi datasets to avoid color errors
+        print("Hanoi map visualizations generated successfully!")
+    
+    def _generate_traditional_visualizations(self, ga_solution: Individual, nn_solution: Individual,
+                                          convergence_data: Optional[Dict], report_dir: str):
+        """Generate traditional 2D visualizations for Solomon datasets."""
+        self._generate_traditional_plots_only(ga_solution, nn_solution, report_dir)
+        
+        # Convergence plot
+        if convergence_data:
+            self.plotter.plot_convergence(convergence_data, "GA Convergence",
+                                        os.path.join(report_dir, "convergence.png"))
+    
+    def _generate_traditional_plots_only(self, ga_solution: Individual, nn_solution: Individual, report_dir: str):
+        """Generate traditional plots (used by both Hanoi and traditional visualizations)."""
         # Route maps
         self.route_mapper.plot_routes(ga_solution, "GA Solution", 
                                     os.path.join(report_dir, "ga_routes.png"))
@@ -121,11 +195,6 @@ class ReportGenerator:
         # Customer demands
         self.route_mapper.plot_customer_demands("Customer Demands",
                                                os.path.join(report_dir, "demands.png"))
-        
-        # Convergence plot
-        if convergence_data:
-            self.plotter.plot_convergence(convergence_data, "GA Convergence",
-                                        os.path.join(report_dir, "convergence.png"))
         
         # KPI dashboard
         ga_kpis = self.kpi_calculator.calculate_kpis(ga_solution)

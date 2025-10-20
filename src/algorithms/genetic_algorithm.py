@@ -89,6 +89,9 @@ class GeneticAlgorithm:
         Returns:
             Created individual
         """
+        if not self.problem.customers:
+            raise ValueError("No customers in problem")
+        
         customer_ids = [c.id for c in self.problem.customers]
         
         # Use different initialization strategies

@@ -7,3 +7,4 @@ scipy>=1.7.0
 pytest>=6.2.0
 argparse
 json5
+folium>=0.14.0

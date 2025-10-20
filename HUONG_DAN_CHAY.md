@@ -2,7 +2,10 @@
 
 ## Tổng quan
 
-VRP-GA System là một hệ thống giải quyết bài toán Vehicle Routing Problem (VRP) sử dụng thuật toán di truyền (Genetic Algorithm) với tối ưu hóa tìm kiếm cục bộ 2-opt.
+VRP-GA System là một hệ thống giải quyết bài toán Vehicle Routing Problem (VRP) sử dụng thuật toán di truyền (Genetic Algorithm) với tối ưu hóa tìm kiếm cục bộ 2-opt. Hệ thống hỗ trợ **hai loại visualization**:
+
+- **Map Hà Nội tương tác** cho mockup datasets (tọa độ thực tế)
+- **Visualization truyền thống** cho Solomon datasets (tọa độ giả lập)
 
 ## Yêu cầu hệ thống
 
@@ -10,6 +13,7 @@ VRP-GA System là một hệ thống giải quyết bài toán Vehicle Routing P
 - Hệ điều hành: Windows, macOS, hoặc Linux
 - RAM: Tối thiểu 4GB (khuyến nghị 8GB)
 - Dung lượng ổ cứng: 500MB trống
+- Kết nối internet (để tải Folium maps)
 
 ## Cài đặt
 
@@ -23,14 +27,17 @@ python3 --version
 
 Nếu chưa có Python 3.8+, hãy tải về từ [python.org](https://python.org)
 
-### Bước 2: Tải project
+### Bước 2: Tạo virtual environment (khuyến nghị)
 
 ```bash
-# Nếu có git
-git clone <repository-url>
-cd vrp-ga-system
+# Tạo virtual environment
+python -m venv venv
 
-# Hoặc tải file ZIP và giải nén
+# Kích hoạt virtual environment
+# Trên Windows:
+venv\Scripts\activate
+# Trên macOS/Linux:
+source venv/bin/activate
 ```
 
 ### Bước 3: Cài đặt thư viện
@@ -39,36 +46,53 @@ cd vrp-ga-system
 pip install -r requirements.txt
 ```
 
-### Bước 4: Chạy setup tự động (tùy chọn)
+### Bước 4: Khởi tạo datasets
 
 ```bash
-python setup.py
+# Chuyển đổi Solomon datasets sang JSON
+python main.py --convert-solomon
+
+# Tạo mockup datasets mẫu
+python main.py --create-samples
 ```
 
 ## Cách sử dụng cơ bản
 
-### 1. Chạy với dữ liệu mẫu (Mockup Data)
+### 1. Sử dụng Mockup Datasets (Map Hà Nội)
 
 ```bash
-# Tạo và giải bài toán với 20 khách hàng
-python main.py --generate --customers 20 --capacity 100
+# Xem danh sách mockup datasets
+python main.py --list-mockup
 
-# Tạo và giải bài toán với 50 khách hàng
-python main.py --generate --customers 50 --capacity 200
+# Chạy với dataset nhỏ (10 khách hàng)
+python main.py --mockup-dataset small_random --generations 100 --population 30
 
-# Tạo và giải bài toán với 100 khách hàng
-python main.py --generate --customers 100 --capacity 300
+# Chạy với dataset trung bình (20 khách hàng)
+python main.py --mockup-dataset medium_kmeans --generations 200 --population 50
+
+# Chạy với dataset lớn (50 khách hàng)
+python main.py --mockup-dataset large_kmeans --generations 500 --population 100
 ```
 
-### 2. Chạy với dữ liệu Solomon (nếu có)
+### 2. Sử dụng Solomon Datasets (Visualization truyền thống)
 
 ```bash
-# Sử dụng file dữ liệu Solomon
-python main.py --solomon data/solomon_dataset/C1/C101.csv
+# Xem danh sách Solomon datasets
+python main.py --list-solomon
 
-# Với các file khác
-python main.py --solomon data/solomon_dataset/C1/C102.csv
-python main.py --solomon data/solomon_dataset/R1/R101.csv
+# Chạy với dataset C101 (100 khách hàng)
+python main.py --solomon-dataset C101 --generations 500 --population 100
+
+# Chạy với dataset R101 (100 khách hàng)
+python main.py --solomon-dataset R101 --generations 500 --population 100
+```
+
+### 3. Auto-detect dataset type
+
+```bash
+# Hệ thống tự động phát hiện loại dataset
+python main.py --dataset small_random --generations 100 --population 30
+python main.py --dataset C101 --generations 500 --population 100
 ```
 
 ## Các tùy chọn nâng cao
@@ -76,7 +100,7 @@ python main.py --solomon data/solomon_dataset/R1/R101.csv
 ### Tùy chỉnh thuật toán di truyền
 
 ```bash
-python main.py --generate --customers 50 \
+python main.py --mockup-dataset medium_kmeans \
                --generations 2000 \        # Số thế hệ
                --population 150 \           # Kích thước quần thể
                --crossover-prob 0.85 \      # Xác suất lai ghép
@@ -85,129 +109,121 @@ python main.py --generate --customers 50 \
                --elitism-rate 0.2           # Tỷ lệ ưu tú
 ```
 
-### Tùy chỉnh bài toán VRP
-
-```bash
-python main.py --generate --customers 50 \
-               --capacity 200 \             # Sức chứa xe
-               --vehicles 10 \              # Số xe tối đa
-               --traffic-factor 1.2         # Hệ số giao thông
-```
-
-### Tùy chỉnh phương pháp phân cụm dữ liệu
-
-```bash
-# Phân cụm ngẫu nhiên
-python main.py --generate --customers 50 --clustering random
-
-# Phân cụm K-means
-python main.py --generate --customers 50 --clustering kmeans
-
-# Phân cụm theo hướng tâm
-python main.py --generate --customers 50 --clustering radial
-```
-
 ### Tùy chỉnh đầu ra
 
 ```bash
-python main.py --generate --customers 50 \
-               --output results/my_experiment \  # Thư mục kết quả
-               --no-plots \                       # Không tạo biểu đồ
-               --no-report \                      # Không tạo báo cáo
-               --save-solution                    # Lưu dữ liệu giải pháp
-```
-
-### Tùy chỉnh thuật toán
-
-```bash
-python main.py --generate --customers 50 \
-               --no-local-search \           # Bỏ qua tối ưu 2-opt
-               --no-baseline                  # Bỏ qua thuật toán cơ sở
+python main.py --mockup-dataset small_random \
+               --generations 100 \
+               --population 30 \
+               --no-plots \                 # Không tạo biểu đồ (chỉ cho Solomon)
+               --no-report                  # Không tạo báo cáo
 ```
 
 ### Chế độ debug
 
 ```bash
-python main.py --generate --customers 50 \
-               --verbose \                   # Hiển thị chi tiết
-               --seed 42                     # Đặt seed ngẫu nhiên
+python main.py --mockup-dataset small_random \
+               --generations 50 \
+               --population 20 \
+               --verbose \                  # Hiển thị chi tiết
+               --seed 42                    # Đặt seed ngẫu nhiên
 ```
 
-## Chạy demo và kiểm tra
+## Quản lý Datasets
 
-### Demo nhanh
+### Xem danh sách datasets
 
 ```bash
-python demo.py --quick
+# Xem tất cả datasets
+python main.py --list-datasets
+
+# Xem chỉ mockup datasets
+python main.py --list-mockup
+
+# Xem chỉ Solomon datasets
+python main.py --list-solomon
 ```
 
-### Demo đầy đủ
+### Tạo datasets mới
 
 ```bash
-python demo.py
-```
+# Tạo mockup datasets mẫu
+python main.py --create-samples
 
-### Chạy test
-
-```bash
-python tests/run_tests.py
+# Chuyển đổi Solomon datasets sang JSON
+python main.py --convert-solomon
 ```
 
 ## Kết quả đầu ra
 
-Sau khi chạy, hệ thống sẽ tạo các file kết quả trong thư mục `results/`:
+### Mockup Datasets (Map Hà Nội)
 
-### 1. Báo cáo văn bản
+Sau khi chạy mockup dataset, hệ thống tạo:
 
-- `report.txt`: Báo cáo chi tiết với thống kê
-- `report_data.json`: Dữ liệu đầy đủ dạng JSON
+#### 1. Bản đồ tương tác HTML
 
-### 2. Hình ảnh trực quan
+- `ga_hanoi_map.html` - GA solution trên bản đồ Hà Nội
+- `nn_hanoi_map.html` - NN solution trên bản đồ Hà Nội
+- `comparison_hanoi_map.html` - So sánh GA vs NN
 
-- `ga_routes.png`: Bản đồ tuyến đường của thuật toán di truyền
-- `nn_routes.png`: Bản đồ tuyến đường của thuật toán cơ sở
-- `comparison.png`: So sánh hai phương pháp
-- `convergence.png`: Biểu đồ hội tụ của GA
-- `ga_dashboard.png`: Bảng điều khiển KPI của GA
-- `nn_dashboard.png`: Bảng điều khiển KPI của NN
-- `comparison_chart.png`: Biểu đồ so sánh các chỉ số
-- `improvements.png`: Phân tích cải thiện
+#### 2. Báo cáo văn bản
 
-### 3. Dữ liệu giải pháp
+- `report.txt` - Báo cáo chi tiết với thống kê
 
-- `ga_solution_*.json`: Dữ liệu giải pháp GA
-- `nn_solution_*.json`: Dữ liệu giải pháp NN
+### Solomon Datasets (Visualization truyền thống)
+
+Sau khi chạy Solomon dataset, hệ thống tạo:
+
+#### 1. Hình ảnh trực quan PNG
+
+- `ga_routes.png` - Bản đồ tuyến đường của GA
+- `nn_routes.png` - Bản đồ tuyến đường của NN
+- `comparison.png` - So sánh hai phương pháp
+- `convergence.png` - Biểu đồ hội tụ của GA
+- `ga_dashboard.png` - Bảng điều khiển KPI của GA
+- `nn_dashboard.png` - Bảng điều khiển KPI của NN
+
+#### 2. Báo cáo văn bản
+
+- `report.txt` - Báo cáo chi tiết với thống kê
 
 ## Các ví dụ thực tế
 
-### Ví dụ 1: Bài toán nhỏ (20 khách hàng)
+### Ví dụ 1: Map Hà Nội - Bài toán nhỏ
 
 ```bash
-python main.py --generate --customers 20 --capacity 100 --generations 500
+python main.py --mockup-dataset small_random --generations 100 --population 30
 ```
 
-**Thời gian chạy**: 10-30 giây
+**Kết quả**: 3 file HTML map tương tác + report.txt
+**Thời gian chạy**: 5-15 giây
 
-### Ví dụ 2: Bài toán trung bình (50 khách hàng)
+### Ví dụ 2: Map Hà Nội - Bài toán trung bình
 
 ```bash
-python main.py --generate --customers 50 --capacity 200 --generations 1000
+python main.py --mockup-dataset medium_kmeans --generations 200 --population 50
 ```
 
+**Kết quả**: 3 file HTML map tương tác + report.txt
+**Thời gian chạy**: 30-60 giây
+
+### Ví dụ 3: Solomon - Bài toán lớn
+
+```bash
+python main.py --solomon-dataset C101 --generations 500 --population 100
+```
+
+**Kết quả**: 6+ file PNG + report.txt
 **Thời gian chạy**: 1-3 phút
 
-### Ví dụ 3: Bài toán lớn (100 khách hàng)
+### Ví dụ 4: So sánh hiệu suất
 
 ```bash
-python main.py --generate --customers 100 --capacity 300 --generations 2000 --population 200
-```
+# Test với dataset nhỏ
+python main.py --mockup-dataset small_random --generations 50 --population 20
 
-**Thời gian chạy**: 5-15 phút
-
-### Ví dụ 4: Sử dụng dữ liệu Solomon
-
-```bash
-python main.py --solomon data/solomon_dataset/C1/C101.csv --generations 1500
+# Test với dataset lớn
+python main.py --solomon-dataset C101 --generations 100 --population 50
 ```
 
 ## Xử lý lỗi thường gặp
@@ -219,47 +235,73 @@ python main.py --solomon data/solomon_dataset/C1/C101.csv --generations 1500
 pip install -r requirements.txt
 
 # Hoặc cài đặt từng thư viện
-pip install numpy pandas matplotlib seaborn scikit-learn scipy pytest
+pip install numpy pandas matplotlib seaborn scikit-learn scipy pytest folium
 ```
 
-### Lỗi: "FileNotFoundError" khi chạy Solomon
+### Lỗi: "Dataset not found"
 
-- Kiểm tra file dữ liệu có tồn tại không
-- Đảm bảo đường dẫn đúng: `data/solomon_dataset/C1/C101.csv`
+```bash
+# Kiểm tra datasets có sẵn
+python main.py --list-datasets
+
+# Tạo lại datasets nếu cần
+python main.py --create-samples
+python main.py --convert-solomon
+```
 
 ### Lỗi: "MemoryError" với bài toán lớn
 
-- Giảm kích thước quần thể: `--population 50`
-- Giảm số thế hệ: `--generations 500`
-- Giảm số khách hàng: `--customers 30`
+```bash
+# Giảm kích thước quần thể
+python main.py --solomon-dataset C101 --population 50
 
-### Lỗi: "TimeoutError"
+# Giảm số thế hệ
+python main.py --solomon-dataset C101 --generations 200
 
-- Tăng thời gian chờ
-- Giảm kích thước bài toán
-- Sử dụng `--no-plots` để bỏ qua tạo hình ảnh
+# Sử dụng dataset nhỏ hơn
+python main.py --mockup-dataset small_random
+```
+
+### Lỗi: "Map not loading"
+
+- Kiểm tra kết nối internet (cần cho Folium)
+- Đảm bảo file HTML được tạo trong thư mục results
+- Mở file HTML bằng trình duyệt web
 
 ## Tối ưu hóa hiệu suất
 
-### Cho bài toán nhỏ (< 50 khách hàng)
+### Cho Mockup Datasets (Map Hà Nội)
 
 ```bash
-python main.py --generate --customers 30 \
-               --generations 1000 \
-               --population 100 \
-               --crossover-prob 0.9 \
-               --mutation-prob 0.15
+# Dataset nhỏ - chạy nhanh
+python main.py --mockup-dataset small_random \
+               --generations 50 \
+               --population 20
+
+# Dataset trung bình - cân bằng
+python main.py --mockup-dataset medium_kmeans \
+               --generations 200 \
+               --population 50
+
+# Dataset lớn - chất lượng cao
+python main.py --mockup-dataset large_kmeans \
+               --generations 500 \
+               --population 100
 ```
 
-### Cho bài toán lớn (> 100 khách hàng)
+### Cho Solomon Datasets (Visualization truyền thống)
 
 ```bash
-python main.py --generate --customers 150 \
-               --generations 3000 \
-               --population 300 \
-               --crossover-prob 0.85 \
-               --mutation-prob 0.2 \
-               --tournament-size 10
+# Dataset nhỏ - chạy nhanh
+python main.py --solomon-dataset C101 \
+               --generations 200 \
+               --population 50 \
+               --no-plots --no-report
+
+# Dataset lớn - đầy đủ tính năng
+python main.py --solomon-dataset C101 \
+               --generations 1000 \
+               --population 150
 ```
 
 ## Cấu hình nâng cao
@@ -282,6 +324,46 @@ VRP_CONFIG = {
 }
 ```
 
+### Tùy chỉnh tọa độ Hà Nội
+
+Chỉnh sửa file `src/data_processing/hanoi_coordinates.py`:
+
+```python
+# Thay đổi ranh giới Hà Nội
+self.hanoi_bounds = {
+    'min_lat': 20.5,   # Mở rộng về phía nam
+    'max_lat': 21.5,   # Mở rộng về phía bắc
+    'min_lon': 105.0,  # Mở rộng về phía tây
+    'max_lon': 106.2   # Mở rộng về phía đông
+}
+
+# Thêm quận mới
+self.districts['my_dong'] = {
+    'lat': 21.0, 'lon': 105.8, 'radius': 0.1
+}
+```
+
+## Tính năng đặc biệt
+
+### 1. Map Hà Nội tương tác
+
+- Tọa độ thực tế của Hà Nội
+- Các quận: Hoàn Kiếm, Ba Đình, Đống Đa, Hai Bà Trưng, v.v.
+- Landmarks: Hồ Hoàn Kiếm, Hồ Tây, Sân bay Nội Bài
+- Zoom, pan, click để xem thông tin chi tiết
+
+### 2. Dual Visualization System
+
+- **Mockup datasets** → Map Hà Nội (HTML)
+- **Solomon datasets** → Traditional plots (PNG)
+- Auto-detection dựa trên tọa độ
+
+### 3. JSON Dataset System
+
+- Unified format cho tất cả datasets
+- Auto-conversion từ Solomon CSV
+- Metadata và catalog management
+
 ## Hỗ trợ và góp ý
 
 Nếu gặp vấn đề hoặc có góp ý:
@@ -289,7 +371,7 @@ Nếu gặp vấn đề hoặc có góp ý:
 1. Kiểm tra file README.md để biết thêm chi tiết
 2. Chạy `python main.py --help` để xem tất cả tùy chọn
 3. Kiểm tra log lỗi trong terminal
-4. Thử chạy demo để kiểm tra hệ thống
+4. Xem danh sách datasets: `python main.py --list-datasets`
 
 ## Lưu ý quan trọng
 
@@ -297,6 +379,26 @@ Nếu gặp vấn đề hoặc có góp ý:
 2. **Bộ nhớ**: Bài toán lớn cần nhiều RAM
 3. **Kết quả**: Mỗi lần chạy có thể cho kết quả khác nhau do tính ngẫu nhiên
 4. **Seed**: Sử dụng `--seed` để có kết quả tái lập được
-5. **Dữ liệu**: Đảm bảo dữ liệu đầu vào hợp lệ
+5. **Internet**: Map Hà Nội cần kết nối internet để tải tiles
+6. **Browser**: Mở file HTML bằng trình duyệt web để xem map
 
-Chúc bạn sử dụng thành công hệ thống VRP-GA!
+## Quick Start
+
+```bash
+# 1. Cài đặt
+pip install -r requirements.txt
+
+# 2. Khởi tạo datasets
+python main.py --create-samples
+python main.py --convert-solomon
+
+# 3. Chạy map Hà Nội
+python main.py --mockup-dataset small_random --generations 50 --population 20
+
+# 4. Chạy Solomon
+python main.py --solomon-dataset C101 --generations 100 --population 50
+
+# 5. Xem kết quả trong thư mục results/
+```
+
+Chúc bạn sử dụng thành công hệ thống VRP-GA với map Hà Nội! 🗺️🚚

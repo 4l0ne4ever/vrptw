@@ -30,7 +30,7 @@ class ConstraintHandler:
         
         Args:
             routes: List of routes, each route is a list of customer indices
-            demands: List of customer demands
+            demands: List of customer demands (index 0 = customer ID 1, etc.)
             
         Returns:
             Tuple of (is_valid, total_penalty)
@@ -42,7 +42,12 @@ class ConstraintHandler:
             if not route:  # Empty route
                 continue
             
-            route_load = sum(demands[customer_id] for customer_id in route)
+            route_load = 0.0
+            for customer_id in route:
+                if customer_id != 0:  # Skip depot
+                    # Customer ID 1 corresponds to demands[0], ID 2 to demands[1], etc.
+                    if 1 <= customer_id <= len(demands):
+                        route_load += demands[customer_id - 1]
             
             if route_load > self.vehicle_capacity:
                 is_valid = False

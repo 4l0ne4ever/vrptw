@@ -1,0 +1,609 @@
+{
+  "catalog_info": {
+    "created": "2024-01-01",
+    "total_datasets": 60,
+    "description": "VRP-GA System Dataset Catalog"
+  },
+  "datasets": [
+    {
+      "filename": "R109.json",
+      "filepath": "data/datasets/solomon/R109.json",
+      "name": "R109",
+      "description": "Solomon VRP dataset converted from R109.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC105.json",
+      "filepath": "data/datasets/solomon/RC105.json",
+      "name": "RC105",
+      "description": "Solomon VRP dataset converted from RC105.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C202.json",
+      "filepath": "data/datasets/solomon/C202.json",
+      "name": "C202",
+      "description": "Solomon VRP dataset converted from C202.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C107.json",
+      "filepath": "data/datasets/solomon/C107.json",
+      "name": "C107",
+      "description": "Solomon VRP dataset converted from C107.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R105.json",
+      "filepath": "data/datasets/solomon/R105.json",
+      "name": "R105",
+      "description": "Solomon VRP dataset converted from R105.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R112.json",
+      "filepath": "data/datasets/solomon/R112.json",
+      "name": "R112",
+      "description": "Solomon VRP dataset converted from R112.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC201.json",
+      "filepath": "data/datasets/solomon/RC201.json",
+      "name": "RC201",
+      "description": "Solomon VRP dataset converted from RC201.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R104.json",
+      "filepath": "data/datasets/solomon/R104.json",
+      "name": "R104",
+      "description": "Solomon VRP dataset converted from R104.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C106.json",
+      "filepath": "data/datasets/solomon/C106.json",
+      "name": "C106",
+      "description": "Solomon VRP dataset converted from C106.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C203.json",
+      "filepath": "data/datasets/solomon/C203.json",
+      "name": "C203",
+      "description": "Solomon VRP dataset converted from C203.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R201.json",
+      "filepath": "data/datasets/solomon/R201.json",
+      "name": "R201",
+      "description": "Solomon VRP dataset converted from R201.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC104.json",
+      "filepath": "data/datasets/solomon/RC104.json",
+      "name": "RC104",
+      "description": "Solomon VRP dataset converted from RC104.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R108.json",
+      "filepath": "data/datasets/solomon/R108.json",
+      "name": "R108",
+      "description": "Solomon VRP dataset converted from R108.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC108.json",
+      "filepath": "data/datasets/solomon/RC108.json",
+      "name": "RC108",
+      "description": "Solomon VRP dataset converted from RC108.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC103.json",
+      "filepath": "data/datasets/solomon/RC103.json",
+      "name": "RC103",
+      "description": "Solomon VRP dataset converted from RC103.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R210.json",
+      "filepath": "data/datasets/solomon/R210.json",
+      "name": "R210",
+      "description": "Solomon VRP dataset converted from R210.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R206.json",
+      "filepath": "data/datasets/solomon/R206.json",
+      "name": "R206",
+      "description": "Solomon VRP dataset converted from R206.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C204.json",
+      "filepath": "data/datasets/solomon/C204.json",
+      "name": "C204",
+      "description": "Solomon VRP dataset converted from C204.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C101.json",
+      "filepath": "data/datasets/solomon/C101.json",
+      "name": "C101",
+      "description": "Solomon VRP dataset converted from C101.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R103.json",
+      "filepath": "data/datasets/solomon/R103.json",
+      "name": "R103",
+      "description": "Solomon VRP dataset converted from R103.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC206.json",
+      "filepath": "data/datasets/solomon/RC206.json",
+      "name": "RC206",
+      "description": "Solomon VRP dataset converted from RC206.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C208.json",
+      "filepath": "data/datasets/solomon/C208.json",
+      "name": "C208",
+      "description": "Solomon VRP dataset converted from C208.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC207.json",
+      "filepath": "data/datasets/solomon/RC207.json",
+      "name": "RC207",
+      "description": "Solomon VRP dataset converted from RC207.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R102.json",
+      "filepath": "data/datasets/solomon/R102.json",
+      "name": "R102",
+      "description": "Solomon VRP dataset converted from R102.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C205.json",
+      "filepath": "data/datasets/solomon/C205.json",
+      "name": "C205",
+      "description": "Solomon VRP dataset converted from C205.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R207.json",
+      "filepath": "data/datasets/solomon/R207.json",
+      "name": "R207",
+      "description": "Solomon VRP dataset converted from R207.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R211.json",
+      "filepath": "data/datasets/solomon/R211.json",
+      "name": "R211",
+      "description": "Solomon VRP dataset converted from R211.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC102.json",
+      "filepath": "data/datasets/solomon/RC102.json",
+      "name": "RC102",
+      "description": "Solomon VRP dataset converted from RC102.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC204.json",
+      "filepath": "data/datasets/solomon/RC204.json",
+      "name": "RC204",
+      "description": "Solomon VRP dataset converted from RC204.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R101.json",
+      "filepath": "data/datasets/solomon/R101.json",
+      "name": "R101",
+      "description": "Solomon VRP dataset converted from R101.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C103.json",
+      "filepath": "data/datasets/solomon/C103.json",
+      "name": "C103",
+      "description": "Solomon VRP dataset converted from C103.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C206.json",
+      "filepath": "data/datasets/solomon/C206.json",
+      "name": "C206",
+      "description": "Solomon VRP dataset converted from C206.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R204.json",
+      "filepath": "data/datasets/solomon/R204.json",
+      "name": "R204",
+      "description": "Solomon VRP dataset converted from R204.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC101.json",
+      "filepath": "data/datasets/solomon/RC101.json",
+      "name": "RC101",
+      "description": "Solomon VRP dataset converted from RC101.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC208.json",
+      "filepath": "data/datasets/solomon/RC208.json",
+      "name": "RC208",
+      "description": "Solomon VRP dataset converted from RC208.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R208.json",
+      "filepath": "data/datasets/solomon/R208.json",
+      "name": "R208",
+      "description": "Solomon VRP dataset converted from R208.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R209.json",
+      "filepath": "data/datasets/solomon/R209.json",
+      "name": "R209",
+      "description": "Solomon VRP dataset converted from R209.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R205.json",
+      "filepath": "data/datasets/solomon/R205.json",
+      "name": "R205",
+      "description": "Solomon VRP dataset converted from R205.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C207.json",
+      "filepath": "data/datasets/solomon/C207.json",
+      "name": "C207",
+      "description": "Solomon VRP dataset converted from C207.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C102.json",
+      "filepath": "data/datasets/solomon/C102.json",
+      "name": "C102",
+      "description": "Solomon VRP dataset converted from C102.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC205.json",
+      "filepath": "data/datasets/solomon/RC205.json",
+      "name": "RC205",
+      "description": "Solomon VRP dataset converted from RC205.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C109.json",
+      "filepath": "data/datasets/solomon/C109.json",
+      "name": "C109",
+      "description": "Solomon VRP dataset converted from C109.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R111.json",
+      "filepath": "data/datasets/solomon/R111.json",
+      "name": "R111",
+      "description": "Solomon VRP dataset converted from R111.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC202.json",
+      "filepath": "data/datasets/solomon/RC202.json",
+      "name": "RC202",
+      "description": "Solomon VRP dataset converted from RC202.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R107.json",
+      "filepath": "data/datasets/solomon/R107.json",
+      "name": "R107",
+      "description": "Solomon VRP dataset converted from R107.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C105.json",
+      "filepath": "data/datasets/solomon/C105.json",
+      "name": "C105",
+      "description": "Solomon VRP dataset converted from C105.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R202.json",
+      "filepath": "data/datasets/solomon/R202.json",
+      "name": "R202",
+      "description": "Solomon VRP dataset converted from R202.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC107.json",
+      "filepath": "data/datasets/solomon/RC107.json",
+      "name": "RC107",
+      "description": "Solomon VRP dataset converted from RC107.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC106.json",
+      "filepath": "data/datasets/solomon/RC106.json",
+      "name": "RC106",
+      "description": "Solomon VRP dataset converted from RC106.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R203.json",
+      "filepath": "data/datasets/solomon/R203.json",
+      "name": "R203",
+      "description": "Solomon VRP dataset converted from R203.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C201.json",
+      "filepath": "data/datasets/solomon/C201.json",
+      "name": "C201",
+      "description": "Solomon VRP dataset converted from C201.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R106.json",
+      "filepath": "data/datasets/solomon/R106.json",
+      "name": "R106",
+      "description": "Solomon VRP dataset converted from R106.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "RC203.json",
+      "filepath": "data/datasets/solomon/RC203.json",
+      "name": "RC203",
+      "description": "Solomon VRP dataset converted from RC203.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "R110.json",
+      "filepath": "data/datasets/solomon/R110.json",
+      "name": "R110",
+      "description": "Solomon VRP dataset converted from R110.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "C108.json",
+      "filepath": "data/datasets/solomon/C108.json",
+      "name": "C108",
+      "description": "Solomon VRP dataset converted from C108.csv",
+      "num_customers": 100,
+      "vehicle_capacity": 200,
+      "format": "solomon_csv",
+      "type": "solomon"
+    },
+    {
+      "filename": "medium_kmeans.json",
+      "filepath": "data/datasets/mockup/medium_kmeans.json",
+      "name": "medium_kmeans",
+      "description": "Generated mockup VRP dataset with 20 customers",
+      "num_customers": 20,
+      "vehicle_capacity": 100,
+      "format": "mockup",
+      "type": "mockup"
+    },
+    {
+      "filename": "small_random.json",
+      "filepath": "data/datasets/mockup/small_random.json",
+      "name": "small_random",
+      "description": "Generated mockup VRP dataset with 10 customers",
+      "num_customers": 10,
+      "vehicle_capacity": 50,
+      "format": "mockup",
+      "type": "mockup"
+    },
+    {
+      "filename": "medium_radial.json",
+      "filepath": "data/datasets/mockup/medium_radial.json",
+      "name": "medium_radial",
+      "description": "Generated mockup VRP dataset with 30 customers",
+      "num_customers": 30,
+      "vehicle_capacity": 150,
+      "format": "mockup",
+      "type": "mockup"
+    },
+    {
+      "filename": "large_kmeans.json",
+      "filepath": "data/datasets/mockup/large_kmeans.json",
+      "name": "large_kmeans",
+      "description": "Generated mockup VRP dataset with 50 customers",
+      "num_customers": 50,
+      "vehicle_capacity": 200,
+      "format": "mockup",
+      "type": "mockup"
+    },
+    {
+      "filename": "xlarge_kmeans.json",
+      "filepath": "data/datasets/mockup/xlarge_kmeans.json",
+      "name": "xlarge_kmeans",
+      "description": "Generated mockup VRP dataset with 100 customers",
+      "num_customers": 100,
+      "vehicle_capacity": 300,
+      "format": "mockup",
+      "type": "mockup"
+    }
+  ]
+}

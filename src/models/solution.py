@@ -62,13 +62,13 @@ class Individual:
         """Convert individual to dictionary."""
         return {
             'chromosome': self.chromosome,
-            'fitness': self.fitness,
+            'fitness': float(self.fitness) if self.fitness is not None else None,
             'routes': self.routes,
-            'total_distance': self.total_distance,
-            'is_valid': self.is_valid,
-            'penalty': self.penalty,
-            'route_count': self.get_route_count(),
-            'customer_count': self.get_customer_count()
+            'total_distance': float(self.total_distance) if self.total_distance is not None else None,
+            'is_valid': bool(self.is_valid),
+            'penalty': float(self.penalty) if self.penalty is not None else None,
+            'route_count': int(self.get_route_count()),
+            'customer_count': int(self.get_customer_count())
         }
 
 

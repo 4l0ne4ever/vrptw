@@ -41,20 +41,20 @@ class SolomonLoader:
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
         
-        # Extract depot (customer 0)
-        depot_data = df[df['CUST NO.'] == 0].iloc[0]
+        # Extract depot (customer with demand 0, typically customer 1)
+        depot_row = df[df['DEMAND'] == 0].iloc[0]
         self.depot = {
-            'id': 0,
-            'x': depot_data['XCOORD.'],
-            'y': depot_data['YCOORD.'],
-            'demand': depot_data['DEMAND'],
-            'ready_time': depot_data['READY TIME'],
-            'due_date': depot_data['DUE DATE'],
-            'service_time': depot_data['SERVICE TIME']
+            'id': 0,  # Always use 0 as depot ID
+            'x': depot_row['XCOORD.'],
+            'y': depot_row['YCOORD.'],
+            'demand': depot_row['DEMAND'],
+            'ready_time': depot_row['READY TIME'],
+            'due_date': depot_row['DUE DATE'],
+            'service_time': depot_row['SERVICE TIME']
         }
         
-        # Extract customers (excluding depot)
-        customers_df = df[df['CUST NO.'] > 0].copy()
+        # Extract customers (excluding depot - customer with demand 0)
+        customers_df = df[df['DEMAND'] > 0].copy()
         self.customers = []
         
         for _, row in customers_df.iterrows():

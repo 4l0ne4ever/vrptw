@@ -64,6 +64,11 @@ class VRPProblem:
         self.num_vehicles = num_vehicles
         self.distance_matrix = distance_matrix
         
+        # Create ID to index mapping for distance matrix
+        self.id_to_index = {0: 0}  # Depot is always index 0
+        for i, customer in enumerate(customers):
+            self.id_to_index[customer.id] = i + 1  # Customers start from index 1
+        
         # Validate problem
         self._validate_problem()
     
@@ -119,11 +124,18 @@ class VRPProblem:
         return [c.service_time for c in self.customers]
     
     def get_distance(self, from_idx: int, to_idx: int) -> float:
-        """Get distance between two points by index."""
+        """Get distance between two points by ID."""
         if self.distance_matrix is None:
             raise ValueError("Distance matrix not available")
         
-        return self.distance_matrix[from_idx, to_idx]
+        # Convert IDs to matrix indices
+        from_matrix_idx = self.id_to_index.get(from_idx)
+        to_matrix_idx = self.id_to_index.get(to_idx)
+        
+        if from_matrix_idx is None or to_matrix_idx is None:
+            raise ValueError(f"Invalid customer ID: {from_idx} or {to_idx}")
+        
+        return self.distance_matrix[from_matrix_idx, to_matrix_idx]
     
     def calculate_total_demand(self) -> float:
         """Calculate total demand of all customers."""
@@ -145,29 +157,29 @@ class VRPProblem:
     def get_problem_info(self) -> Dict:
         """Get problem information summary."""
         return {
-            'num_customers': len(self.customers),
-            'vehicle_capacity': self.vehicle_capacity,
-            'num_vehicles': self.num_vehicles,
-            'total_demand': self.calculate_total_demand(),
-            'min_vehicles_needed': self.estimate_minimum_vehicles(),
-            'is_feasible': self.is_feasible(),
-            'depot_location': (self.depot.x, self.depot.y),
+            'num_customers': int(len(self.customers)),
+            'vehicle_capacity': float(self.vehicle_capacity),
+            'num_vehicles': int(self.num_vehicles),
+            'total_demand': float(self.calculate_total_demand()),
+            'min_vehicles_needed': int(self.estimate_minimum_vehicles()),
+            'is_feasible': bool(self.is_feasible()),
+            'depot_location': (float(self.depot.x), float(self.depot.y)),
             'customer_bounds': self._get_customer_bounds()
         }
     
     def _get_customer_bounds(self) -> Dict:
         """Get bounding box of customer locations."""
         if not self.customers:
-            return {'x_min': 0, 'x_max': 0, 'y_min': 0, 'y_max': 0}
+            return {'x_min': 0.0, 'x_max': 0.0, 'y_min': 0.0, 'y_max': 0.0}
         
         x_coords = [c.x for c in self.customers]
         y_coords = [c.y for c in self.customers]
         
         return {
-            'x_min': min(x_coords),
-            'x_max': max(x_coords),
-            'y_min': min(y_coords),
-            'y_max': max(y_coords)
+            'x_min': float(min(x_coords)),
+            'x_max': float(max(x_coords)),
+            'y_min': float(min(y_coords)),
+            'y_max': float(max(y_coords))
         }
 
 
