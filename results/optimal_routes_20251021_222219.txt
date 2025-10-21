@@ -1,0 +1,68 @@
+=== LỘ TRÌNH TỐI ƯU GA ===
+
+Tổng số xe sử dụng: 10
+Tổng quãng đường: 1736.32 km
+Tổng chi phí vận chuyển: 1736.32
+Tổng phí giao hàng: 10,392,895 VND
+Dịch vụ: express
+
+Xe 1:
+  Lộ trình: Depot → KH_24 → KH_27 → KH_29 → KH_31 → KH_40 → KH_37 → KH_35 → KH_30 → KH_28 → KH_26 → KH_25 → KH_21 → Depot
+  Quãng đường: 86.97 km
+  Tải trọng: 180.0/200 (90.0%)
+  Phí giao hàng: 577,423 VND
+
+Xe 2:
+  Lộ trình: Depot → KH_33 → KH_34 → KH_38 → KH_39 → KH_32 → KH_53 → KH_44 → KH_56 → Depot
+  Quãng đường: 132.79 km
+  Tải trọng: 170.0/200 (85.0%)
+  Phí giao hàng: 807,903 VND
+
+Xe 3:
+  Lộ trình: Depot → KH_58 → KH_60 → KH_52 → KH_51 → KH_49 → KH_47 → KH_46 → KH_45 → KH_41 → KH_42 → KH_43 → KH_61 → Depot
+  Quãng đường: 148.09 km
+  Tải trọng: 190.0/200 (95.0%)
+  Phí giao hàng: 921,012 VND
+
+Xe 4:
+  Lộ trình: Depot → KH_57 → KH_54 → KH_62 → KH_69 → KH_70 → KH_67 → KH_63 → KH_75 → Depot
+  Quãng đường: 112.56 km
+  Tải trọng: 160.0/200 (80.0%)
+  Phí giao hàng: 703,178 VND
+
+Xe 5:
+  Lộ trình: Depot → KH_64 → KH_66 → KH_68 → KH_91 → KH_90 → KH_99 → KH_97 → KH_92 → KH_80 → KH_55 → KH_73 → KH_78 → Depot
+  Quãng đường: 283.77 km
+  Tải trọng: 200.0/200 (100.0%)
+  Phí giao hàng: 1,647,662 VND
+
+Xe 6:
+  Lộ trình: Depot → KH_89 → KH_86 → KH_85 → KH_83 → KH_84 → KH_87 → KH_88 → KH_11 → KH_12 → KH_7 → Depot
+  Quãng đường: 107.54 km
+  Tải trọng: 180.0/200 (90.0%)
+  Phí giao hàng: 690,321 VND
+
+Xe 7:
+  Lộ trình: Depot → KH_98 → KH_94 → KH_93 → KH_95 → KH_96 → KH_76 → KH_14 → KH_18 → Depot
+  Quãng đường: 139.58 km
+  Tải trọng: 200.0/200 (100.0%)
+  Phí giao hàng: 833,957 VND
+
+Xe 8:
+  Lộ trình: Depot → KH_48 → KH_16 → KH_15 → KH_13 → KH_81 → KH_74 → KH_71 → KH_72 → KH_77 → KH_79 → Depot
+  Quãng đường: 231.25 km
+  Tải trọng: 180.0/200 (90.0%)
+  Phí giao hàng: 1,349,887 VND
+
+Xe 9:
+  Lộ trình: Depot → KH_82 → KH_101 → KH_100 → KH_22 → KH_23 → KH_8 → KH_17 → KH_9 → KH_10 → Depot
+  Quãng đường: 243.16 km
+  Tải trọng: 190.0/200 (95.0%)
+  Phí giao hàng: 1,400,532 VND
+
+Xe 10:
+  Lộ trình: Depot → KH_3 → KH_2 → KH_5 → KH_4 → KH_6 → KH_19 → KH_20 → KH_59 → KH_36 → KH_50 → KH_65 → Depot
+  Quãng đường: 250.61 km
+  Tải trọng: 160.0/200 (80.0%)
+  Phí giao hàng: 1,461,019 VND
+
