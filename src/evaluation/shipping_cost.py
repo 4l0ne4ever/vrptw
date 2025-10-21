@@ -10,7 +10,8 @@ import math
 class ShippingCostCalculator:
     """Calculates shipping costs for VRP solutions."""
     
-    def __init__(self, cost_model: str = "ahamove"):
+    def __init__(self, cost_model: str = "ahamove", use_waiting_fee: bool = False,
+                 cod_fee_rate_override: Optional[float] = None):
         """
         Initialize shipping cost calculator.
         
@@ -18,6 +19,8 @@ class ShippingCostCalculator:
             cost_model: Cost model to use ('ahamove', 'basic', 'custom')
         """
         self.cost_model = cost_model
+        self.use_waiting_fee = use_waiting_fee
+        self.cod_fee_rate_override = cod_fee_rate_override
         self._setup_cost_models()
     
     def _setup_cost_models(self):
@@ -86,7 +89,9 @@ class ShippingCostCalculator:
                              order_values: Optional[List[float]] = None,
                              waiting_times: Optional[List[float]] = None) -> Dict:
         """Calculate cost using Ahamove pricing model."""
-        pricing = self.ahamove_pricing[service_type]
+        pricing = self.ahamove_pricing[service_type].copy()
+        if self.cod_fee_rate_override is not None:
+            pricing['cod_fee_rate'] = self.cod_fee_rate_override
         
         total_distance = sum(distances)
         total_cost = 0
@@ -102,13 +107,14 @@ class ShippingCostCalculator:
         # Calculate base distance cost
         if total_distance <= 2:
             cost_breakdown['base_cost'] = pricing['base_price']
+            cost_breakdown['distance_cost'] = 0
         elif total_distance <= 3:
-            cost_breakdown['base_cost'] = pricing['base_price'] + pricing['price_2_3km']
+            cost_breakdown['base_cost'] = pricing['base_price']
+            cost_breakdown['distance_cost'] = pricing['price_2_3km']
         else:
-            cost_breakdown['base_cost'] = (pricing['base_price'] + pricing['price_2_3km'] + 
-                                         pricing['price_per_km'] * (total_distance - 3))
-        
-        cost_breakdown['distance_cost'] = cost_breakdown['base_cost']
+            cost_breakdown['base_cost'] = pricing['base_price']
+            cost_breakdown['distance_cost'] = (pricing['price_2_3km'] + 
+                                             pricing['price_per_km'] * (total_distance - 3))
         
         # Calculate stop cost (additional stops beyond depot)
         num_stops = len(route) - 1  # Exclude depot
@@ -121,7 +127,7 @@ class ShippingCostCalculator:
             cost_breakdown['cod_cost'] = total_order_value * pricing['cod_fee_rate']
         
         # Calculate waiting cost
-        if waiting_times:
+        if self.use_waiting_fee and waiting_times:
             total_waiting_time = sum(waiting_times)
             free_time_minutes = pricing['free_waiting_time']
             
@@ -164,7 +170,7 @@ class ShippingCostCalculator:
             cost_breakdown['cod_cost'] = total_order_value * pricing['cod_fee_rate']
         
         # Calculate waiting cost
-        if waiting_times:
+        if self.use_waiting_fee and waiting_times:
             total_waiting_time = sum(waiting_times)
             free_time_minutes = pricing['free_waiting_time']
             

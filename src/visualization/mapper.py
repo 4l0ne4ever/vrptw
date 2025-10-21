@@ -59,7 +59,7 @@ class RouteMapper:
         
         # Plot depot
         depot_x, depot_y = self.problem.depot.x, self.problem.depot.y
-        ax.scatter(depot_x, depot_y, c='black', s=self.marker_size * 2, 
+        ax.scatter(depot_x, depot_y, c='#000000', s=self.marker_size * 2, 
                   marker='s', label='Depot', zorder=5)
         
         # Plot customers
@@ -67,7 +67,7 @@ class RouteMapper:
         customer_x = [coord[0] for coord in customer_coords]
         customer_y = [coord[1] for coord in customer_coords]
         
-        ax.scatter(customer_x, customer_y, c='lightgray', s=self.marker_size, 
+        ax.scatter(customer_x, customer_y, c='#D3D3D3', s=self.marker_size, 
                   marker='o', label='Customers', zorder=3)
         
         # Plot routes
@@ -87,7 +87,7 @@ class RouteMapper:
         ax.set_ylabel('Y Coordinate', fontsize=self.font_size)
         ax.set_title(title, fontsize=self.font_size + 2, fontweight='bold')
         ax.legend(fontsize=self.font_size - 2)
-        ax.grid(True, alpha=0.3)
+        ax.grid(True)
         
         # Set equal aspect ratio
         ax.set_aspect('equal', adjustable='box')
@@ -118,8 +118,11 @@ class RouteMapper:
                 route_y.append(self.problem.depot.y)
             else:
                 customer = self.problem.get_customer_by_id(customer_id)
-                route_x.append(customer.x)
-                route_y.append(customer.y)
+                if customer is not None:
+                    route_x.append(customer.x)
+                    route_y.append(customer.y)
+                else:
+                    print(f"Warning: Customer {customer_id} not found, skipping...")
         
         # Draw route line
         ax.plot(route_x, route_y, color=color, linewidth=self.line_width, 
@@ -171,7 +174,7 @@ class RouteMapper:
         
         ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, 
                fontsize=self.font_size - 2, verticalalignment='top',
-               bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+               bbox=dict(boxstyle='round', facecolor='wheat'))
     
     def plot_comparison(self, solutions: List[Individual], 
                        solution_names: List[str],
@@ -231,7 +234,7 @@ class RouteMapper:
                         fontsize=self.font_size)
             ax.set_xlabel('X Coordinate', fontsize=self.font_size - 2)
             ax.set_ylabel('Y Coordinate', fontsize=self.font_size - 2)
-            ax.grid(True, alpha=0.3)
+            ax.grid(True)
             ax.set_aspect('equal', adjustable='box')
         
         fig.suptitle(title, fontsize=self.font_size + 2, fontweight='bold')
@@ -337,13 +340,13 @@ class RouteMapper:
         
         # Plot depot
         depot_x, depot_y = self.problem.depot.x, self.problem.depot.y
-        ax.scatter(depot_x, depot_y, c='black', s=self.marker_size * 2, 
+        ax.scatter(depot_x, depot_y, c='#000000', s=self.marker_size * 2, 
                   marker='s', label='Depot', zorder=5)
         
         # Plot customers with size proportional to demand
         scatter = ax.scatter(customer_x, customer_y, c=demands, 
                             s=[d * 20 for d in demands], 
-                            cmap='viridis', alpha=0.7, 
+                            cmap='cividis', 
                             label='Customers', zorder=3)
         
         # Add colorbar
@@ -360,7 +363,7 @@ class RouteMapper:
         ax.set_ylabel('Y Coordinate', fontsize=self.font_size)
         ax.set_title(title, fontsize=self.font_size + 2, fontweight='bold')
         ax.legend()
-        ax.grid(True, alpha=0.3)
+        ax.grid(True)
         ax.set_aspect('equal', adjustable='box')
         
         plt.tight_layout()

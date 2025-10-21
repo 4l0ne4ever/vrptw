@@ -175,7 +175,7 @@ class SolutionValidator:
         num_customers = len(self.problem.customers)
         
         validation_results = self.constraint_handler.validate_all_constraints(
-            individual.routes, demands, num_customers
+            individual.routes, demands, self.problem.customers
         )
         
         return validation_results

@@ -116,7 +116,9 @@ class TwoOptOptimizer:
                     new_route = self._reverse_segment(current_route, i, j)
                     new_distance = self._calculate_route_distance(new_route)
                     
-                    if new_distance < best_distance:
+                    # Check if improvement and capacity constraints are maintained
+                    if (new_distance < best_distance and 
+                        self._check_route_capacity(new_route)):
                         current_route = new_route
                         best_distance = new_distance
                         improved = True
@@ -161,6 +163,31 @@ class TwoOptOptimizer:
             total_distance += self.problem.get_distance(route[i], route[i + 1])
         
         return total_distance
+    
+    def _check_route_capacity(self, route: List[int]) -> bool:
+        """
+        Check if route respects capacity constraints.
+        
+        Args:
+            route: Route to check
+            
+        Returns:
+            True if route respects capacity constraints, False otherwise
+        """
+        if not route:
+            return True
+        
+        total_load = 0.0
+        for customer_id in route:
+            if customer_id != 0:  # Skip depot
+                try:
+                    customer = self.problem.get_customer_by_id(customer_id)
+                    total_load += customer.demand
+                except:
+                    # If customer not found, assume zero demand
+                    pass
+        
+        return total_load <= self.problem.vehicle_capacity
     
     def _inter_route_optimization(self, routes: List[List[int]], 
                                  max_iterations: int = 100) -> List[List[int]]:

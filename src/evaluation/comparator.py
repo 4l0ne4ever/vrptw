@@ -504,7 +504,7 @@ class SolutionValidator:
         num_customers = len(self.problem.customers)
         
         validation_results = constraint_handler.validate_all_constraints(
-            individual.routes, demands, num_customers
+            individual.routes, demands, self.problem.customers
         )
         
         if not validation_results['is_valid']:

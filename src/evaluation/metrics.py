@@ -112,7 +112,12 @@ class KPICalculator:
         """Calculate shipping cost for the solution."""
         try:
             # Initialize shipping cost calculator
-            shipping_calculator = ShippingCostCalculator(cost_model="ahamove")
+            from config import VRP_CONFIG
+            shipping_calculator = ShippingCostCalculator(
+                cost_model="ahamove",
+                use_waiting_fee=bool(VRP_CONFIG.get('use_waiting_fee', False)),
+                cod_fee_rate_override=VRP_CONFIG.get('cod_fee_rate', None)
+            )
             
             # Decode routes
             from src.algorithms.decoder import RouteDecoder
@@ -268,7 +273,7 @@ class KPICalculator:
         num_customers = len(self.problem.customers)
         
         validation_results = constraint_handler.validate_all_constraints(
-            individual.routes, demands, num_customers
+            individual.routes, demands, self.problem.customers
         )
         
         return {

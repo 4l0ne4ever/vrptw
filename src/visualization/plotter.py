@@ -217,7 +217,7 @@ class Plotter:
         cost_values = [kpis.get(metric, 0) for metric in cost_metrics]
         cost_labels = ['Total', 'Per Customer', 'Per Route']
         
-        axes[0, 2].bar(cost_labels, cost_values, color=['gold', 'silver', 'bronze'], alpha=0.7)
+        axes[0, 2].bar(cost_labels, cost_values, color=['#FFD700', '#C0C0C0', '#CD7F32'], alpha=0.7)
         axes[0, 2].set_title('Cost Metrics', fontsize=self.font_size)
         axes[0, 2].set_ylabel('Cost', fontsize=self.font_size - 2)
         
@@ -249,7 +249,7 @@ class Plotter:
         
         axes[1, 2].text(0.1, 0.5, summary_text, transform=axes[1, 2].transAxes,
                        fontsize=self.font_size - 2, verticalalignment='center',
-                       bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+                       bbox=dict(boxstyle='round', facecolor='lightblue'))
         axes[1, 2].set_title('Summary', fontsize=self.font_size)
         axes[1, 2].axis('off')
         
@@ -314,15 +314,15 @@ class Plotter:
         # Color header row
         for i in range(len(headers)):
             table[(0, i)].set_facecolor('#4CAF50')
-            table[(0, i)].set_text_props(weight='bold', color='white')
+            table[(0, i)].set_text_props(weight='bold', color='#FFFFFF')
         
         # Color alternating rows
         for i in range(1, len(table_data) + 1):
             for j in range(len(headers)):
                 if i % 2 == 0:
-                    table[(i, j)].set_facecolor('#f0f0f0')
+                    table[(i, j)].set_facecolor('#F0F0F0')
                 else:
-                    table[(i, j)].set_facecolor('white')
+                    table[(i, j)].set_facecolor('#FFFFFF')
         
         ax.set_title(title, fontsize=self.font_size + 2, fontweight='bold', pad=20)
         ax.axis('off')
@@ -351,9 +351,9 @@ class Plotter:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(self.fig_size[0] * 2, self.fig_size[1]))
         
         # Improvement percentages
-        metrics = ['distance', 'cost', 'efficiency', 'load_balance']
+        metrics = ['distance_improvement_percent', 'cost_improvement_percent', 'efficiency_improvement_percent', 'load_balance_improvement_percent']
         labels = ['Distance', 'Cost', 'Efficiency', 'Load Balance']
-        percentages = [improvements[metric]['percentage'] for metric in metrics]
+        percentages = [improvements.get(metric, 0) for metric in metrics]
         
         colors = ['green' if p > 0 else 'red' for p in percentages]
         bars = ax1.bar(labels, percentages, color=colors, alpha=0.7)
@@ -373,13 +373,14 @@ class Plotter:
         
         # Improvement summary
         summary_data = []
-        for metric in metrics:
-            improvement = improvements[metric]
+        for i, metric in enumerate(metrics):
+            improvement_percent = improvements.get(metric, 0)
+            improvement_absolute = improvements.get(metric.replace('_percent', ''), 0)
             summary_data.append([
-                metric.title(),
-                f"{improvement['absolute']:.2f}",
-                f"{improvement['percentage']:.1f}%",
-                'Yes' if improvement['is_improved'] else 'No'
+                labels[i],
+                f"{improvement_absolute:.2f}",
+                f"{improvement_percent:.1f}%",
+                'Yes' if improvement_percent > 0 else 'No'
             ])
         
         table = ax2.table(cellText=summary_data,
@@ -394,7 +395,7 @@ class Plotter:
         # Style table
         for i in range(len(['Metric', 'Absolute', 'Percentage', 'Improved'])):
             table[(0, i)].set_facecolor('#4CAF50')
-            table[(0, i)].set_text_props(weight='bold', color='white')
+            table[(0, i)].set_text_props(weight='bold', color='#FFFFFF')
         
         ax2.set_title('Improvement Summary', fontsize=self.font_size)
         ax2.axis('off')

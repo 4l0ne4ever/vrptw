@@ -21,9 +21,11 @@ from src.algorithms.genetic_algorithm import GeneticAlgorithm
 from src.algorithms.local_search import TwoOptOptimizer
 from src.algorithms.nearest_neighbor import NearestNeighborHeuristic
 from src.evaluation.metrics import KPICalculator
+from src.algorithms.decoder import RouteDecoder
 from src.evaluation.comparator import SolutionComparator
 from src.evaluation.result_exporter import ResultExporter
 from src.visualization.reporter import ReportGenerator
+from src.data_processing.constraints import ConstraintHandler
 from config import GA_CONFIG, VRP_CONFIG, MOCKUP_CONFIG
 
 
@@ -182,6 +184,8 @@ Examples:
     # Output options
     parser.add_argument('--output', type=str, default='results',
                        help='Output directory (default: results)')
+    parser.add_argument('--debug-constraints', action='store_true',
+                       help='Write detailed constraint analysis to results')
     parser.add_argument('--no-plots', action='store_true',
                        help='Skip generating plots')
     parser.add_argument('--no-report', action='store_true',
@@ -481,19 +485,65 @@ def run_optimization(problem, args, mode_name):
     
     print(f"GA completed in {ga_execution_time:.2f} seconds")
     
+    # Apply final repair to ensure solution is feasible
+    decoder = RouteDecoder(problem)
+    routes = decoder.decode_chromosome(ga_solution.chromosome)
+    demands = [c.demand for c in problem.customers]
+    # Ensure demands array covers all possible customer IDs (1 to N)
+    max_customer_id = max(max(route) for route in routes) if routes else 0
+    while len(demands) < max_customer_id:
+        demands.append(0.0)  # Add zero demand for missing customers
+    
+    constraint_handler = ConstraintHandler(problem.vehicle_capacity, problem.num_vehicles)
+    cap_valid, _ = constraint_handler.validate_capacity_constraint(routes, demands)
+    if not cap_valid:
+        print("Final repair: Capacity violations detected, repairing...")
+        routes = constraint_handler.repair_capacity_violations(routes, demands)
+        ga_solution.routes = routes
+        ga_solution.chromosome = decoder.encode_routes(routes)
+        print("Final repair: Completed")
+    else:
+        print("Final repair: No capacity violations found")
+    
     # Apply 2-opt local search if not disabled
     if not args.no_local_search:
         print("Applying 2-opt local search optimization...")
         optimizer = TwoOptOptimizer(problem)
         ga_solution = optimizer.optimize_individual(ga_solution)
+        
+        # Repair any capacity violations caused by 2-opt
+        decoder = RouteDecoder(problem)
+        routes = decoder.decode_chromosome(ga_solution.chromosome)
+        demands = [c.demand for c in problem.customers]
+        # Ensure demands array covers all possible customer IDs (1 to N)
+        max_customer_id = max(max(route) for route in routes) if routes else 0
+        while len(demands) < max_customer_id:
+            demands.append(0.0)  # Add zero demand for missing customers
+        
+        constraint_handler = ConstraintHandler(problem.vehicle_capacity, problem.num_vehicles)
+        cap_valid, _ = constraint_handler.validate_capacity_constraint(routes, demands)
+        if not cap_valid:
+            print("Post-2opt repair: Capacity violations detected, repairing...")
+            routes = constraint_handler.repair_capacity_violations(routes, demands)
+            ga_solution.routes = routes
+            ga_solution.chromosome = decoder.encode_routes(routes)
+            print("Post-2opt repair: Completed")
+        else:
+            print("Post-2opt repair: No capacity violations found")
+        
         print("2-opt optimization completed")
+
+    # Capacity repair is handled early in FitnessEvaluator; skip here to avoid double-repair
     
     # Run Nearest Neighbor baseline if not disabled
     nn_solution = None
+    nn_execution_time = None
     if not args.no_baseline:
         print("Running Nearest Neighbor baseline...")
         nn_heuristic = NearestNeighborHeuristic(problem)
+        nn_start_time = time.time()
         nn_solution = nn_heuristic.solve()
+        nn_execution_time = time.time() - nn_start_time
         print("Nearest Neighbor baseline completed")
     
     # Calculate KPIs
@@ -512,7 +562,7 @@ def run_optimization(problem, args, mode_name):
     print(f"  Fitness: {ga_kpis['fitness']:.6f}")
     
     if nn_solution:
-        nn_kpis = kpi_calculator.calculate_kpis(nn_solution)
+        nn_kpis = kpi_calculator.calculate_kpis(nn_solution, nn_execution_time)
         print(f"\nNearest Neighbor Results:")
         print(f"  Total Distance: {nn_kpis['total_distance']:.2f}")
         print(f"  Number of Routes: {nn_kpis['num_routes']}")
@@ -522,6 +572,7 @@ def run_optimization(problem, args, mode_name):
         print(f"  Efficiency Score: {nn_kpis['efficiency_score']:.3f}")
         print(f"  Feasible: {nn_kpis['is_feasible']}")
         print(f"  Fitness: {nn_kpis['fitness']:.6f}")
+        print(f"  Execution Time: {nn_kpis['execution_time']:.3f}s")
         
         # Calculate improvement
         distance_improvement = nn_kpis['total_distance'] - ga_kpis['total_distance']
@@ -549,7 +600,7 @@ def run_optimization(problem, args, mode_name):
         ga_stats = ga.get_statistics()
         ga_stats['execution_time'] = ga_execution_time
         
-        nn_stats = {'execution_time': 0}  # NN execution time is negligible
+        nn_stats = {'execution_time': nn_execution_time or 0.0}
         
         kpi_file = exporter.export_kpi_comparison(
             ga_solution, nn_solution, problem, ga_stats, nn_stats
@@ -564,6 +615,75 @@ def run_optimization(problem, args, mode_name):
         print(f"  Evolution data: {evolution_file}")
         print(f"  Optimal routes: {routes_file}")
     
+    # Constraint debug output (optional)
+    if args.debug_constraints:
+        try:
+            os.makedirs(args.output, exist_ok=True)
+            ch = ConstraintHandler(problem.vehicle_capacity, problem.num_vehicles)
+            decoder = RouteDecoder(problem)
+            # Use the repaired routes from the solution, not decode from chromosome
+            ga_routes = ga_solution.routes if ga_solution.routes else decoder.decode_chromosome(ga_solution.chromosome)
+            # sanitize routes to remove any stray ids beyond [0..N] (N = total nodes including depot)
+            max_valid = len(problem.customers) + 1  # +1 for depot
+            ga_routes = [[node for node in r if 0 <= int(node) <= max_valid] for r in ga_routes]
+            ga_analysis = ch.analyze_routes(problem, ga_routes)
+            # Build full validation inputs sized by max node id observed in routes
+            demands = [c.demand for c in problem.customers]
+            num_customers = len(problem.customers)
+            # If running Solomon CVRP, skip TW validation
+            skip_tw = bool(getattr(args, 'solomon_dataset', None))
+            if skip_tw:
+                time_windows = None
+                service_times = None
+                distance_matrix = None
+            else:
+                # determine max node id present in routes
+                max_node_id = 0
+                for r in ga_routes:
+                    if r:
+                        max_node_id = max(max_node_id, max(r))
+                # time windows and service times sized up to max_node_id
+                time_windows = []
+                service_times = []
+                for i in range(max_node_id + 1):
+                    if i == 0:
+                        time_windows.append((0.0, 1e9))
+                        service_times.append(0.0)
+                    else:
+                        idx = i - 1
+                        if 0 <= idx < num_customers:
+                            c = problem.customers[idx]
+                            time_windows.append((float(getattr(c, 'ready_time', 0.0)), float(getattr(c, 'due_date', 1e9))))
+                            service_times.append(float(getattr(c, 'service_time', 0.0)))
+                        else:
+                            # fill defaults for any stray ids
+                            time_windows.append((0.0, 1e9))
+                            service_times.append(0.0)
+                # Build a full distance matrix via problem.get_distance to ensure indexing alignment
+                try:
+                    import numpy as np
+                    n = max_node_id + 1
+                    dm_full = np.zeros((n, n), dtype=float)
+                    for i in range(n):
+                        for j in range(n):
+                            if i == j:
+                                dm_full[i, j] = 0.0
+                            else:
+                                dm_full[i, j] = problem.get_distance(i, j)
+                    distance_matrix = dm_full
+                except Exception:
+                    distance_matrix = getattr(problem, 'distance_matrix', None)
+            full_validation = ch.validate_all_constraints(
+                ga_routes, demands, problem.customers, time_windows, service_times, distance_matrix
+            )
+            debug_path = os.path.join(args.output, f"constraint_debug_{int(time.time())}.txt")
+            with open(debug_path, 'w', encoding='utf-8') as f:
+                import json
+                f.write(json.dumps({'ga': ga_analysis, 'full_validation': full_validation}, indent=2, ensure_ascii=False))
+            print(f"Constraint analysis written to: {debug_path}")
+        except Exception as e:
+            print(f"Constraint analysis failed: {e}")
+
     # Generate report and visualizations
     if not args.no_report or not args.no_plots:
         print(f"\nGenerating report and visualizations...")

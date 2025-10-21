@@ -33,6 +33,9 @@ class RouteDecoder:
         if not chromosome:
             return []
         
+        # Sanitize chromosome to ensure each customer appears exactly once
+        chromosome = self._sanitize_chromosome(chromosome)
+        
         routes = []
         current_route = [0]  # Start at depot
         current_load = 0.0
@@ -63,6 +66,27 @@ class RouteDecoder:
             routes.append(current_route)
         
         return routes
+
+    def _sanitize_chromosome(self, chromosome: List[int]) -> List[int]:
+        """Ensure chromosome covers all customers exactly once.
+        - Removes invalid IDs
+        - Removes duplicates (keeps first occurrence)
+        - Appends any missing customers at the end
+        """
+        valid_customers = {c.id for c in self.problem.customers}
+
+        seen = set()
+        sanitized: List[int] = []
+        for cid in chromosome:
+            if cid in valid_customers and cid not in seen:
+                sanitized.append(cid)
+                seen.add(cid)
+
+        # Append any missing customers
+        missing = [cid for cid in sorted(valid_customers) if cid not in seen]
+        sanitized.extend(missing)
+
+        return sanitized
     
     def decode_individual(self, individual: Individual) -> Individual:
         """

@@ -8,6 +8,9 @@ from typing import List, Dict, Tuple, Optional
 from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
 from src.data_processing.constraints import ConstraintHandler
+import os
+import time
+import json
 
 
 class FitnessEvaluator:
@@ -43,6 +46,46 @@ class FitnessEvaluator:
         
         # Decode chromosome to routes
         routes = self._decode_chromosome(individual.chromosome)
+
+        # Early capacity repair (two-phase) to ensure feasible routes before scoring
+        demands = [c.demand for c in self.problem.customers]
+        # Ensure demands array covers all possible customer IDs (1 to N)
+        max_customer_id = max(max(route) for route in routes) if routes else 0
+        while len(demands) < max_customer_id:
+            demands.append(0.0)  # Add zero demand for missing customers
+        # Sanitize routes to valid node ids [0..N] (N = total nodes including depot)
+        num_nodes = len(self.problem.customers) + 1  # +1 for depot
+        routes = [
+            [node for node in route if 0 <= int(node) <= num_nodes]
+            for route in routes
+        ]
+        cap_valid, _ = self.constraint_handler.validate_capacity_constraint(routes, demands)
+        if not cap_valid:
+            try:
+                # Debug: write before-analysis snapshot
+                try:
+                    analysis_before = self.constraint_handler.analyze_routes(self.problem, routes)
+                    ts = int(time.time())
+                    os.makedirs('results', exist_ok=True)
+                    with open(os.path.join('results', f'repair_debug_{ts}_before.json'), 'w', encoding='utf-8') as f:
+                        json.dump({'before': analysis_before}, f, indent=2, ensure_ascii=False)
+                except Exception:
+                    pass
+
+                routes = self.constraint_handler.repair_capacity_violations(routes, demands)
+
+                # Debug: write after-analysis snapshot
+                try:
+                    analysis_after = self.constraint_handler.analyze_routes(self.problem, routes)
+                    with open(os.path.join('results', f'repair_debug_{ts}_after.json'), 'w', encoding='utf-8') as f:
+                        json.dump({'after': analysis_after}, f, indent=2, ensure_ascii=False)
+                except Exception:
+                    pass
+            except Exception as e:
+                # if repair fails, keep original routes and let penalty handle infeasibility
+                print(f"Repair failed: {e}")
+                import traceback
+                traceback.print_exc()
         individual.routes = routes
         
         # Calculate total distance
@@ -56,8 +99,13 @@ class FitnessEvaluator:
         # Calculate balance factor
         balance_factor = self._calculate_balance_factor(routes)
         
-        # Calculate fitness (higher is better)
-        fitness = 1.0 / (total_distance + penalty + balance_factor + 1.0)
+        # Feasible-first: if any violation, apply strong scaling; otherwise distance-driven
+        if penalty > 0:
+            # scale penalty to be relative to distance and number of violations
+            scaled_penalty = 1.0 + penalty
+            fitness = 1.0 / (total_distance + scaled_penalty + balance_factor + 1.0)
+        else:
+            fitness = 1.0 / (total_distance + balance_factor + 1.0)
         individual.fitness = fitness
         
         # Mark as valid if no penalty
@@ -146,7 +194,7 @@ class FitnessEvaluator:
         
         # Validate constraints
         validation_results = self.constraint_handler.validate_all_constraints(
-            routes, demands, num_customers
+            routes, demands, self.problem.customers
         )
         
         return validation_results['total_penalty']

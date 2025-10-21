@@ -53,15 +53,21 @@ class DistanceCalculator:
         
         # Calculate new matrix
         self.distance_matrix = np.zeros((n_points, n_points))
+        use_haversine = self._should_use_haversine(coordinates)
         
         for i in range(n_points):
             for j in range(n_points):
                 if i == j:
                     self.distance_matrix[i, j] = 0.0
                 else:
-                    dist = self._euclidean_distance(
-                        coordinates[i], coordinates[j]
-                    )
+                    if use_haversine:
+                        dist = self._haversine_distance(
+                            coordinates[i], coordinates[j]
+                        )
+                    else:
+                        dist = self._euclidean_distance(
+                            coordinates[i], coordinates[j]
+                        )
                     self.distance_matrix[i, j] = dist * self.traffic_factor
         
         self.coordinates = coordinates
@@ -86,6 +92,34 @@ class DistanceCalculator:
             Euclidean distance
         """
         return np.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
+
+    def _haversine_distance(self,
+                           point1: Tuple[float, float],
+                           point2: Tuple[float, float]) -> float:
+        """Calculate Haversine distance (km) between two (x,y) where x=lon, y=lat."""
+        lon1, lat1 = point1[0], point1[1]
+        lon2, lat2 = point2[0], point2[1]
+        # convert decimal degrees to radians
+        from math import radians, sin, cos, asin, sqrt
+        R = 6371.0  # Earth radius in km
+        dlon = radians(lon2 - lon1)
+        dlat = radians(lat2 - lat1)
+        a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a))
+        return R * c
+
+    def _should_use_haversine(self, coordinates: List[Tuple[float, float]]) -> bool:
+        """Detect if coordinates look like geo (lon,lat within Hanoi/VN bounds)."""
+        if not coordinates:
+            return False
+        xs = [c[0] for c in coordinates]
+        ys = [c[1] for c in coordinates]
+        # Rough Vietnam bounds
+        min_lon, max_lon = 102.0, 110.0
+        min_lat, max_lat = 8.0, 24.0
+        in_bounds = (min(xs) >= min_lon and max(xs) <= max_lon and
+                     min(ys) >= min_lat and max(ys) <= max_lat)
+        return in_bounds
     
     def get_distance(self, from_idx: int, to_idx: int) -> float:
         """

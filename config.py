@@ -2,8 +2,8 @@
 
 # Genetic Algorithm Configuration
 GA_CONFIG = {
-    'population_size': 100,
-    'generations': 1000,
+    'population_size': 15,  # Optimized for performance
+    'generations': 3,       # Optimized for performance
     'crossover_prob': 0.9,
     'mutation_prob': 0.15,
     'tournament_size': 5,
@@ -19,7 +19,10 @@ VRP_CONFIG = {
     'num_vehicles': 25,
     'traffic_factor': 1.0,
     'penalty_weight': 1000,
-    'depot_id': 0
+    'depot_id': 0,
+    # Shipping cost configs
+    'use_waiting_fee': False,
+    'cod_fee_rate': 0.006  # default 0.6%
 }
 
 # Mockup Data Generation Configuration
@@ -40,7 +43,7 @@ MOCKUP_CONFIG = {
 VIZ_CONFIG = {
     'figure_size': (12, 8),
     'dpi': 300,
-    'colors': ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'gray'],
+    'colors': ['#FF0000', '#0000FF', '#00FF00', '#FFA500', '#800080', '#A52A2A', '#FFC0CB', '#808080'],
     'marker_size': 50,
     'line_width': 2,
     'font_size': 12
