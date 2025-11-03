@@ -62,25 +62,28 @@ class FitnessEvaluator:
         cap_valid, _ = self.constraint_handler.validate_capacity_constraint(routes, demands)
         if not cap_valid:
             try:
-                # Debug: write before-analysis snapshot
-                try:
-                    analysis_before = self.constraint_handler.analyze_routes(self.problem, routes)
-                    ts = int(time.time())
-                    os.makedirs('results', exist_ok=True)
-                    with open(os.path.join('results', f'repair_debug_{ts}_before.json'), 'w', encoding='utf-8') as f:
-                        json.dump({'before': analysis_before}, f, indent=2, ensure_ascii=False)
-                except Exception:
-                    pass
+                # Debug JSON files disabled to reduce clutter
+                # Uncomment below if debugging is needed:
+                # try:
+                #     analysis_before = self.constraint_handler.analyze_routes(self.problem, routes)
+                #     ts = int(time.time())
+                #     os.makedirs('results', exist_ok=True)
+                #     with open(os.path.join('results', f'repair_debug_{ts}_before.json'), 'w', encoding='utf-8') as f:
+                #         json.dump({'before': analysis_before}, f, indent=2, ensure_ascii=False)
+                # except Exception:
+                #     pass
 
                 routes = self.constraint_handler.repair_capacity_violations(routes, demands)
 
                 # Debug: write after-analysis snapshot
-                try:
-                    analysis_after = self.constraint_handler.analyze_routes(self.problem, routes)
-                    with open(os.path.join('results', f'repair_debug_{ts}_after.json'), 'w', encoding='utf-8') as f:
-                        json.dump({'after': analysis_after}, f, indent=2, ensure_ascii=False)
-                except Exception:
-                    pass
+                # Debug JSON files disabled to reduce clutter
+                # Uncomment below if debugging is needed:
+                # try:
+                #     analysis_after = self.constraint_handler.analyze_routes(self.problem, routes)
+                #     with open(os.path.join('results', f'repair_debug_{ts}_after.json'), 'w', encoding='utf-8') as f:
+                #         json.dump({'after': analysis_after}, f, indent=2, ensure_ascii=False)
+                # except Exception:
+                #     pass
             except Exception as e:
                 # if repair fails, keep original routes and let penalty handle infeasibility
                 print(f"Repair failed: {e}")
@@ -101,8 +104,9 @@ class FitnessEvaluator:
         
         # Feasible-first: if any violation, apply strong scaling; otherwise distance-driven
         if penalty > 0:
-            # scale penalty to be relative to distance and number of violations
-            scaled_penalty = 1.0 + penalty
+            # Scale penalty to be at least 10x distance to ensure infeasible solutions are heavily penalized
+            # This ensures that even small violations make the solution significantly worse than feasible ones
+            scaled_penalty = max(penalty, total_distance * 10)
             fitness = 1.0 / (total_distance + scaled_penalty + balance_factor + 1.0)
         else:
             fitness = 1.0 / (total_distance + balance_factor + 1.0)

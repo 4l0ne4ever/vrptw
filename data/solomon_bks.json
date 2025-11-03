@@ -1,0 +1,283 @@
+{
+  "C101": {
+    "distance": 828.94,
+    "vehicles": 10,
+    "source": "Vidal et al. (2012)"
+  },
+  "C102": {
+    "distance": 828.94,
+    "vehicles": 10,
+    "source": "Vidal et al. (2012)"
+  },
+  "C103": {
+    "distance": 828.06,
+    "vehicles": 10,
+    "source": "Vidal et al. (2012)"
+  },
+  "C104": {
+    "distance": 824.78,
+    "vehicles": 10,
+    "source": "Vidal et al. (2012)"
+  },
+  "C105": {
+    "distance": 828.94,
+    "vehicles": 10,
+    "source": "Vidal et al. (2012)"
+  },
+  "C106": {
+    "distance": 828.94,
+    "vehicles": 10,
+    "source": "Vidal et al. (2012)"
+  },
+  "C107": {
+    "distance": 828.94,
+    "vehicles": 10,
+    "source": "Vidal et al. (2012)"
+  },
+  "C108": {
+    "distance": 828.94,
+    "vehicles": 10,
+    "source": "Vidal et al. (2012)"
+  },
+  "C109": {
+    "distance": 828.94,
+    "vehicles": 10,
+    "source": "Vidal et al. (2012)"
+  },
+  "C201": {
+    "distance": 591.56,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "C202": {
+    "distance": 591.56,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "C203": {
+    "distance": 591.17,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "C204": {
+    "distance": 590.60,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "C205": {
+    "distance": 588.88,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "C206": {
+    "distance": 588.49,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "C207": {
+    "distance": 588.29,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "C208": {
+    "distance": 588.32,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "R101": {
+    "distance": 1650.8,
+    "vehicles": 19,
+    "source": "Toth & Vigo (2014)"
+  },
+  "R102": {
+    "distance": 1486.1,
+    "vehicles": 17,
+    "source": "Toth & Vigo (2014)"
+  },
+  "R103": {
+    "distance": 1292.7,
+    "vehicles": 13,
+    "source": "Toth & Vigo (2014)"
+  },
+  "R104": {
+    "distance": 1007.3,
+    "vehicles": 9,
+    "source": "Toth & Vigo (2014)"
+  },
+  "R105": {
+    "distance": 1377.1,
+    "vehicles": 14,
+    "source": "Toth & Vigo (2014)"
+  },
+  "R106": {
+    "distance": 1252.4,
+    "vehicles": 12,
+    "source": "Toth & Vigo (2014)"
+  },
+  "R107": {
+    "distance": 1104.6,
+    "vehicles": 10,
+    "source": "Toth & Vigo (2014)"
+  },
+  "R108": {
+    "distance": 960.9,
+    "vehicles": 9,
+    "source": "Toth & Vigo (2014)"
+  },
+  "R109": {
+    "distance": 1146.9,
+    "vehicles": 11,
+    "source": "Toth & Vigo (2014)"
+  },
+  "R110": {
+    "distance": 1068.0,
+    "vehicles": 10,
+    "source": "Toth & Vigo (2014)"
+  },
+  "R111": {
+    "distance": 1048.7,
+    "vehicles": 10,
+    "source": "Toth & Vigo (2014)"
+  },
+  "R112": {
+    "distance": 982.0,
+    "vehicles": 9,
+    "source": "Toth & Vigo (2014)"
+  },
+  "R201": {
+    "distance": 1252.37,
+    "vehicles": 4,
+    "source": "Vidal et al. (2012)"
+  },
+  "R202": {
+    "distance": 1191.70,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "R203": {
+    "distance": 939.50,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "R204": {
+    "distance": 825.52,
+    "vehicles": 2,
+    "source": "Vidal et al. (2012)"
+  },
+  "R205": {
+    "distance": 994.42,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "R206": {
+    "distance": 906.14,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "R207": {
+    "distance": 897.27,
+    "vehicles": 2,
+    "source": "Vidal et al. (2012)"
+  },
+  "R208": {
+    "distance": 726.75,
+    "vehicles": 2,
+    "source": "Vidal et al. (2012)"
+  },
+  "R209": {
+    "distance": 909.68,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "R210": {
+    "distance": 939.34,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "R211": {
+    "distance": 892.71,
+    "vehicles": 2,
+    "source": "Vidal et al. (2012)"
+  },
+  "RC101": {
+    "distance": 1619.8,
+    "vehicles": 14,
+    "source": "Toth & Vigo (2014)"
+  },
+  "RC102": {
+    "distance": 1457.4,
+    "vehicles": 12,
+    "source": "Toth & Vigo (2014)"
+  },
+  "RC103": {
+    "distance": 1261.7,
+    "vehicles": 11,
+    "source": "Toth & Vigo (2014)"
+  },
+  "RC104": {
+    "distance": 1135.5,
+    "vehicles": 10,
+    "source": "Toth & Vigo (2014)"
+  },
+  "RC105": {
+    "distance": 1513.7,
+    "vehicles": 13,
+    "source": "Toth & Vigo (2014)"
+  },
+  "RC106": {
+    "distance": 1373.2,
+    "vehicles": 11,
+    "source": "Toth & Vigo (2014)"
+  },
+  "RC107": {
+    "distance": 1207.8,
+    "vehicles": 10,
+    "source": "Toth & Vigo (2014)"
+  },
+  "RC108": {
+    "distance": 1139.8,
+    "vehicles": 10,
+    "source": "Toth & Vigo (2014)"
+  },
+  "RC201": {
+    "distance": 1406.9,
+    "vehicles": 4,
+    "source": "Vidal et al. (2012)"
+  },
+  "RC202": {
+    "distance": 1365.6,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "RC203": {
+    "distance": 1049.6,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "RC204": {
+    "distance": 798.0,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "RC205": {
+    "distance": 1297.5,
+    "vehicles": 4,
+    "source": "Vidal et al. (2012)"
+  },
+  "RC206": {
+    "distance": 1146.3,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "RC207": {
+    "distance": 1061.1,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  },
+  "RC208": {
+    "distance": 828.14,
+    "vehicles": 3,
+    "source": "Vidal et al. (2012)"
+  }
+}
+

@@ -24,13 +24,25 @@ from src.evaluation.metrics import KPICalculator
 from src.algorithms.decoder import RouteDecoder
 from src.evaluation.comparator import SolutionComparator
 from src.evaluation.result_exporter import ResultExporter
+from src.evaluation.bks_validator import BKSValidator
 from src.visualization.reporter import ReportGenerator
 from src.data_processing.constraints import ConstraintHandler
+from src.core.logger import setup_logger
+from src.core.exceptions import (
+    VRPException, DatasetNotFoundError, InvalidConfigurationError,
+    InfeasibleSolutionError, CapacityViolationError
+)
 from config import GA_CONFIG, VRP_CONFIG, MOCKUP_CONFIG
 
 
 def main():
     """Main application entry point."""
+    # Setup logger
+    logger = setup_logger('vrp_ga', log_dir='logs')
+    logger.info("="*60)
+    logger.info("VRP-GA System Starting")
+    logger.info("="*60)
+    
     parser = create_argument_parser()
     args = parser.parse_args()
     
@@ -74,9 +86,15 @@ def main():
                 sys.exit(1)
             
     except KeyboardInterrupt:
+        logger.info("Operation cancelled by user")
         print("\nOperation cancelled by user.")
         sys.exit(1)
+    except (DatasetNotFoundError, InvalidConfigurationError, InfeasibleSolutionError) as e:
+        logger.error(f"VRP Error: {e}", exc_info=True)
+        print(f"Error: {e}")
+        sys.exit(1)
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         print(f"Error: {e}")
         sys.exit(1)
 
@@ -210,6 +228,11 @@ Examples:
 
 def run_dataset_mode(args, dataset_type: str = None):
     """Run VRP solver with JSON dataset."""
+    logger = setup_logger('vrp_ga.dataset')
+    logger.info("=" * 60)
+    logger.info("VRP-GA System - JSON Dataset Mode")
+    logger.info("=" * 60)
+    
     print("=" * 60)
     print("VRP-GA System - JSON Dataset Mode")
     print("=" * 60)
@@ -225,16 +248,22 @@ def run_dataset_mode(args, dataset_type: str = None):
         raise ValueError("No dataset specified")
     
     # Load JSON dataset
+    logger.info(f"Loading JSON dataset: {dataset_name}")
     print(f"Loading JSON dataset: {dataset_name}")
     
-    loader = JSONDatasetLoader()
-    data, distance_matrix = loader.load_dataset_with_distance_matrix(
-        dataset_name, args.traffic_factor, dataset_type
-    )
+    try:
+        loader = JSONDatasetLoader()
+        data, distance_matrix = loader.load_dataset_with_distance_matrix(
+            dataset_name, args.traffic_factor, dataset_type
+        )
+    except FileNotFoundError as e:
+        raise DatasetNotFoundError(dataset_name, dataset_type) from e
     
     # Create VRP problem
     problem = create_vrp_problem_from_dict(data, distance_matrix)
     
+    logger.info(f"Problem loaded: {len(problem.customers)} customers, "
+               f"capacity {problem.vehicle_capacity}, {problem.num_vehicles} vehicles")
     print(f"Problem loaded: {len(problem.customers)} customers, "
           f"capacity {problem.vehicle_capacity}, {problem.num_vehicles} vehicles")
     
@@ -244,11 +273,18 @@ def run_dataset_mode(args, dataset_type: str = None):
 
 def run_mockup_mode(args):
     """Run VRP solver with generated mockup data."""
+    logger = setup_logger('vrp_ga.mockup')
+    logger.info("=" * 60)
+    logger.info("VRP-GA System - Mockup Data Mode")
+    logger.info("=" * 60)
+    
     print("=" * 60)
     print("VRP-GA System - Mockup Data Mode")
     print("=" * 60)
     
     # Generate mockup data
+    logger.info(f"Generating mockup data: {args.customers} customers, "
+               f"capacity {args.capacity}, clustering {args.clustering}")
     print(f"Generating mockup data: {args.customers} customers, "
           f"capacity {args.capacity}, clustering {args.clustering}")
     
@@ -256,6 +292,7 @@ def run_mockup_mode(args):
     if args.seed:
         import numpy as np
         np.random.seed(args.seed)
+        logger.info(f"Random seed set to: {args.seed}")
     
     # Generate data
     data = generate_mockup_data(
@@ -280,9 +317,11 @@ def run_mockup_mode(args):
     temp_generator.num_vehicles = data['num_vehicles']
     temp_generator.export_to_csv(output_file)
     
+    logger.info(f"Generated data saved to: {output_file}")
     print(f"Generated data saved to: {output_file}")
     
     # Calculate distance matrix
+    logger.info("Calculating distance matrix...")
     print("Calculating distance matrix...")
     distance_calculator = DistanceCalculator(args.traffic_factor)
     coordinates = [(data['depot']['x'], data['depot']['y'])]
@@ -292,6 +331,8 @@ def run_mockup_mode(args):
     # Create VRP problem
     problem = create_vrp_problem_from_dict(data, distance_matrix)
     
+    logger.info(f"Problem created: {problem.get_problem_info()['num_customers']} customers, "
+               f"capacity {problem.vehicle_capacity}, {problem.num_vehicles} vehicles")
     print(f"Problem created: {problem.get_problem_info()['num_customers']} customers, "
           f"capacity {problem.vehicle_capacity}, {problem.num_vehicles} vehicles")
     
@@ -299,48 +340,32 @@ def run_mockup_mode(args):
     run_optimization(problem, args, "Mockup")
 
 
-def create_customer_from_dict(customer_dict):
-    """Create Customer object from dictionary."""
-    from src.models.vrp_model import Customer
-    return Customer(
-        id=customer_dict['id'],
-        x=customer_dict['x'],
-        y=customer_dict['y'],
-        demand=customer_dict['demand'],
-        ready_time=customer_dict['ready_time'],
-        due_date=customer_dict['due_date'],
-        service_time=customer_dict['service_time']
-    )
-
-
-def create_depot_from_dict(depot_dict):
-    """Create Depot object from dictionary."""
-    from src.models.vrp_model import Depot
-    return Depot(
-        id=depot_dict['id'],
-        x=depot_dict['x'],
-        y=depot_dict['y'],
-        demand=depot_dict['demand'],
-        ready_time=depot_dict['ready_time'],
-        due_date=depot_dict['due_date'],
-        service_time=depot_dict['service_time']
-    )
-
-
 def run_solomon_batch(args):
     """Run VRP solver on all Solomon datasets individually."""
+    logger = setup_logger('vrp_ga.batch')
+    logger.info("=" * 60)
+    logger.info("VRP-GA System - Solomon Batch Mode")
+    logger.info("=" * 60)
+    
     print("=" * 60)
     print("VRP-GA System - Solomon Batch Mode")
     print("=" * 60)
+    
+    # Initialize BKS validator
+    bks_validator = BKSValidator('data/solomon_bks.json')
+    num_instances = len(bks_validator.bks_data)
+    logger.info(f"BKS validator initialized with {num_instances} instances")
     
     # Load dataset catalog
     loader = JSONDatasetLoader()
     solomon_datasets = loader.list_available_datasets('solomon')
     
     if not solomon_datasets:
+        logger.warning("No Solomon datasets found!")
         print("No Solomon datasets found!")
         return
     
+    logger.info(f"Found {len(solomon_datasets)} Solomon datasets")
     print(f"Found {len(solomon_datasets)} Solomon datasets")
     
     # Results storage
@@ -349,6 +374,7 @@ def run_solomon_batch(args):
     # Run each dataset
     for i, dataset_info in enumerate(solomon_datasets):
         dataset_name = dataset_info['name']
+        logger.info(f"Processing dataset {i+1}/{len(solomon_datasets)}: {dataset_name}")
         print(f"\n{'='*50}")
         print(f"Running dataset {i+1}/{len(solomon_datasets)}: {dataset_name}")
         print(f"{'='*50}")
@@ -362,6 +388,8 @@ def run_solomon_batch(args):
             # Create VRP problem
             problem = create_vrp_problem_from_dict(data, distance_matrix)
             
+            logger.info(f"Problem: {len(problem.customers)} customers, "
+                       f"capacity {problem.vehicle_capacity}, {problem.num_vehicles} vehicles")
             print(f"Problem: {len(problem.customers)} customers, "
                   f"capacity {problem.vehicle_capacity}, {problem.num_vehicles} vehicles")
             
@@ -371,6 +399,9 @@ def run_solomon_batch(args):
             # Calculate KPIs
             kpi_calculator = KPICalculator(problem)
             ga_kpis = kpi_calculator.calculate_kpis(ga_solution)
+            
+            # BKS Validation
+            bks_validation = bks_validator.validate_solution(dataset_name, ga_solution)
             
             # Store results
             result = {
@@ -388,13 +419,35 @@ def run_solomon_batch(args):
                 'population': args.population
             }
             
+            # Add BKS data if available
+            if bks_validation['has_bks']:
+                result['bks_distance'] = bks_validation['bks_distance']
+                result['bks_vehicles'] = bks_validation['bks_vehicles']
+                result['gap_percent'] = bks_validation['gap_percent']
+                result['vehicle_diff'] = bks_validation['vehicle_diff']
+                result['quality'] = bks_validation['quality']
+                
+                logger.info(f"BKS Validation - Gap: {bks_validation['gap_percent']:.2f}%, "
+                          f"Quality: {bks_validation['quality']}")
+            
             batch_results.append(result)
             
-            print(f"Completed: Distance={ga_kpis['total_distance']:.2f}, "
-                  f"Routes={ga_kpis['num_routes']}, "
-                  f"Utilization={ga_kpis['avg_utilization']:.1f}%")
+            # Print results with BKS info if available
+            if bks_validation['has_bks']:
+                print(f"Completed: Distance={ga_kpis['total_distance']:.2f} "
+                      f"(BKS: {bks_validation['bks_distance']:.2f}, "
+                      f"Gap: {bks_validation['gap_percent']:.2f}%), "
+                      f"Routes={ga_kpis['num_routes']} "
+                      f"(BKS: {bks_validation['bks_vehicles']}), "
+                      f"Quality: {bks_validation['quality']}, "
+                      f"Utilization={ga_kpis['avg_utilization']:.1f}%")
+            else:
+                print(f"Completed: Distance={ga_kpis['total_distance']:.2f}, "
+                      f"Routes={ga_kpis['num_routes']}, "
+                      f"Utilization={ga_kpis['avg_utilization']:.1f}%")
             
         except Exception as e:
+            logger.error(f"Error processing {dataset_name}: {e}", exc_info=True)
             print(f"Error processing {dataset_name}: {e}")
             continue
     
@@ -402,14 +455,43 @@ def run_solomon_batch(args):
     if batch_results:
         exporter = ResultExporter(args.output)
         summary_file = exporter.export_solomon_summary(batch_results)
+        logger.info(f"Batch summary exported to: {summary_file}")
         print(f"\nBatch summary exported to: {summary_file}")
         
         # Print summary statistics
         print(f"\nBatch Summary:")
         print(f"  Total datasets processed: {len(batch_results)}")
-        print(f"  Average distance: {sum(r['ga_distance'] for r in batch_results) / len(batch_results):.2f}")
-        print(f"  Average routes: {sum(r['ga_routes'] for r in batch_results) / len(batch_results):.1f}")
-        print(f"  Average utilization: {sum(r['ga_utilization'] for r in batch_results) / len(batch_results):.1f}%")
+        
+        # Calculate average distance
+        avg_distance = sum(r['ga_distance'] for r in batch_results) / len(batch_results)
+        print(f"  Average distance: {avg_distance:.2f}")
+        
+        # Calculate average routes
+        avg_routes = sum(r['ga_routes'] for r in batch_results) / len(batch_results)
+        print(f"  Average routes: {avg_routes:.1f}")
+        
+        # Calculate average utilization
+        avg_utilization = sum(r['ga_utilization'] for r in batch_results) / len(batch_results)
+        print(f"  Average utilization: {avg_utilization:.1f}%")
+        
+        # BKS statistics if available
+        bks_results = [r for r in batch_results if 'gap_percent' in r and r['gap_percent'] is not None]
+        if bks_results:
+            avg_gap = sum(r['gap_percent'] for r in bks_results) / len(bks_results)
+            print(f"  BKS Comparison (for {len(bks_results)} instances with BKS):")
+            print(f"    Average gap from BKS: {avg_gap:.2f}%")
+            
+            # Quality distribution
+            quality_counts = {}
+            for r in bks_results:
+                quality = r.get('quality', 'UNKNOWN')
+                quality_counts[quality] = quality_counts.get(quality, 0) + 1
+            
+            print(f"    Quality distribution:")
+            for quality, count in sorted(quality_counts.items()):
+                print(f"      {quality}: {count}")
+        
+        logger.info(f"Batch processing completed: {len(batch_results)} datasets processed")
 
 
 def run_single_optimization(problem, args):
@@ -446,14 +528,19 @@ def run_single_optimization(problem, args):
 
 def run_optimization(problem, args, mode_name):
     """Run the optimization process."""
+    logger = setup_logger('vrp_ga.optimization')
+    logger.info(f"Starting optimization for: {mode_name}")
+    
     # Set random seed if specified
     if args.seed:
         import random
         import numpy as np
         random.seed(args.seed)
         np.random.seed(args.seed)
+        logger.info(f"Random seed set to: {args.seed}")
     
-    # Create GA configuration
+    # Validate GA configuration
+    from src.core.validators import ConfigValidator
     ga_config = GA_CONFIG.copy()
     ga_config.update({
         'generations': args.generations,
@@ -464,6 +551,16 @@ def run_optimization(problem, args, mode_name):
         'elitism_rate': args.elitism_rate
     })
     
+    try:
+        ConfigValidator.validate_ga_config(ga_config)
+    except InvalidConfigurationError as e:
+        logger.error(f"Invalid GA configuration: {e}")
+        raise
+    
+    logger.info(f"GA Configuration: generations={ga_config['generations']}, "
+               f"population={ga_config['population_size']}, "
+               f"crossover_prob={ga_config['crossover_prob']}, "
+               f"mutation_prob={ga_config['mutation_prob']}")
     print(f"\nGA Configuration:")
     print(f"  Generations: {ga_config['generations']}")
     print(f"  Population Size: {ga_config['population_size']}")
@@ -473,16 +570,19 @@ def run_optimization(problem, args, mode_name):
     print(f"  Elitism Rate: {ga_config['elitism_rate']}")
     
     # Initialize GA
+    logger.info("Initializing Genetic Algorithm...")
     print(f"\nInitializing Genetic Algorithm...")
     ga = GeneticAlgorithm(problem, ga_config)
     
     # Run GA
+    logger.info(f"Running GA for {ga_config['generations']} generations...")
     print(f"Running GA for {ga_config['generations']} generations...")
     start_time = time.time()
     
     ga_solution, evolution_data = ga.evolve()
     ga_execution_time = time.time() - start_time
     
+    logger.info(f"GA completed in {ga_execution_time:.2f} seconds")
     print(f"GA completed in {ga_execution_time:.2f} seconds")
     
     # Apply final repair to ensure solution is feasible
@@ -547,9 +647,32 @@ def run_optimization(problem, args, mode_name):
         print("Nearest Neighbor baseline completed")
     
     # Calculate KPIs
+    logger.info("Calculating KPIs...")
     print("Calculating KPIs...")
     kpi_calculator = KPICalculator(problem)
     ga_kpis = kpi_calculator.calculate_kpis(ga_solution, ga_execution_time)
+    
+    # BKS Validation for Solomon datasets
+    if mode_name and 'solomon' in mode_name.lower():
+        bks_validator = BKSValidator('data/solomon_bks.json')
+        # Try to extract instance name from mode_name or dataset
+        instance_name = getattr(args, 'solomon_dataset', None) or mode_name
+        if instance_name:
+            bks_validation = bks_validator.validate_solution(instance_name, ga_solution)
+            if bks_validation['has_bks']:
+                logger.info(f"BKS Validation - Instance: {bks_validation['instance']}, "
+                          f"Gap: {bks_validation['gap_percent']:.2f}%, "
+                          f"Quality: {bks_validation['quality']}")
+                print(f"\nBKS Comparison:")
+                print(f"  Instance: {bks_validation['instance']}")
+                print(f"  Solution Distance: {bks_validation['solution_distance']:.2f}")
+                print(f"  BKS Distance: {bks_validation['bks_distance']:.2f}")
+                print(f"  Gap: {bks_validation['gap_percent']:.2f}%")
+                print(f"  Quality: {bks_validation['quality']}")
+                if bks_validation['vehicle_diff'] is not None:
+                    print(f"  Vehicle Difference: {bks_validation['vehicle_diff']} "
+                          f"(Solution: {bks_validation['solution_vehicles']}, "
+                          f"BKS: {bks_validation['bks_vehicles']})")
     
     print(f"\nGA Solution Results:")
     print(f"  Total Distance: {ga_kpis['total_distance']:.2f}")
@@ -584,6 +707,7 @@ def run_optimization(problem, args, mode_name):
         print(f"  Efficiency Improvement: {ga_kpis['efficiency_score'] - nn_kpis['efficiency_score']:.3f}")
     
     # Export detailed results
+    logger.info("Exporting detailed results...")
     print(f"\nExporting detailed results...")
     
     # Create result exporter
@@ -602,15 +726,28 @@ def run_optimization(problem, args, mode_name):
         
         nn_stats = {'execution_time': nn_execution_time or 0.0}
         
+        # Add BKS data if available for Solomon datasets
+        if mode_name and 'solomon' in mode_name.lower():
+            instance_name = getattr(args, 'solomon_dataset', None) or mode_name
+            if instance_name:
+                bks_validator = BKSValidator('data/solomon_bks.json')
+                bks_validation = bks_validator.validate_solution(instance_name, ga_solution)
+                if bks_validation['has_bks']:
+                    ga_stats['bks_distance'] = bks_validation['bks_distance']
+                    ga_stats['bks_gap_percent'] = bks_validation['gap_percent']
+                    ga_stats['bks_quality'] = bks_validation['quality']
+        
         kpi_file = exporter.export_kpi_comparison(
             ga_solution, nn_solution, problem, ga_stats, nn_stats
         )
         
+        logger.info(f"Results exported: evolution={evolution_file}, routes={routes_file}, kpi={kpi_file}")
         print(f"Results exported:")
         print(f"  Evolution data: {evolution_file}")
         print(f"  Optimal routes: {routes_file}")
         print(f"  KPI comparison: {kpi_file}")
     else:
+        logger.info(f"Results exported: evolution={evolution_file}, routes={routes_file}")
         print(f"Results exported:")
         print(f"  Evolution data: {evolution_file}")
         print(f"  Optimal routes: {routes_file}")

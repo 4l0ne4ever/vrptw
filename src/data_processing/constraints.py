@@ -303,8 +303,8 @@ class ConstraintHandler:
             over.sort(key=lambda x: x[1], reverse=True)
             return over
 
-        # Multi-pass Two-Phase Repair (small number of passes)
-        max_passes = 5
+        # Multi-pass Two-Phase Repair (increased from 5 to 10 for better repair)
+        max_passes = 10
         ts = int(time.time())
         debug_log = []
         for pass_idx in range(max_passes):
@@ -353,6 +353,26 @@ class ConstraintHandler:
             # If no overflow customers collected, we're done
             if not pool:
                 break
+            
+            # Check vehicle count limit and merge routes if needed
+            if len(core_routes) > self.num_vehicles:
+                # Merge routes until within limit
+                while len(core_routes) > self.num_vehicles:
+                    if not core_routes or len(core_routes) < 2:
+                        break
+                    # Sort by load (ascending) to merge smallest routes first
+                    core_routes.sort(key=lambda r: core_load(r))
+                    # Merge two smallest routes
+                    route1 = core_routes.pop(0)
+                    route2 = core_routes.pop(0)
+                    merged = route1 + route2
+                    if core_load(merged) <= self.vehicle_capacity:
+                        core_routes.append(merged)
+                    else:
+                        # Can't merge, restore routes
+                        core_routes.insert(0, route2)
+                        core_routes.insert(0, route1)
+                        break
 
             # Phase 2: reinsert pool customers (ascending demand)
             pool.sort(key=lambda cid: safe_get_demand(cid))
@@ -411,6 +431,25 @@ class ConstraintHandler:
             }
             debug_log.append(debug_info)
 
+        # Final check: if pool still has customers (shouldn't happen, but handle gracefully)
+        # This can happen if total demand exceeds total capacity or reinsertion fails
+        if pool:
+            # Create new routes for remaining customers (may violate vehicle count, but at least all customers visited)
+            while pool:
+                new_route = []
+                # Try to fill route to capacity
+                while pool:
+                    customer = pool[0]
+                    if core_load(new_route) + safe_get_demand(customer) <= self.vehicle_capacity:
+                        new_route.append(pool.pop(0))
+                    else:
+                        break
+                if new_route:
+                    core_routes.append(new_route)
+                else:
+                    # Even single customer exceeds capacity - add anyway (violation, but better than missing customer)
+                    core_routes.append([pool.pop(0)])
+        
         # Final guarantee: if any route still exceeds capacity, split off lightest customers to new routes
         for i in range(len(core_routes)):
             while core_load(core_routes[i]) > self.vehicle_capacity and core_routes[i]:
@@ -427,19 +466,21 @@ class ConstraintHandler:
             repaired_routes.append([0] + core + [0])
 
         # Save consolidated debug log
-        try:
-            os.makedirs('results', exist_ok=True)
-            consolidated_debug = {
-                'timestamp': ts,
-                'vehicle_capacity': self.vehicle_capacity,
-                'repair_passes': debug_log,
-                'final_routes': len(repaired_routes),
-                'final_loads': [core_load(r) for r in core_routes]
-            }
-            with open(os.path.join('results', f'repair_debug_{ts}.json'), 'w', encoding='utf-8') as f:
-                json.dump(consolidated_debug, f, indent=2, ensure_ascii=False)
-        except Exception:
-            pass
+        # Debug JSON files disabled to reduce clutter
+        # Uncomment below if debugging is needed:
+        # try:
+        #     os.makedirs('results', exist_ok=True)
+        #     consolidated_debug = {
+        #         'timestamp': ts,
+        #         'vehicle_capacity': self.vehicle_capacity,
+        #         'repair_passes': debug_log,
+        #         'final_routes': len(repaired_routes),
+        #         'final_loads': [core_load(r) for r in core_routes]
+        #     }
+        #     with open(os.path.join('results', f'repair_debug_{ts}.json'), 'w', encoding='utf-8') as f:
+        #         json.dump(consolidated_debug, f, indent=2, ensure_ascii=False)
+        # except Exception:
+        #     pass
 
         return repaired_routes
     

@@ -1,0 +1,70 @@
+================================================================================
+VRP-GA SYSTEM COMPREHENSIVE REPORT
+================================================================================
+Generated: 2025-11-04 01:41:36
+
+PROBLEM INFORMATION
+----------------------------------------
+Number of Customers: 50
+Vehicle Capacity: 200.0
+Number of Vehicles: 4
+Total Demand: 362.0
+Minimum Vehicles Needed: 2
+Problem Feasible: True
+
+GENETIC ALGORITHM SOLUTION
+----------------------------------------
+Total Distance: 354.16
+Number of Routes: 2
+Total Cost: 354.16
+Average Utilization: 90.5%
+Load Balance Index: 0.972
+Efficiency Score: 0.546
+Feasible: True
+Fitness: 0.002468
+
+NEAREST NEIGHBOR SOLUTION
+----------------------------------------
+Total Distance: 323.07
+Number of Routes: 2
+Total Cost: 323.07
+Average Utilization: 90.5%
+Load Balance Index: 0.901
+Efficiency Score: 0.501
+Feasible: True
+Fitness: 0.003086
+
+COMPARISON ANALYSIS
+----------------------------------------
+Distance Improvement: 31.09 (8.8%)
+Cost Improvement: 31.09 (8.8%)
+Efficiency Improvement: -0.044 (-8.1%)
+Overall Improved: True
+
+GENETIC ALGORITHM STATISTICS
+----------------------------------------
+Generations: 50
+Total Evaluations: 4300
+Execution Time: 2.00 seconds
+Convergence Generation: 49
+Best Fitness: 0.002468
+Average Fitness: 0.001842
+Diversity: 0.808
+
+ROUTE DETAILS
+----------------------------------------
+GA Routes:
+  Route 1: 11 -> 3 -> 12 -> 4 -> 25 -> 19 -> 23 -> 26 -> 30 -> 48 -> 28 -> 27 -> 21 -> 33 -> 29 -> 24 -> 38 -> 20 -> 41 -> 46 -> 45 -> 35 -> 47 -> 22 -> 5 -> 17 (Load: 186)
+  Route 2: 43 -> 37 -> 34 -> 36 -> 44 -> 50 -> 39 -> 40 -> 49 -> 42 -> 18 -> 31 -> 32 -> 1 -> 6 -> 7 -> 14 -> 10 -> 9 -> 8 -> 13 -> 16 -> 2 -> 15 (Load: 176)
+
+Nearest Neighbor Routes:
+  Route 1: 1 -> 6 -> 7 -> 14 -> 13 -> 8 -> 9 -> 10 -> 16 -> 2 -> 15 -> 17 -> 5 -> 22 -> 47 -> 26 -> 23 -> 30 -> 48 -> 28 -> 27 -> 21 -> 33 -> 29 -> 24 -> 38 -> 20 -> 41 -> 46 (Load: 199)
+  Route 2: 11 -> 3 -> 12 -> 19 -> 25 -> 4 -> 31 -> 32 -> 18 -> 42 -> 49 -> 40 -> 39 -> 50 -> 35 -> 45 -> 44 -> 36 -> 34 -> 37 -> 43 (Load: 163)
+
+RECOMMENDATIONS
+----------------------------------------
+✓ GA solution shows improvement over Nearest Neighbor
+
+================================================================================
+END OF REPORT
+================================================================================

@@ -6,23 +6,44 @@ Converts chromosome to routes with capacity constraints.
 from typing import List, Tuple, Optional
 from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
+from config import GA_CONFIG
 
 
 class RouteDecoder:
     """Decodes chromosome to routes with capacity constraints."""
     
-    def __init__(self, problem: VRPProblem):
+    def __init__(self, problem: VRPProblem, use_split_algorithm: bool = None):
         """
         Initialize route decoder.
         
         Args:
             problem: VRP problem instance
+            use_split_algorithm: Whether to use Split Algorithm (Prins 2004).
+                                 If None, uses config setting or defaults to False.
         """
         self.problem = problem
+        
+        # Determine if we should use Split Algorithm
+        if use_split_algorithm is None:
+            # Check if split_algorithm is in config, default to False
+            self.use_split = GA_CONFIG.get('use_split_algorithm', False)
+        else:
+            self.use_split = use_split_algorithm
+        
+        # Initialize Split Algorithm if enabled
+        if self.use_split:
+            try:
+                from src.algorithms.split import SplitAlgorithm
+                self.splitter = SplitAlgorithm(problem)
+            except ImportError:
+                self.use_split = False
+                self.splitter = None
     
     def decode_chromosome(self, chromosome: List[int]) -> List[List[int]]:
         """
         Decode chromosome to routes using capacity constraint.
+        
+        Uses Split Algorithm (Prins 2004) if enabled, otherwise uses greedy decoder.
         
         Args:
             chromosome: Customer order chromosome
@@ -36,6 +57,18 @@ class RouteDecoder:
         # Sanitize chromosome to ensure each customer appears exactly once
         chromosome = self._sanitize_chromosome(chromosome)
         
+        # Use Split Algorithm if enabled
+        if self.use_split and self.splitter is not None:
+            try:
+                # Split Algorithm expects giant tour (list of customer IDs)
+                giant_tour = [cid for cid in chromosome if cid != 0]
+                routes, _ = self.splitter.split(giant_tour)
+                return routes
+            except Exception:
+                # Fall back to greedy decoder if Split Algorithm fails
+                pass
+        
+        # Greedy decoder (original implementation)
         routes = []
         current_route = [0]  # Start at depot
         current_load = 0.0

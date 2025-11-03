@@ -1,0 +1,377 @@
+==========================================================================
+SO SÁNH GIỮA REPOSITORY VÀ LUẬN VĂN (main.tex)
+==========================================================================
+Ngày: 2025-10-30
+Repository: D:\KLTN\code vrp\vrptw
+Luận văn: main.tex
+
+==========================================================================
+1. SỰ KHÁC BIỆT VỀ PHẠM VI VÀ NỘI DUNG
+==========================================================================
+
+1.1. LUẬN VĂN (main.tex):
+---------------------------
+- Tập trung vào LÝ THUYẾT và MÔ TẢ PHƯƠNG PHÁP chi tiết
+- Có tổng quan về logistics chặng cuối tại Việt Nam
+- Phân tích chi tiết bài toán VRP từ góc độ học thuật
+- Trình bày mô hình toán học CVRPTW đầy đủ (công thức, ràng buộc)
+- Mô tả chi tiết thuật toán GA, NN, 2-opt với ví dụ minh họa
+- Phân tích mô hình chi phí Ahamove rất chi tiết (Section 2.2.3)
+- Có Split Algorithm với minh họa đầy đủ
+- Phân tích Solomon benchmark, BKS (Best-Known Solutions)
+- Chương 1: Tổng quan nghiên cứu, bối cảnh VN
+- Chương 2: Cơ sở lý thuyết, phương pháp nghiên cứu
+
+1.2. REPOSITORY (Code Implementation):
+---------------------------------------
+- Tập trung vào TRIỂN KHAI THỰC TẾ và CHỨC NĂNG
+- Có cấu trúc module rõ ràng: data_processing, algorithms, evaluation, visualization
+- Có CLI interface với nhiều tùy chọn
+- Hỗ trợ batch processing Solomon datasets
+- Xuất kết quả chi tiết (evolution_data, optimal_routes, KPI comparison)
+- Tích hợp visualization (Hanoi maps, traditional plots)
+- Có dataset converter (Solomon CSV → JSON)
+- Có mockup data generator với clustering
+- Có shipping cost calculator theo mô hình Ahamove
+- Có enhanced Hanoi map visualizer với OSRM support
+
+==========================================================================
+2. CÁC THÀNH PHẦN TRONG LUẬN VĂN NHƯNG KHÔNG CÓ TRONG CODE
+==========================================================================
+
+2.1. PHẦN CHƯA TRIỂN KHAI:
+---------------------------
+✗ Split Algorithm chi tiết (được mô tả trong Section 2.3.2.3)
+  → Code hiện tại sử dụng decoder đơn giản hơn
+
+✗ Adaptive mutation rate (được đề cập là hướng cải thiện)
+  → Code dùng fixed mutation rate = 0.15
+
+✗ Mô hình chi phí chờ (waiting cost) đầy đủ
+  → Luận văn mô tả chi tiết nhưng trong code đặt = 0
+
+✗ Hệ số tắc nghẽn động (traffic factor) theo giờ cao điểm
+  → Code dùng fixed traffic_factor = 1.0
+
+✗ Tích hợp API OSRM thực tế cho khoảng cách đường bộ
+  → Code dùng khoảng cách Euclid trong không gian Cartesian 2D
+
+✗ Kiểm định thống kê chi tiết (khoảng tin cậy 95%)
+  → Chưa có module thống kê chuyên sâu
+
+✗ So sánh với BKS (Best-Known Solutions) trên Solomon
+  → Chưa có module tự động so sánh với BKS
+
+2.2. PHẦN LÝ THUYẾT CHƯA ĐẦY ĐỦ TRONG CODE:
+--------------------------------------------
+✗ Phân tích độ phức tạp O(n²) của các thuật toán
+✗ Phân tích convergence criteria chi tiết
+✗ Time window constraint validation chi tiết
+✗ Capacity repair mechanism nâng cao
+
+==========================================================================
+3. CÁC THÀNH PHẦN TRONG CODE NHƯNG KHÔNG CÓ TRONG LUẬN VĂN
+==========================================================================
+
+3.1. TÍNH NĂNG THỰC TIỄN:
+--------------------------
+✓ CLI interface đầy đủ với argparse
+✓ Batch processing mode cho Solomon datasets
+✓ JSON dataset format và catalog management
+✓ Dataset converter (CSV → JSON)
+✓ Multiple visualization modes (Hanoi map + traditional)
+✓ Result exporter với nhiều format (CSV, TXT, JSON)
+✓ Enhanced Hanoi coordinate generator (tránh vùng nước)
+✓ Constraint debugging output
+✓ Quick report vs Comprehensive report
+✓ Solution data saving/loading
+
+3.2. KIẾN TRÚC HỆ THỐNG:
+-------------------------
+✓ Modular architecture với separation of concerns
+✓ Configuration management (config.py)
+✓ Error handling và validation
+✓ Logging và debugging utilities
+✓ Memory optimization strategies
+✓ File naming conventions
+✓ Output directory structure
+
+==========================================================================
+4. SỰ KHÁC BIỆT VỀ MÔ HÌNH CHI PHÍ AHAMOVE
+==========================================================================
+
+4.1. TRONG LUẬN VĂN:
+---------------------
+- Mô tả CHI TIẾT công thức tính từng thành phần:
+  • Base cost: 15,709 VNĐ cho 2km đầu + 8,273 VNĐ/km từ km thứ 3
+  • Stop cost: 5,500 VNĐ/điểm thêm
+  • COD cost: 0.6% giá trị đơn hàng
+  • Waiting cost: 1,000 VNĐ/phút sau 15 phút miễn phí
+- Có ví dụ tính toán cụ thể (Tuyến 1, Tuyến 2)
+- Có bảng so sánh mô hình đơn giản vs Ahamove
+- Phân tích ảnh hưởng đến nghiệm tối ưu
+
+4.2. TRONG CODE:
+----------------
+- Có ShippingCostCalculator (src/evaluation/shipping_cost.py)
+- Triển khai đầy đủ các thành phần chi phí
+- Tích hợp vào fitness function
+- Xuất chi phí chi tiết trong optimal_routes.txt
+- Giả lập order values theo Lognormal distribution
+- Đặt waiting cost = 0 (giống giả định trong luận văn)
+
+→ ĐÁNH GIÁ: Code triển khai ĐÚNG với mô tả trong luận văn
+
+==========================================================================
+5. SỰ KHÁC BIỆT VỀ THUẬT TOÁN
+==========================================================================
+
+5.1. GENETIC ALGORITHM:
+-----------------------
+LUẬN VĂN:
+- Mô tả chi tiết giant tour representation (Prins 2004)
+- Mô tả Split Algorithm với ví dụ minh họa
+- Phân tích từng toán tử (OX crossover, Swap mutation)
+- Mô tả Tournament selection + Elitism
+
+CODE:
+- Triển khai giant tour representation
+- Decoder đơn giản hơn Split Algorithm (chưa tối ưu toàn cục)
+- Có đầy đủ các toán tử: OX, PMX crossover; Swap, Inversion mutation
+- Có Tournament selection + Elitism
+- Fixed mutation rate (không adaptive)
+
+→ GAP: Code chưa triển khai Split Algorithm tối ưu như mô tả trong luận văn
+
+5.2. 2-OPT LOCAL SEARCH:
+-------------------------
+LUẬN VĂN:
+- Mô tả chi tiết nguyên lý loại bỏ giao điểm
+- Có hình minh họa (Figure 2.8)
+- Có ví dụ cải thiện từ 19.0 km → 17.0 km
+
+CODE:
+- Triển khai 2-opt cho từng tuyến (intra-route)
+- Có inter-route 2-opt
+- Sử dụng first improvement strategy
+
+→ ĐÁNH GIÁ: Code triển khai đúng với mô tả
+
+5.3. NEAREST NEIGHBOR:
+----------------------
+LUẬN VĂN:
+- Mô tả chi tiết các bước (Table 2.5)
+- Có ví dụ minh họa với 5 khách hàng
+
+CODE:
+- Triển khai đầy đủ thuật toán NN
+- Có constraint checking (capacity, time window)
+- Sử dụng làm baseline
+
+→ ĐÁNH GIÁ: Code triển khai đúng với mô tả
+
+==========================================================================
+6. SỰ KHÁC BIỆT VỀ DỮ LIỆU
+==========================================================================
+
+6.1. SOLOMON BENCHMARK:
+------------------------
+LUẬN VĂN:
+- Mô tả chi tiết cấu trúc (Table 2.12)
+- Phân loại 6 nhóm: C1, C2, R1, R2, RC1, RC2
+- Có BKS (Best-Known Solutions) - Table 2.13
+- Mô tả cách đánh giá gap
+
+CODE:
+- Có 56 Solomon instances (JSON format)
+- Có catalog.json quản lý metadata
+- Có converter từ CSV → JSON
+- Chưa có module tự động so sánh với BKS
+
+→ GAP: Chưa có validation tự động với BKS
+
+6.2. MOCKUP DATA (HÀ NỘI):
+---------------------------
+LUẬN VĂN:
+- Mô tả thiết kế dataset (Table 2.14)
+- Không gian [0,100] × [0,100] Cartesian 2D
+- Clustering methods: Random, K-means, Radial
+- Time windows 8h-20h, 3 ca
+
+CODE:
+- Có MockupDataGenerator với clustering
+- Có EnhancedHanoiCoordinateGenerator (tránh vùng nước)
+- Tạo 5 sample datasets (small, medium, large, xlarge)
+- Có generator.py để tạo dữ liệu mới
+
+→ ĐÁNH GIÁ: Code triển khai ĐẦY ĐỦ và MỞ RỘNG hơn luận văn
+
+==========================================================================
+7. SỰ KHÁC BIỆT VỀ ĐÁNH GIÁ VÀ KPI
+==========================================================================
+
+7.1. TRONG LUẬN VĂN:
+---------------------
+- KPI Table 2.15 với 4 nhóm:
+  1. Chi phí và khoảng cách (distance, cost, cost/order)
+  2. Hiệu suất tài nguyên (vehicles, utilization, balance)
+  3. Thời gian (execution time, delivery time)
+  4. Chất lượng dịch vụ (on-time rate, violations)
+  5. Chi phí chi tiết Ahamove (base, distance, stop, COD, waiting)
+
+7.2. TRONG CODE:
+----------------
+- KPICalculator (src/evaluation/metrics.py) tính tất cả KPI
+- ResultExporter xuất 3 loại file:
+  1. evolution_data_*.csv (quá trình GA)
+  2. optimal_routes_*.txt (lộ trình + chi phí chi tiết)
+  3. kpi_comparison_*.csv (so sánh GA vs NN)
+- SolutionComparator để so sánh methods
+- Validator để kiểm tra constraints
+
+→ ĐÁNH GIÁ: Code triển khai ĐẦY ĐỦ các KPI trong luận văn
+
+==========================================================================
+8. SỰ KHÁC BIỆT VỀ VISUALIZATION
+==========================================================================
+
+8.1. TRONG LUẬN VĂN:
+---------------------
+- Không mô tả chi tiết visualization (sẽ có trong Chương 3)
+- Đề cập đến bản đồ Hà Nội tương tác
+- Đề cập đến biểu đồ hội tụ, so sánh
+
+8.2. TRONG CODE:
+----------------
+- EnhancedHanoiMapVisualizer (Folium maps)
+  • Real routes với OSRM
+  • Straight lines
+  • Comparison maps (GA vs NN)
+- RouteMapper (traditional plots)
+  • Route plots
+  • Comparison plots
+  • Load distribution
+- Plotter (statistical plots)
+  • Convergence plots
+  • KPI dashboards
+  • Comparison charts
+- ReportGenerator
+  • Comprehensive report
+  • Quick report
+
+→ ĐÁNH GIÁ: Code có visualization PHONG PHÚ hơn luận văn mô tả
+
+==========================================================================
+9. TÍNH NHẤT QUÁN GIỮA LUẬN VĂN VÀ CODE
+==========================================================================
+
+9.1. NHẤT QUÁN:
+---------------
+✓ Mô hình toán học CVRPTW
+✓ Thuật toán GA cơ bản (selection, crossover, mutation)
+✓ 2-opt local search
+✓ Nearest Neighbor heuristic
+✓ Mô hình chi phí Ahamove
+✓ KPI metrics
+✓ Solomon benchmark
+✓ Mockup data structure
+
+9.2. KHÔNG NHẤT QUÁN:
+----------------------
+✗ Split Algorithm (luận văn mô tả chi tiết, code đơn giản hơn)
+✗ Adaptive mutation (luận văn đề cập, code chưa có)
+✗ BKS comparison (luận văn có bảng, code chưa tự động)
+✗ Statistical tests (luận văn mô tả, code chưa có)
+✗ Waiting cost modeling (luận văn chi tiết, code đặt = 0)
+✗ Traffic factor dynamic (luận văn đề cập, code fixed = 1.0)
+
+==========================================================================
+10. ĐÁNH GIÁ TỔNG QUAN
+==========================================================================
+
+10.1. ĐIỂM MẠNH CỦA CODE:
+--------------------------
+✓ Kiến trúc modular, dễ bảo trì và mở rộng
+✓ CLI interface đầy đủ, dễ sử dụng
+✓ Batch processing hiệu quả
+✓ Visualization đa dạng và đẹp
+✓ Result export chi tiết
+✓ Dataset management tốt
+✓ Tích hợp mô hình chi phí thực tế
+✓ Code quality tốt, có documentation
+
+10.2. ĐIỂM YẾU CỦA CODE (SO VỚI LUẬN VĂN):
+-------------------------------------------
+✗ Chưa triển khai Split Algorithm tối ưu
+✗ Chưa có adaptive mutation
+✗ Chưa có BKS validation module
+✗ Chưa có statistical testing module
+✗ Chưa triển khai waiting cost đầy đủ
+✗ Chưa có traffic factor dynamic
+✗ Chưa có time window validation chi tiết
+
+10.3. KHOẢNG CÁCH LÝ THUYẾT - THỰC TIỄN:
+-----------------------------------------
+1. LUẬN VĂN tập trung vào:
+   - Cơ sở lý thuyết
+   - Mô hình toán học
+   - Phân tích thuật toán
+   - Bối cảnh nghiên cứu
+
+2. CODE tập trung vào:
+   - Triển khai thực tế
+   - User experience
+   - Performance
+   - Visualization
+
+→ Đây là điều BÌNH THƯỜNG trong nghiên cứu khoa học:
+  - Luận văn phải mô tả ĐẦY ĐỦ lý thuyết và phương pháp
+  - Code có thể đơn giản hóa một số phần để dễ triển khai
+  - Code có thể mở rộng thêm tính năng thực tiễn
+
+==========================================================================
+11. KẾT LUẬN
+==========================================================================
+
+11.1. MỨC ĐỘ PHẢN ÁNH:
+------------------------
+- Code phản ánh CHÍNH XÁC 70-80% nội dung luận văn
+- Các thuật toán cốt lõi được triển khai đúng
+- Mô hình chi phí Ahamove được triển khai đầy đủ
+- KPI metrics được triển khai đầy đủ
+
+11.2. KHOẢNG TRỐNG CHÍNH:
+--------------------------
+1. Split Algorithm optimization (khó triển khai)
+2. Adaptive mutation (có thể bổ sung)
+3. BKS validation (nên bổ sung)
+4. Statistical testing (nên bổ sung)
+5. Dynamic constraints (có thể bổ sung sau)
+
+11.3. KHUYẾN NGHỊ:
+------------------
+- Code hiện tại đã ĐỦ TỐT để demo và chạy thực nghiệm
+- Nên bổ sung BKS validation để so sánh với Solomon
+- Có thể giữ nguyên Split Algorithm đơn giản (đủ hiệu quả)
+- Adaptive mutation là nice-to-have, không bắt buộc
+- Statistical testing nên bổ sung nếu có thời gian
+
+==========================================================================
+12. GHI CHÚ QUAN TRỌNG
+==========================================================================
+
+⚠️ Luận văn (main.tex) CÒN CHƯA ĐẦY ĐỦ:
+- Chỉ có Chương 1 và một phần Chương 2
+- Chưa có Chương 3 (Thực nghiệm và Kết quả)
+- Chưa có Chương 4 (Kết luận)
+
+→ So sánh này chỉ dựa trên phần đã có của luận văn
+→ Chương 3 có thể mô tả thêm nhiều chi tiết về implementation
+→ Nên review lại sau khi luận văn hoàn thiện
+
+==========================================================================
+CẬP NHẬT: 2025-10-30 16:24
+==========================================================================
+# TODO:Cửa sổ TG 8:00–20:00, chia 3 ca: Sáng (8–12h), Chiều (12–17h), Tối
+(17–20h)
+Thời gian phục vụ 10 phút (trung bình thực tế tại Việt Nam)

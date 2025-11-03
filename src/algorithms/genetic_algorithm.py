@@ -333,13 +333,23 @@ class GeneticAlgorithm:
         Returns:
             True if converged, False otherwise
         """
-        if len(self.stats['best_fitness_history']) < 50:
+        # Delay convergence check to allow more exploration (increased from 50 to 200)
+        if len(self.stats['best_fitness_history']) < 200:
             return False
         
-        # Check stagnation
-        recent_fitness = self.stats['best_fitness_history'][-50:]
+        # Check stagnation using recent history (increased from 50 to 200)
+        recent_fitness = self.stats['best_fitness_history'][-200:]
         fitness_std = np.std(recent_fitness)
+        fitness_mean = np.mean(recent_fitness) if recent_fitness else 0.0
         
+        # Use relative threshold for more robust convergence detection
+        if fitness_mean > 0:
+            relative_std = fitness_std / fitness_mean
+            # If relative standard deviation is less than 1%, consider converged
+            if relative_std < 0.01:
+                return True
+        
+        # Keep absolute threshold as backup
         if fitness_std < self.config['convergence_threshold']:
             return True
         

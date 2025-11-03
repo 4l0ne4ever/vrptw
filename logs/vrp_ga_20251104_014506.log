@@ -1,0 +1,350 @@
+2025-11-04 01:45:06 - vrp_ga - INFO - Logger initialized. Log file: logs/vrp_ga_20251104_014506.log
+2025-11-04 01:45:06 - vrp_ga - INFO - ============================================================
+2025-11-04 01:45:06 - vrp_ga - INFO - VRP-GA System Starting
+2025-11-04 01:45:06 - vrp_ga - INFO - ============================================================
+2025-11-04 01:45:06 - vrp_ga.batch - INFO - Logger initialized. Log file: logs/vrp_ga_20251104_014506.log
+2025-11-04 01:45:06 - vrp_ga.batch - INFO - Logger initialized. Log file: logs/vrp_ga_20251104_014506.log
+2025-11-04 01:45:06 - vrp_ga.batch - INFO - ============================================================
+2025-11-04 01:45:06 - vrp_ga.batch - INFO - ============================================================
+2025-11-04 01:45:06 - vrp_ga.batch - INFO - VRP-GA System - Solomon Batch Mode
+2025-11-04 01:45:06 - vrp_ga.batch - INFO - VRP-GA System - Solomon Batch Mode
+2025-11-04 01:45:06 - vrp_ga.batch - INFO - ============================================================
+2025-11-04 01:45:06 - vrp_ga.batch - INFO - ============================================================
+2025-11-04 01:45:06 - vrp_ga.batch - INFO - BKS validator initialized with 56 instances
+2025-11-04 01:45:06 - vrp_ga.batch - INFO - BKS validator initialized with 56 instances
+2025-11-04 01:45:07 - vrp_ga.batch - INFO - Found 55 Solomon datasets
+2025-11-04 01:45:07 - vrp_ga.batch - INFO - Found 55 Solomon datasets
+2025-11-04 01:45:07 - vrp_ga.batch - INFO - Processing dataset 1/55: R109
+2025-11-04 01:45:07 - vrp_ga.batch - INFO - Processing dataset 1/55: R109
+2025-11-04 01:45:07 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:45:07 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:45:11 - vrp_ga.batch - INFO - BKS Validation - Gap: 4.01%, Quality: ACCEPTABLE
+2025-11-04 01:45:11 - vrp_ga.batch - INFO - BKS Validation - Gap: 4.01%, Quality: ACCEPTABLE
+2025-11-04 01:45:11 - vrp_ga.batch - INFO - Processing dataset 2/55: RC105
+2025-11-04 01:45:11 - vrp_ga.batch - INFO - Processing dataset 2/55: RC105
+2025-11-04 01:45:11 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:45:11 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:45:16 - vrp_ga.batch - INFO - BKS Validation - Gap: -11.22%, Quality: EXCELLENT
+2025-11-04 01:45:16 - vrp_ga.batch - INFO - BKS Validation - Gap: -11.22%, Quality: EXCELLENT
+2025-11-04 01:45:16 - vrp_ga.batch - INFO - Processing dataset 3/55: C202
+2025-11-04 01:45:16 - vrp_ga.batch - INFO - Processing dataset 3/55: C202
+2025-11-04 01:45:16 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:45:16 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:45:20 - vrp_ga.batch - INFO - BKS Validation - Gap: 113.30%, Quality: VERY_POOR
+2025-11-04 01:45:20 - vrp_ga.batch - INFO - BKS Validation - Gap: 113.30%, Quality: VERY_POOR
+2025-11-04 01:45:20 - vrp_ga.batch - INFO - Processing dataset 4/55: C107
+2025-11-04 01:45:20 - vrp_ga.batch - INFO - Processing dataset 4/55: C107
+2025-11-04 01:45:20 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:45:20 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:45:25 - vrp_ga.batch - INFO - BKS Validation - Gap: 36.87%, Quality: VERY_POOR
+2025-11-04 01:45:25 - vrp_ga.batch - INFO - BKS Validation - Gap: 36.87%, Quality: VERY_POOR
+2025-11-04 01:45:25 - vrp_ga.batch - INFO - Processing dataset 5/55: R105
+2025-11-04 01:45:25 - vrp_ga.batch - INFO - Processing dataset 5/55: R105
+2025-11-04 01:45:25 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:45:25 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:45:29 - vrp_ga.batch - INFO - BKS Validation - Gap: -5.80%, Quality: EXCELLENT
+2025-11-04 01:45:29 - vrp_ga.batch - INFO - BKS Validation - Gap: -5.80%, Quality: EXCELLENT
+2025-11-04 01:45:29 - vrp_ga.batch - INFO - Processing dataset 6/55: R112
+2025-11-04 01:45:29 - vrp_ga.batch - INFO - Processing dataset 6/55: R112
+2025-11-04 01:45:29 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:45:29 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:45:34 - vrp_ga.batch - INFO - BKS Validation - Gap: 18.73%, Quality: VERY_POOR
+2025-11-04 01:45:34 - vrp_ga.batch - INFO - BKS Validation - Gap: 18.73%, Quality: VERY_POOR
+2025-11-04 01:45:34 - vrp_ga.batch - INFO - Processing dataset 7/55: RC201
+2025-11-04 01:45:34 - vrp_ga.batch - INFO - Processing dataset 7/55: RC201
+2025-11-04 01:45:34 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:45:34 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:45:38 - vrp_ga.batch - INFO - BKS Validation - Gap: -5.80%, Quality: EXCELLENT
+2025-11-04 01:45:38 - vrp_ga.batch - INFO - BKS Validation - Gap: -5.80%, Quality: EXCELLENT
+2025-11-04 01:45:38 - vrp_ga.batch - INFO - Processing dataset 8/55: R104
+2025-11-04 01:45:38 - vrp_ga.batch - INFO - Processing dataset 8/55: R104
+2025-11-04 01:45:38 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:45:38 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:45:43 - vrp_ga.batch - INFO - BKS Validation - Gap: 21.47%, Quality: VERY_POOR
+2025-11-04 01:45:43 - vrp_ga.batch - INFO - BKS Validation - Gap: 21.47%, Quality: VERY_POOR
+2025-11-04 01:45:43 - vrp_ga.batch - INFO - Processing dataset 9/55: C106
+2025-11-04 01:45:43 - vrp_ga.batch - INFO - Processing dataset 9/55: C106
+2025-11-04 01:45:43 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:45:43 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:45:48 - vrp_ga.batch - INFO - BKS Validation - Gap: 34.82%, Quality: VERY_POOR
+2025-11-04 01:45:48 - vrp_ga.batch - INFO - BKS Validation - Gap: 34.82%, Quality: VERY_POOR
+2025-11-04 01:45:48 - vrp_ga.batch - INFO - Processing dataset 10/55: C203
+2025-11-04 01:45:48 - vrp_ga.batch - INFO - Processing dataset 10/55: C203
+2025-11-04 01:45:48 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:45:48 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:45:52 - vrp_ga.batch - INFO - BKS Validation - Gap: 102.11%, Quality: VERY_POOR
+2025-11-04 01:45:52 - vrp_ga.batch - INFO - BKS Validation - Gap: 102.11%, Quality: VERY_POOR
+2025-11-04 01:45:52 - vrp_ga.batch - INFO - Processing dataset 11/55: R201
+2025-11-04 01:45:52 - vrp_ga.batch - INFO - Processing dataset 11/55: R201
+2025-11-04 01:45:52 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:45:52 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:45:57 - vrp_ga.batch - INFO - BKS Validation - Gap: -1.76%, Quality: EXCELLENT
+2025-11-04 01:45:57 - vrp_ga.batch - INFO - BKS Validation - Gap: -1.76%, Quality: EXCELLENT
+2025-11-04 01:45:57 - vrp_ga.batch - INFO - Processing dataset 12/55: RC104
+2025-11-04 01:45:57 - vrp_ga.batch - INFO - Processing dataset 12/55: RC104
+2025-11-04 01:45:57 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:45:57 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:46:02 - vrp_ga.batch - INFO - BKS Validation - Gap: 33.18%, Quality: VERY_POOR
+2025-11-04 01:46:02 - vrp_ga.batch - INFO - BKS Validation - Gap: 33.18%, Quality: VERY_POOR
+2025-11-04 01:46:02 - vrp_ga.batch - INFO - Processing dataset 13/55: R108
+2025-11-04 01:46:02 - vrp_ga.batch - INFO - Processing dataset 13/55: R108
+2025-11-04 01:46:02 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:46:02 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:46:07 - vrp_ga.batch - INFO - BKS Validation - Gap: 24.62%, Quality: VERY_POOR
+2025-11-04 01:46:07 - vrp_ga.batch - INFO - BKS Validation - Gap: 24.62%, Quality: VERY_POOR
+2025-11-04 01:46:07 - vrp_ga.batch - INFO - Processing dataset 14/55: RC108
+2025-11-04 01:46:07 - vrp_ga.batch - INFO - Processing dataset 14/55: RC108
+2025-11-04 01:46:07 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:46:07 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:46:11 - vrp_ga.batch - INFO - BKS Validation - Gap: 15.44%, Quality: VERY_POOR
+2025-11-04 01:46:11 - vrp_ga.batch - INFO - BKS Validation - Gap: 15.44%, Quality: VERY_POOR
+2025-11-04 01:46:11 - vrp_ga.batch - INFO - Processing dataset 15/55: RC103
+2025-11-04 01:46:11 - vrp_ga.batch - INFO - Processing dataset 15/55: RC103
+2025-11-04 01:46:11 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:46:11 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:46:16 - vrp_ga.batch - INFO - BKS Validation - Gap: 6.05%, Quality: POOR
+2025-11-04 01:46:16 - vrp_ga.batch - INFO - BKS Validation - Gap: 6.05%, Quality: POOR
+2025-11-04 01:46:16 - vrp_ga.batch - INFO - Processing dataset 16/55: R210
+2025-11-04 01:46:16 - vrp_ga.batch - INFO - Processing dataset 16/55: R210
+2025-11-04 01:46:16 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:46:16 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:46:20 - vrp_ga.batch - INFO - BKS Validation - Gap: 28.33%, Quality: VERY_POOR
+2025-11-04 01:46:20 - vrp_ga.batch - INFO - BKS Validation - Gap: 28.33%, Quality: VERY_POOR
+2025-11-04 01:46:20 - vrp_ga.batch - INFO - Processing dataset 17/55: R206
+2025-11-04 01:46:20 - vrp_ga.batch - INFO - Processing dataset 17/55: R206
+2025-11-04 01:46:20 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:46:20 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:46:25 - vrp_ga.batch - INFO - BKS Validation - Gap: 36.80%, Quality: VERY_POOR
+2025-11-04 01:46:25 - vrp_ga.batch - INFO - BKS Validation - Gap: 36.80%, Quality: VERY_POOR
+2025-11-04 01:46:25 - vrp_ga.batch - INFO - Processing dataset 18/55: C204
+2025-11-04 01:46:25 - vrp_ga.batch - INFO - Processing dataset 18/55: C204
+2025-11-04 01:46:25 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:46:25 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:46:30 - vrp_ga.batch - INFO - BKS Validation - Gap: 115.51%, Quality: VERY_POOR
+2025-11-04 01:46:30 - vrp_ga.batch - INFO - BKS Validation - Gap: 115.51%, Quality: VERY_POOR
+2025-11-04 01:46:30 - vrp_ga.batch - INFO - Processing dataset 19/55: C101
+2025-11-04 01:46:30 - vrp_ga.batch - INFO - Processing dataset 19/55: C101
+2025-11-04 01:46:30 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:46:30 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:46:34 - vrp_ga.batch - INFO - BKS Validation - Gap: 37.01%, Quality: VERY_POOR
+2025-11-04 01:46:34 - vrp_ga.batch - INFO - BKS Validation - Gap: 37.01%, Quality: VERY_POOR
+2025-11-04 01:46:34 - vrp_ga.batch - INFO - Processing dataset 20/55: R103
+2025-11-04 01:46:34 - vrp_ga.batch - INFO - Processing dataset 20/55: R103
+2025-11-04 01:46:34 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:46:34 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:46:39 - vrp_ga.batch - INFO - BKS Validation - Gap: -3.33%, Quality: EXCELLENT
+2025-11-04 01:46:39 - vrp_ga.batch - INFO - BKS Validation - Gap: -3.33%, Quality: EXCELLENT
+2025-11-04 01:46:39 - vrp_ga.batch - INFO - Processing dataset 21/55: RC206
+2025-11-04 01:46:39 - vrp_ga.batch - INFO - Processing dataset 21/55: RC206
+2025-11-04 01:46:39 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:46:39 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:46:43 - vrp_ga.batch - INFO - BKS Validation - Gap: 12.04%, Quality: VERY_POOR
+2025-11-04 01:46:43 - vrp_ga.batch - INFO - BKS Validation - Gap: 12.04%, Quality: VERY_POOR
+2025-11-04 01:46:43 - vrp_ga.batch - INFO - Processing dataset 22/55: C208
+2025-11-04 01:46:43 - vrp_ga.batch - INFO - Processing dataset 22/55: C208
+2025-11-04 01:46:43 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:46:43 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:46:48 - vrp_ga.batch - INFO - BKS Validation - Gap: 121.12%, Quality: VERY_POOR
+2025-11-04 01:46:48 - vrp_ga.batch - INFO - BKS Validation - Gap: 121.12%, Quality: VERY_POOR
+2025-11-04 01:46:48 - vrp_ga.batch - INFO - Processing dataset 23/55: RC207
+2025-11-04 01:46:48 - vrp_ga.batch - INFO - Processing dataset 23/55: RC207
+2025-11-04 01:46:48 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:46:48 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:46:52 - vrp_ga.batch - INFO - BKS Validation - Gap: 22.03%, Quality: VERY_POOR
+2025-11-04 01:46:52 - vrp_ga.batch - INFO - BKS Validation - Gap: 22.03%, Quality: VERY_POOR
+2025-11-04 01:46:52 - vrp_ga.batch - INFO - Processing dataset 24/55: R102
+2025-11-04 01:46:52 - vrp_ga.batch - INFO - Processing dataset 24/55: R102
+2025-11-04 01:46:52 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:46:52 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:46:57 - vrp_ga.batch - INFO - BKS Validation - Gap: -17.89%, Quality: EXCELLENT
+2025-11-04 01:46:57 - vrp_ga.batch - INFO - BKS Validation - Gap: -17.89%, Quality: EXCELLENT
+2025-11-04 01:46:57 - vrp_ga.batch - INFO - Processing dataset 25/55: C205
+2025-11-04 01:46:57 - vrp_ga.batch - INFO - Processing dataset 25/55: C205
+2025-11-04 01:46:57 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:46:57 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:47:02 - vrp_ga.batch - INFO - BKS Validation - Gap: 120.14%, Quality: VERY_POOR
+2025-11-04 01:47:02 - vrp_ga.batch - INFO - BKS Validation - Gap: 120.14%, Quality: VERY_POOR
+2025-11-04 01:47:02 - vrp_ga.batch - INFO - Processing dataset 26/55: R207
+2025-11-04 01:47:02 - vrp_ga.batch - INFO - Processing dataset 26/55: R207
+2025-11-04 01:47:02 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:02 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:06 - vrp_ga.batch - INFO - BKS Validation - Gap: 28.49%, Quality: VERY_POOR
+2025-11-04 01:47:06 - vrp_ga.batch - INFO - BKS Validation - Gap: 28.49%, Quality: VERY_POOR
+2025-11-04 01:47:06 - vrp_ga.batch - INFO - Processing dataset 27/55: R211
+2025-11-04 01:47:06 - vrp_ga.batch - INFO - Processing dataset 27/55: R211
+2025-11-04 01:47:06 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:06 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:11 - vrp_ga.batch - INFO - BKS Validation - Gap: 38.93%, Quality: VERY_POOR
+2025-11-04 01:47:11 - vrp_ga.batch - INFO - BKS Validation - Gap: 38.93%, Quality: VERY_POOR
+2025-11-04 01:47:11 - vrp_ga.batch - INFO - Processing dataset 28/55: RC102
+2025-11-04 01:47:11 - vrp_ga.batch - INFO - Processing dataset 28/55: RC102
+2025-11-04 01:47:11 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:47:11 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:47:15 - vrp_ga.batch - INFO - BKS Validation - Gap: -3.22%, Quality: EXCELLENT
+2025-11-04 01:47:15 - vrp_ga.batch - INFO - BKS Validation - Gap: -3.22%, Quality: EXCELLENT
+2025-11-04 01:47:15 - vrp_ga.batch - INFO - Processing dataset 29/55: RC204
+2025-11-04 01:47:15 - vrp_ga.batch - INFO - Processing dataset 29/55: RC204
+2025-11-04 01:47:15 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:47:15 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:47:20 - vrp_ga.batch - INFO - BKS Validation - Gap: 67.32%, Quality: VERY_POOR
+2025-11-04 01:47:20 - vrp_ga.batch - INFO - BKS Validation - Gap: 67.32%, Quality: VERY_POOR
+2025-11-04 01:47:20 - vrp_ga.batch - INFO - Processing dataset 30/55: R101
+2025-11-04 01:47:20 - vrp_ga.batch - INFO - Processing dataset 30/55: R101
+2025-11-04 01:47:20 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:20 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:25 - vrp_ga.batch - INFO - BKS Validation - Gap: -23.14%, Quality: EXCELLENT
+2025-11-04 01:47:25 - vrp_ga.batch - INFO - BKS Validation - Gap: -23.14%, Quality: EXCELLENT
+2025-11-04 01:47:25 - vrp_ga.batch - INFO - Processing dataset 31/55: C103
+2025-11-04 01:47:25 - vrp_ga.batch - INFO - Processing dataset 31/55: C103
+2025-11-04 01:47:25 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:47:25 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:47:29 - vrp_ga.batch - INFO - BKS Validation - Gap: 36.36%, Quality: VERY_POOR
+2025-11-04 01:47:29 - vrp_ga.batch - INFO - BKS Validation - Gap: 36.36%, Quality: VERY_POOR
+2025-11-04 01:47:29 - vrp_ga.batch - INFO - Processing dataset 32/55: C206
+2025-11-04 01:47:29 - vrp_ga.batch - INFO - Processing dataset 32/55: C206
+2025-11-04 01:47:29 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:47:29 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:47:34 - vrp_ga.batch - INFO - BKS Validation - Gap: 121.08%, Quality: VERY_POOR
+2025-11-04 01:47:34 - vrp_ga.batch - INFO - BKS Validation - Gap: 121.08%, Quality: VERY_POOR
+2025-11-04 01:47:34 - vrp_ga.batch - INFO - Processing dataset 33/55: R204
+2025-11-04 01:47:34 - vrp_ga.batch - INFO - Processing dataset 33/55: R204
+2025-11-04 01:47:34 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:34 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:39 - vrp_ga.batch - INFO - BKS Validation - Gap: 44.07%, Quality: VERY_POOR
+2025-11-04 01:47:39 - vrp_ga.batch - INFO - BKS Validation - Gap: 44.07%, Quality: VERY_POOR
+2025-11-04 01:47:39 - vrp_ga.batch - INFO - Processing dataset 34/55: RC101
+2025-11-04 01:47:39 - vrp_ga.batch - INFO - Processing dataset 34/55: RC101
+2025-11-04 01:47:39 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:47:39 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:47:43 - vrp_ga.batch - INFO - BKS Validation - Gap: -19.97%, Quality: EXCELLENT
+2025-11-04 01:47:43 - vrp_ga.batch - INFO - BKS Validation - Gap: -19.97%, Quality: EXCELLENT
+2025-11-04 01:47:43 - vrp_ga.batch - INFO - Processing dataset 35/55: RC208
+2025-11-04 01:47:43 - vrp_ga.batch - INFO - Processing dataset 35/55: RC208
+2025-11-04 01:47:43 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:47:43 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:47:48 - vrp_ga.batch - INFO - BKS Validation - Gap: 59.07%, Quality: VERY_POOR
+2025-11-04 01:47:48 - vrp_ga.batch - INFO - BKS Validation - Gap: 59.07%, Quality: VERY_POOR
+2025-11-04 01:47:48 - vrp_ga.batch - INFO - Processing dataset 36/55: R208
+2025-11-04 01:47:48 - vrp_ga.batch - INFO - Processing dataset 36/55: R208
+2025-11-04 01:47:48 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:48 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:53 - vrp_ga.batch - INFO - BKS Validation - Gap: 67.86%, Quality: VERY_POOR
+2025-11-04 01:47:53 - vrp_ga.batch - INFO - BKS Validation - Gap: 67.86%, Quality: VERY_POOR
+2025-11-04 01:47:53 - vrp_ga.batch - INFO - Processing dataset 37/55: R209
+2025-11-04 01:47:53 - vrp_ga.batch - INFO - Processing dataset 37/55: R209
+2025-11-04 01:47:53 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:53 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:57 - vrp_ga.batch - INFO - BKS Validation - Gap: 32.71%, Quality: VERY_POOR
+2025-11-04 01:47:57 - vrp_ga.batch - INFO - BKS Validation - Gap: 32.71%, Quality: VERY_POOR
+2025-11-04 01:47:57 - vrp_ga.batch - INFO - Processing dataset 38/55: R205
+2025-11-04 01:47:57 - vrp_ga.batch - INFO - Processing dataset 38/55: R205
+2025-11-04 01:47:57 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:47:57 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:48:02 - vrp_ga.batch - INFO - BKS Validation - Gap: 19.40%, Quality: VERY_POOR
+2025-11-04 01:48:02 - vrp_ga.batch - INFO - BKS Validation - Gap: 19.40%, Quality: VERY_POOR
+2025-11-04 01:48:02 - vrp_ga.batch - INFO - Processing dataset 39/55: C207
+2025-11-04 01:48:02 - vrp_ga.batch - INFO - Processing dataset 39/55: C207
+2025-11-04 01:48:02 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:48:02 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:48:07 - vrp_ga.batch - INFO - BKS Validation - Gap: 121.06%, Quality: VERY_POOR
+2025-11-04 01:48:07 - vrp_ga.batch - INFO - BKS Validation - Gap: 121.06%, Quality: VERY_POOR
+2025-11-04 01:48:07 - vrp_ga.batch - INFO - Processing dataset 40/55: C102
+2025-11-04 01:48:07 - vrp_ga.batch - INFO - Processing dataset 40/55: C102
+2025-11-04 01:48:07 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:48:07 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:48:11 - vrp_ga.batch - INFO - BKS Validation - Gap: 46.06%, Quality: VERY_POOR
+2025-11-04 01:48:11 - vrp_ga.batch - INFO - BKS Validation - Gap: 46.06%, Quality: VERY_POOR
+2025-11-04 01:48:11 - vrp_ga.batch - INFO - Processing dataset 41/55: RC205
+2025-11-04 01:48:11 - vrp_ga.batch - INFO - Processing dataset 41/55: RC205
+2025-11-04 01:48:11 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:48:11 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:48:16 - vrp_ga.batch - INFO - BKS Validation - Gap: 5.09%, Quality: POOR
+2025-11-04 01:48:16 - vrp_ga.batch - INFO - BKS Validation - Gap: 5.09%, Quality: POOR
+2025-11-04 01:48:16 - vrp_ga.batch - INFO - Processing dataset 42/55: C109
+2025-11-04 01:48:16 - vrp_ga.batch - INFO - Processing dataset 42/55: C109
+2025-11-04 01:48:16 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:48:16 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:48:21 - vrp_ga.batch - INFO - BKS Validation - Gap: 35.41%, Quality: VERY_POOR
+2025-11-04 01:48:21 - vrp_ga.batch - INFO - BKS Validation - Gap: 35.41%, Quality: VERY_POOR
+2025-11-04 01:48:21 - vrp_ga.batch - INFO - Processing dataset 43/55: R111
+2025-11-04 01:48:21 - vrp_ga.batch - INFO - Processing dataset 43/55: R111
+2025-11-04 01:48:21 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:48:21 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:48:25 - vrp_ga.batch - INFO - BKS Validation - Gap: 15.60%, Quality: VERY_POOR
+2025-11-04 01:48:25 - vrp_ga.batch - INFO - BKS Validation - Gap: 15.60%, Quality: VERY_POOR
+2025-11-04 01:48:25 - vrp_ga.batch - INFO - Processing dataset 44/55: RC202
+2025-11-04 01:48:25 - vrp_ga.batch - INFO - Processing dataset 44/55: RC202
+2025-11-04 01:48:25 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:48:25 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:48:30 - vrp_ga.batch - INFO - BKS Validation - Gap: -1.32%, Quality: EXCELLENT
+2025-11-04 01:48:30 - vrp_ga.batch - INFO - BKS Validation - Gap: -1.32%, Quality: EXCELLENT
+2025-11-04 01:48:30 - vrp_ga.batch - INFO - Processing dataset 45/55: R107
+2025-11-04 01:48:30 - vrp_ga.batch - INFO - Processing dataset 45/55: R107
+2025-11-04 01:48:30 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:48:30 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:48:35 - vrp_ga.batch - INFO - BKS Validation - Gap: 21.56%, Quality: VERY_POOR
+2025-11-04 01:48:35 - vrp_ga.batch - INFO - BKS Validation - Gap: 21.56%, Quality: VERY_POOR
+2025-11-04 01:48:35 - vrp_ga.batch - INFO - Processing dataset 46/55: C105
+2025-11-04 01:48:35 - vrp_ga.batch - INFO - Processing dataset 46/55: C105
+2025-11-04 01:48:35 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:48:35 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:48:39 - vrp_ga.batch - INFO - BKS Validation - Gap: 29.75%, Quality: VERY_POOR
+2025-11-04 01:48:39 - vrp_ga.batch - INFO - BKS Validation - Gap: 29.75%, Quality: VERY_POOR
+2025-11-04 01:48:39 - vrp_ga.batch - INFO - Processing dataset 47/55: R202
+2025-11-04 01:48:39 - vrp_ga.batch - INFO - Processing dataset 47/55: R202
+2025-11-04 01:48:39 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:48:39 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:48:44 - vrp_ga.batch - INFO - BKS Validation - Gap: 4.39%, Quality: ACCEPTABLE
+2025-11-04 01:48:44 - vrp_ga.batch - INFO - BKS Validation - Gap: 4.39%, Quality: ACCEPTABLE
+2025-11-04 01:48:44 - vrp_ga.batch - INFO - Processing dataset 48/55: RC107
+2025-11-04 01:48:44 - vrp_ga.batch - INFO - Processing dataset 48/55: RC107
+2025-11-04 01:48:44 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:48:44 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:48:49 - vrp_ga.batch - INFO - BKS Validation - Gap: 5.22%, Quality: POOR
+2025-11-04 01:48:49 - vrp_ga.batch - INFO - BKS Validation - Gap: 5.22%, Quality: POOR
+2025-11-04 01:48:49 - vrp_ga.batch - INFO - Processing dataset 49/55: RC106
+2025-11-04 01:48:49 - vrp_ga.batch - INFO - Processing dataset 49/55: RC106
+2025-11-04 01:48:49 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:48:49 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:48:53 - vrp_ga.batch - INFO - BKS Validation - Gap: 6.48%, Quality: POOR
+2025-11-04 01:48:53 - vrp_ga.batch - INFO - BKS Validation - Gap: 6.48%, Quality: POOR
+2025-11-04 01:48:53 - vrp_ga.batch - INFO - Processing dataset 50/55: R203
+2025-11-04 01:48:53 - vrp_ga.batch - INFO - Processing dataset 50/55: R203
+2025-11-04 01:48:53 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:48:53 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:48:58 - vrp_ga.batch - INFO - BKS Validation - Gap: 23.40%, Quality: VERY_POOR
+2025-11-04 01:48:58 - vrp_ga.batch - INFO - BKS Validation - Gap: 23.40%, Quality: VERY_POOR
+2025-11-04 01:48:58 - vrp_ga.batch - INFO - Processing dataset 51/55: C201
+2025-11-04 01:48:58 - vrp_ga.batch - INFO - Processing dataset 51/55: C201
+2025-11-04 01:48:58 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:48:58 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:49:03 - vrp_ga.batch - INFO - BKS Validation - Gap: 104.09%, Quality: VERY_POOR
+2025-11-04 01:49:03 - vrp_ga.batch - INFO - BKS Validation - Gap: 104.09%, Quality: VERY_POOR
+2025-11-04 01:49:03 - vrp_ga.batch - INFO - Processing dataset 52/55: R106
+2025-11-04 01:49:03 - vrp_ga.batch - INFO - Processing dataset 52/55: R106
+2025-11-04 01:49:03 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:49:03 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:49:08 - vrp_ga.batch - INFO - BKS Validation - Gap: -6.01%, Quality: EXCELLENT
+2025-11-04 01:49:08 - vrp_ga.batch - INFO - BKS Validation - Gap: -6.01%, Quality: EXCELLENT
+2025-11-04 01:49:08 - vrp_ga.batch - INFO - Processing dataset 53/55: RC203
+2025-11-04 01:49:08 - vrp_ga.batch - INFO - Processing dataset 53/55: RC203
+2025-11-04 01:49:08 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:49:08 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 11 vehicles
+2025-11-04 01:49:12 - vrp_ga.batch - INFO - BKS Validation - Gap: 26.53%, Quality: VERY_POOR
+2025-11-04 01:49:12 - vrp_ga.batch - INFO - BKS Validation - Gap: 26.53%, Quality: VERY_POOR
+2025-11-04 01:49:12 - vrp_ga.batch - INFO - Processing dataset 54/55: R110
+2025-11-04 01:49:12 - vrp_ga.batch - INFO - Processing dataset 54/55: R110
+2025-11-04 01:49:12 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:49:12 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 10 vehicles
+2025-11-04 01:49:17 - vrp_ga.batch - INFO - BKS Validation - Gap: 22.06%, Quality: VERY_POOR
+2025-11-04 01:49:17 - vrp_ga.batch - INFO - BKS Validation - Gap: 22.06%, Quality: VERY_POOR
+2025-11-04 01:49:17 - vrp_ga.batch - INFO - Processing dataset 55/55: C108
+2025-11-04 01:49:17 - vrp_ga.batch - INFO - Processing dataset 55/55: C108
+2025-11-04 01:49:17 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:49:17 - vrp_ga.batch - INFO - Problem: 100 customers, capacity 200, 12 vehicles
+2025-11-04 01:49:21 - vrp_ga.batch - INFO - BKS Validation - Gap: 29.41%, Quality: VERY_POOR
+2025-11-04 01:49:21 - vrp_ga.batch - INFO - BKS Validation - Gap: 29.41%, Quality: VERY_POOR
+2025-11-04 01:49:21 - vrp_ga.batch - INFO - Batch summary exported to: results/solomon_summary_20251104_014921.csv
+2025-11-04 01:49:21 - vrp_ga.batch - INFO - Batch summary exported to: results/solomon_summary_20251104_014921.csv
+2025-11-04 01:49:21 - vrp_ga.batch - INFO - Batch processing completed: 55 datasets processed
+2025-11-04 01:49:21 - vrp_ga.batch - INFO - Batch processing completed: 55 datasets processed
