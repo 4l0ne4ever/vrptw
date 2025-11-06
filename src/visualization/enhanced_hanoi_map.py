@@ -5,11 +5,12 @@ Creates interactive maps using Folium with real road routes instead of straight 
 
 import folium
 import numpy as np
+import os
+import json
 from typing import List, Dict, Optional, Tuple
 from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
 from src.data_processing.enhanced_hanoi_coordinates import EnhancedHanoiCoordinateGenerator
-import json
 
 
 class EnhancedHanoiMapVisualizer:
@@ -126,6 +127,10 @@ class EnhancedHanoiMapVisualizer:
         
         # Save map if path provided
         if save_path:
+            # Ensure directory exists
+            save_dir = os.path.dirname(save_path)
+            if save_dir:  # Only create directory if path has a directory component
+                os.makedirs(save_dir, exist_ok=True)
             m.save(save_path)
             print(f"Enhanced map saved to: {save_path}")
         
@@ -308,6 +313,10 @@ class EnhancedHanoiMapVisualizer:
         m.get_root().html.add_child(folium.Element(title_html))
         
         if save_path:
+            # Ensure directory exists
+            save_dir = os.path.dirname(save_path)
+            if save_dir:  # Only create directory if path has a directory component
+                os.makedirs(save_dir, exist_ok=True)
             m.save(save_path)
             print(f"Enhanced comparison map saved to: {save_path}")
         

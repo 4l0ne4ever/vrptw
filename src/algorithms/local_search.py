@@ -8,6 +8,7 @@ from typing import List, Tuple, Optional
 from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
 from src.algorithms.decoder import RouteDecoder
+from config import GA_CONFIG
 
 
 class TwoOptOptimizer:
@@ -21,7 +22,8 @@ class TwoOptOptimizer:
             problem: VRP problem instance
         """
         self.problem = problem
-        self.decoder = RouteDecoder(problem)
+        # Use RouteDecoder with Split Algorithm if enabled in config
+        self.decoder = RouteDecoder(problem, use_split_algorithm=GA_CONFIG.get('use_split_algorithm', False))
     
     def optimize_individual(self, individual: Individual, 
                            max_iterations: int = 100) -> Individual:
@@ -50,6 +52,15 @@ class TwoOptOptimizer:
         
         # Re-encode chromosome
         optimized_individual.chromosome = self.decoder.encode_routes(optimized_routes)
+        
+        # Recalculate total distance after optimization
+        total_distance = 0.0
+        for route in optimized_routes:
+            if not route:
+                continue
+            for i in range(len(route) - 1):
+                total_distance += self.problem.get_distance(route[i], route[i + 1])
+        optimized_individual.total_distance = total_distance
         
         return optimized_individual
     

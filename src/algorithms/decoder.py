@@ -63,9 +63,17 @@ class RouteDecoder:
                 # Split Algorithm expects giant tour (list of customer IDs)
                 giant_tour = [cid for cid in chromosome if cid != 0]
                 routes, _ = self.splitter.split(giant_tour)
-                return routes
-            except Exception:
-                # Fall back to greedy decoder if Split Algorithm fails
+                # Validate that routes were created
+                if routes and len(routes) > 0:
+                    return routes
+                else:
+                    # Empty routes, fall back to greedy
+                    pass
+            except Exception as e:
+                # Log exception for debugging but fall back to greedy decoder
+                # This can happen if distance matrix is not available or other issues
+                import warnings
+                warnings.warn(f"Split Algorithm failed, using greedy decoder: {str(e)}")
                 pass
         
         # Greedy decoder (original implementation)

@@ -1,0 +1,68 @@
+2025-11-06 08:26:51 - vrp_ga - INFO - Logger initialized. Log file: logs/vrp_ga_20251106_082651.log
+2025-11-06 08:26:51 - vrp_ga - INFO - ============================================================
+2025-11-06 08:26:51 - vrp_ga - INFO - VRP-GA System Starting
+2025-11-06 08:26:51 - vrp_ga - INFO - ============================================================
+2025-11-06 08:26:51 - vrp_ga.dataset - INFO - Logger initialized. Log file: logs/vrp_ga_20251106_082651.log
+2025-11-06 08:26:51 - vrp_ga.dataset - INFO - Logger initialized. Log file: logs/vrp_ga_20251106_082651.log
+2025-11-06 08:26:51 - vrp_ga.dataset - INFO - ============================================================
+2025-11-06 08:26:51 - vrp_ga.dataset - INFO - ============================================================
+2025-11-06 08:26:51 - vrp_ga.dataset - INFO - VRP-GA System - JSON Dataset Mode
+2025-11-06 08:26:51 - vrp_ga.dataset - INFO - VRP-GA System - JSON Dataset Mode
+2025-11-06 08:26:51 - vrp_ga.dataset - INFO - ============================================================
+2025-11-06 08:26:51 - vrp_ga.dataset - INFO - ============================================================
+2025-11-06 08:26:51 - vrp_ga.dataset - INFO - Loading JSON dataset: large_kmeans
+2025-11-06 08:26:51 - vrp_ga.dataset - INFO - Loading JSON dataset: large_kmeans
+2025-11-06 08:26:51 - vrp_ga.dataset - INFO - Problem loaded: 50 customers, capacity 200, 4 vehicles
+2025-11-06 08:26:51 - vrp_ga.dataset - INFO - Problem loaded: 50 customers, capacity 200, 4 vehicles
+2025-11-06 08:26:51 - vrp_ga.optimization - INFO - Logger initialized. Log file: logs/vrp_ga_20251106_082651.log
+2025-11-06 08:26:51 - vrp_ga.optimization - INFO - Logger initialized. Log file: logs/vrp_ga_20251106_082651.log
+2025-11-06 08:26:51 - vrp_ga.optimization - INFO - Starting optimization for: large_kmeans
+2025-11-06 08:26:51 - vrp_ga.optimization - INFO - Starting optimization for: large_kmeans
+2025-11-06 08:26:51 - vrp_ga.optimization - INFO - GA Configuration: generations=1000, population=100, crossover_prob=0.9, mutation_prob=0.15
+2025-11-06 08:26:51 - vrp_ga.optimization - INFO - GA Configuration: generations=1000, population=100, crossover_prob=0.9, mutation_prob=0.15
+2025-11-06 08:26:51 - vrp_ga.optimization - INFO - Initializing Genetic Algorithm...
+2025-11-06 08:26:51 - vrp_ga.optimization - INFO - Initializing Genetic Algorithm...
+2025-11-06 08:26:51 - vrp_ga.optimization - INFO - Running GA for 1000 generations...
+2025-11-06 08:26:51 - vrp_ga.optimization - INFO - Running GA for 1000 generations...
+2025-11-06 08:27:19 - vrp_ga.optimization - INFO - GA completed in 27.34 seconds
+2025-11-06 08:27:19 - vrp_ga.optimization - INFO - GA completed in 27.34 seconds
+2025-11-06 08:27:19 - vrp_ga.optimization - INFO - Calculating KPIs...
+2025-11-06 08:27:19 - vrp_ga.optimization - INFO - Calculating KPIs...
+2025-11-06 08:27:19 - vrp_ga.optimization - INFO - Exporting detailed results...
+2025-11-06 08:27:19 - vrp_ga.optimization - INFO - Exporting detailed results...
+2025-11-06 08:27:19 - vrp_ga.optimization - INFO - Results exported: evolution=results/evolution_data_20251106_082719.csv, routes=results/optimal_routes_20251106_082719.txt, kpi=results/kpi_comparison_20251106_082719.csv
+2025-11-06 08:27:19 - vrp_ga.optimization - INFO - Results exported: evolution=results/evolution_data_20251106_082719.csv, routes=results/optimal_routes_20251106_082719.txt, kpi=results/kpi_comparison_20251106_082719.csv
+2025-11-06 08:28:54 - vrp_ga - ERROR - Unexpected error: [Errno 2] No such file or directory: 'results/report_20251106_082719/nn_hanoi_map_real.html'
+Traceback (most recent call last):
+  File "/Users/duongcongthuyet/Downloads/workspace/AI /optimize/main.py", line 76, in main
+    run_dataset_mode(args, dataset_type="mockup")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/duongcongthuyet/Downloads/workspace/AI /optimize/main.py", line 271, in run_dataset_mode
+    run_optimization(problem, args, data['metadata']['name'])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/duongcongthuyet/Downloads/workspace/AI /optimize/main.py", line 865, in run_optimization
+    report_summary = report_generator.generate_comprehensive_report(
+        ga_solution, nn_solution, ga_statistics, convergence_data, args.output
+    )
+  File "/Users/duongcongthuyet/Downloads/workspace/AI /optimize/src/visualization/reporter.py", line 67, in generate_comprehensive_report
+    self._generate_visualizations(ga_solution, nn_solution, convergence_data, report_dir)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/duongcongthuyet/Downloads/workspace/AI /optimize/src/visualization/reporter.py", line 108, in _generate_visualizations
+    self._generate_hanoi_visualizations(ga_solution, nn_solution, report_dir)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/duongcongthuyet/Downloads/workspace/AI /optimize/src/visualization/reporter.py", line 157, in _generate_hanoi_visualizations
+    hanoi_visualizer.create_map(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        nn_solution,
+        ^^^^^^^^^^^^
+    ...<2 lines>...
+        use_real_routes=True
+        ^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/duongcongthuyet/Downloads/workspace/AI /optimize/src/visualization/enhanced_hanoi_map.py", line 129, in create_map
+    m.save(save_path)
+    ~~~~~~^^^^^^^^^^^
+  File "/Users/duongcongthuyet/Downloads/workspace/AI /optimize/venv/lib/python3.13/site-packages/branca/element.py", line 227, in save
+    fid = open(outfile, "wb")
+FileNotFoundError: [Errno 2] No such file or directory: 'results/report_20251106_082719/nn_hanoi_map_real.html'

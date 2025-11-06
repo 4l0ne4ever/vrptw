@@ -8,6 +8,7 @@ from typing import List, Tuple, Optional
 from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
 from src.algorithms.decoder import RouteDecoder
+from config import GA_CONFIG
 
 
 class NearestNeighborHeuristic:
@@ -21,7 +22,8 @@ class NearestNeighborHeuristic:
             problem: VRP problem instance
         """
         self.problem = problem
-        self.decoder = RouteDecoder(problem)
+        # Use RouteDecoder with Split Algorithm if enabled in config
+        self.decoder = RouteDecoder(problem, use_split_algorithm=GA_CONFIG.get('use_split_algorithm', False))
     
     def solve(self, num_vehicles: Optional[int] = None) -> Individual:
         """

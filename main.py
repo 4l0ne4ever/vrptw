@@ -586,8 +586,13 @@ def run_optimization(problem, args, mode_name):
     print(f"GA completed in {ga_execution_time:.2f} seconds")
     
     # Apply final repair to ensure solution is feasible
-    decoder = RouteDecoder(problem)
-    routes = decoder.decode_chromosome(ga_solution.chromosome)
+    # Use Split Algorithm to match GA behavior
+    decoder = RouteDecoder(problem, use_split_algorithm=GA_CONFIG.get('use_split_algorithm', False))
+    # Use routes from solution if available, otherwise decode from chromosome
+    if ga_solution.routes:
+        routes = ga_solution.routes
+    else:
+        routes = decoder.decode_chromosome(ga_solution.chromosome)
     demands = [c.demand for c in problem.customers]
     # Ensure demands array covers all possible customer IDs (1 to N)
     max_customer_id = max(max(route) for route in routes) if routes else 0
@@ -601,6 +606,14 @@ def run_optimization(problem, args, mode_name):
         routes = constraint_handler.repair_capacity_violations(routes, demands)
         ga_solution.routes = routes
         ga_solution.chromosome = decoder.encode_routes(routes)
+        # Recalculate total distance after repair
+        total_distance = 0.0
+        for route in routes:
+            if not route:
+                continue
+            for i in range(len(route) - 1):
+                total_distance += problem.get_distance(route[i], route[i + 1])
+        ga_solution.total_distance = total_distance
         print("Final repair: Completed")
     else:
         print("Final repair: No capacity violations found")
@@ -612,8 +625,13 @@ def run_optimization(problem, args, mode_name):
         ga_solution = optimizer.optimize_individual(ga_solution)
         
         # Repair any capacity violations caused by 2-opt
-        decoder = RouteDecoder(problem)
-        routes = decoder.decode_chromosome(ga_solution.chromosome)
+        # Use Split Algorithm to match GA behavior
+        decoder = RouteDecoder(problem, use_split_algorithm=GA_CONFIG.get('use_split_algorithm', False))
+        # Use routes from solution if available, otherwise decode from chromosome
+        if ga_solution.routes:
+            routes = ga_solution.routes
+        else:
+            routes = decoder.decode_chromosome(ga_solution.chromosome)
         demands = [c.demand for c in problem.customers]
         # Ensure demands array covers all possible customer IDs (1 to N)
         max_customer_id = max(max(route) for route in routes) if routes else 0
@@ -627,6 +645,14 @@ def run_optimization(problem, args, mode_name):
             routes = constraint_handler.repair_capacity_violations(routes, demands)
             ga_solution.routes = routes
             ga_solution.chromosome = decoder.encode_routes(routes)
+            # Recalculate total distance after repair
+            total_distance = 0.0
+            for route in routes:
+                if not route:
+                    continue
+                for i in range(len(route) - 1):
+                    total_distance += problem.get_distance(route[i], route[i + 1])
+            ga_solution.total_distance = total_distance
             print("Post-2opt repair: Completed")
         else:
             print("Post-2opt repair: No capacity violations found")

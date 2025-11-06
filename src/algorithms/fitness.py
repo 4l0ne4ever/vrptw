@@ -8,6 +8,8 @@ from typing import List, Dict, Tuple, Optional
 from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
 from src.data_processing.constraints import ConstraintHandler
+from src.algorithms.decoder import RouteDecoder
+from config import GA_CONFIG
 import os
 import time
 import json
@@ -30,6 +32,8 @@ class FitnessEvaluator:
             problem.vehicle_capacity, 
             problem.num_vehicles
         )
+        # Use RouteDecoder to ensure Split Algorithm is used when enabled
+        self.decoder = RouteDecoder(problem, use_split_algorithm=GA_CONFIG.get('use_split_algorithm', False))
     
     def evaluate_fitness(self, individual: Individual) -> float:
         """
@@ -44,8 +48,8 @@ class FitnessEvaluator:
         if individual.is_empty():
             return 0.0
         
-        # Decode chromosome to routes
-        routes = self._decode_chromosome(individual.chromosome)
+        # Decode chromosome to routes using RouteDecoder (which uses Split Algorithm if enabled)
+        routes = self.decoder.decode_chromosome(individual.chromosome)
 
         # Early capacity repair (two-phase) to ensure feasible routes before scoring
         demands = [c.demand for c in self.problem.customers]
@@ -119,7 +123,10 @@ class FitnessEvaluator:
     
     def _decode_chromosome(self, chromosome: List[int]) -> List[List[int]]:
         """
-        Decode chromosome to routes using capacity constraint.
+        Decode chromosome to routes using RouteDecoder.
+        
+        This method is kept for backward compatibility but now uses RouteDecoder
+        which supports Split Algorithm when enabled.
         
         Args:
             chromosome: Customer order chromosome
@@ -127,35 +134,8 @@ class FitnessEvaluator:
         Returns:
             List of routes (each route includes depot at start and end)
         """
-        if not chromosome:
-            return []
-        
-        routes = []
-        current_route = [0]  # Start at depot
-        current_load = 0.0
-        
-        for customer_id in chromosome:
-            customer_demand = self.problem.get_customer_by_id(customer_id).demand
-            
-            # Check if customer fits in current route
-            if current_load + customer_demand <= self.problem.vehicle_capacity:
-                current_route.append(customer_id)
-                current_load += customer_demand
-            else:
-                # Finish current route and start new one
-                current_route.append(0)  # Return to depot
-                routes.append(current_route)
-                
-                # Start new route
-                current_route = [0, customer_id]  # Start at depot, add customer
-                current_load = customer_demand
-        
-        # Finish last route
-        if current_route:
-            current_route.append(0)  # Return to depot
-            routes.append(current_route)
-        
-        return routes
+        # Use RouteDecoder which handles Split Algorithm if enabled
+        return self.decoder.decode_chromosome(chromosome)
     
     def _calculate_total_distance(self, routes: List[List[int]]) -> float:
         """

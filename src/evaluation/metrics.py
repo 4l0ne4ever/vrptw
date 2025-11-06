@@ -119,10 +119,15 @@ class KPICalculator:
                 cod_fee_rate_override=VRP_CONFIG.get('cod_fee_rate', None)
             )
             
-            # Decode routes
+            # Decode routes - use Split Algorithm if enabled to match GA behavior
             from src.algorithms.decoder import RouteDecoder
-            decoder = RouteDecoder(self.problem)
-            routes = decoder.decode_chromosome(individual.chromosome)
+            from config import GA_CONFIG
+            decoder = RouteDecoder(self.problem, use_split_algorithm=GA_CONFIG.get('use_split_algorithm', False))
+            # Use routes from individual if available, otherwise decode from chromosome
+            if individual.routes:
+                routes = individual.routes
+            else:
+                routes = decoder.decode_chromosome(individual.chromosome)
             
             # Generate order values and waiting times
             order_values = shipping_calculator.generate_order_values(self.problem.customers)
