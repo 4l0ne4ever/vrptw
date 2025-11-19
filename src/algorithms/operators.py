@@ -178,27 +178,42 @@ class CrossoverOperator:
     @staticmethod
     def _create_pmx_child(parent1: Individual, parent2: Individual, 
                          start: int, end: int) -> Individual:
-        """Create a child using Partially Mapped Crossover."""
+        """
+        Create a child using Partially Mapped Crossover.
+        
+        Correct PMX algorithm:
+        1. Copy segment from parent1
+        2. For each position outside segment, try to copy from parent2
+        3. If gene from parent2 is already in child (in copied segment), 
+           follow the mapping chain to find a valid replacement
+        4. Prevent infinite loops with cycle detection
+        """
         n = len(parent1.chromosome)
         child_chromosome = [-1] * n
         
-        # Copy segment from parent1
+        # Step 1: Copy segment from parent1
         for i in range(start, end + 1):
             child_chromosome[i] = parent1.chromosome[i]
         
-        # Create mapping for remaining positions
+        # Step 2: Create mapping from genes in segment
         mapping = {}
         for i in range(start, end + 1):
             gene1 = parent1.chromosome[i]
             gene2 = parent2.chromosome[i]
             mapping[gene2] = gene1
         
-        # Fill remaining positions using mapping
+        # Step 3: Fill remaining positions
         for i in range(n):
-            if child_chromosome[i] == -1:
+            if child_chromosome[i] == -1:  # Position not filled yet
                 gene = parent2.chromosome[i]
-                while gene in mapping:
+                visited = set()
+                
+                # Follow mapping chain until we find a gene not in child
+                # Use visited set to prevent infinite loops from cycles
+                while gene in child_chromosome and gene in mapping and gene not in visited:
+                    visited.add(gene)
                     gene = mapping[gene]
+                
                 child_chromosome[i] = gene
         
         # Create child individual
@@ -328,7 +343,8 @@ class AdaptiveMutationOperator:
     
     def __init__(self, base_mutation_rate: float = 0.1, 
                  diversity_threshold: float = 0.1,
-                 max_mutation_rate: float = 0.3):
+                 max_mutation_rate: float = 0.3,
+                 use_adaptive_selection: bool = True):
         """
         Initialize adaptive mutation operator.
         
@@ -336,10 +352,17 @@ class AdaptiveMutationOperator:
             base_mutation_rate: Base mutation rate
             diversity_threshold: Diversity threshold for rate adjustment
             max_mutation_rate: Maximum mutation rate
+            use_adaptive_selection: Whether to use adaptive operator selection
         """
         self.base_mutation_rate = base_mutation_rate
         self.diversity_threshold = diversity_threshold
         self.max_mutation_rate = max_mutation_rate
+        self.use_adaptive_selection = use_adaptive_selection
+        
+        # Track operator performance for adaptive selection
+        self.operator_success = {'swap': 0, 'inversion': 0, 'insertion': 0, 'scramble': 0}
+        self.operator_attempts = {'swap': 0, 'inversion': 0, 'insertion': 0, 'scramble': 0}
+        self.last_fitness_before = {}  # Track fitness before mutation
     
     def get_mutation_rate(self, population_diversity: float) -> float:
         """
@@ -358,26 +381,90 @@ class AdaptiveMutationOperator:
             # High diversity, use base mutation rate
             return self.base_mutation_rate
     
-    def mutate(self, individual: Individual, population_diversity: float) -> Individual:
+    def mutate(self, individual: Individual, population_diversity: float, 
+               fitness_before: Optional[float] = None) -> Individual:
         """
         Apply adaptive mutation to individual.
         
         Args:
             individual: Individual to mutate
             population_diversity: Current population diversity
+            fitness_before: Fitness before mutation (for tracking operator success)
             
         Returns:
             Mutated individual
         """
         mutation_rate = self.get_mutation_rate(population_diversity)
         
-        # Randomly select mutation operator
-        mutation_operators = [
-            MutationOperator.swap_mutation,
-            MutationOperator.inversion_mutation,
-            MutationOperator.insertion_mutation,
-            MutationOperator.scramble_mutation
-        ]
+        # Select mutation operator
+        if self.use_adaptive_selection:
+            operator_name = self._select_operator()
+        else:
+            operator_name = random.choice(['swap', 'inversion', 'insertion', 'scramble'])
         
-        mutation_operator = random.choice(mutation_operators)
-        return mutation_operator(individual, mutation_rate)
+        # Map operator name to function
+        operator_map = {
+            'swap': MutationOperator.swap_mutation,
+            'inversion': MutationOperator.inversion_mutation,
+            'insertion': MutationOperator.insertion_mutation,
+            'scramble': MutationOperator.scramble_mutation
+        }
+        
+        mutation_operator = operator_map[operator_name]
+        mutated = mutation_operator(individual, mutation_rate)
+        
+        # Track operator attempt
+        self.operator_attempts[operator_name] += 1
+        
+        # Note: Success tracking should be done by caller after fitness evaluation
+        # Store operator name for later success tracking
+        if not hasattr(mutated, '_mutation_operator'):
+            mutated._mutation_operator = operator_name
+            mutated._fitness_before_mutation = fitness_before
+        
+        return mutated
+    
+    def _select_operator(self) -> str:
+        """
+        Select mutation operator based on success rate.
+        
+        Returns:
+            Operator name
+        """
+        operators = ['swap', 'inversion', 'insertion', 'scramble']
+        
+        # Calculate success rates
+        success_rates = {}
+        for op in operators:
+            attempts = self.operator_attempts[op]
+            if attempts > 0:
+                success_rates[op] = self.operator_success[op] / attempts
+            else:
+                success_rates[op] = 0.5  # Default for unexplored operators
+        
+        # 70% exploitation (use best), 30% exploration (random)
+        if random.random() < 0.7 and max(success_rates.values()) > 0:
+            # Select operator with highest success rate
+            return max(success_rates, key=success_rates.get)
+        else:
+            # Random selection for exploration
+            return random.choice(operators)
+    
+    def record_success(self, individual: Individual, fitness_after: float):
+        """
+        Record success of mutation operator.
+        
+        Args:
+            individual: Mutated individual
+            fitness_after: Fitness after mutation
+        """
+        if not self.use_adaptive_selection:
+            return
+        
+        if hasattr(individual, '_mutation_operator') and hasattr(individual, '_fitness_before_mutation'):
+            operator_name = individual._mutation_operator
+            fitness_before = individual._fitness_before_mutation
+            
+            if fitness_before is not None and fitness_after > fitness_before:
+                # Mutation improved fitness
+                self.operator_success[operator_name] += 1

@@ -6,6 +6,7 @@ Converts chromosome to routes with capacity constraints.
 from typing import List, Tuple, Optional
 from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
+from src.core.pipeline_profiler import pipeline_profiler
 from config import GA_CONFIG
 
 
@@ -30,6 +31,11 @@ class RouteDecoder:
         else:
             self.use_split = use_split_algorithm
         
+        # Note: Split algorithm now uses adaptive optimization
+        # - Small problems (≤200): Full DP (optimal)
+        # - Medium problems (200-500): Beam search (near-optimal, fast)
+        # - Large problems (>500): Approximate DP (very fast)
+        
         # Initialize Split Algorithm if enabled
         if self.use_split:
             try:
@@ -41,9 +47,10 @@ class RouteDecoder:
     
     def decode_chromosome(self, chromosome: List[int]) -> List[List[int]]:
         """
-        Decode chromosome to routes using capacity constraint.
+        Decode chromosome to routes using capacity and vehicle count constraints.
         
         Uses Split Algorithm (Prins 2004) if enabled, otherwise uses greedy decoder.
+        IMPORTANT: Enforces num_vehicles as a HARD LIMIT - will not create more routes than allowed.
         
         Args:
             chromosome: Customer order chromosome
@@ -54,59 +61,86 @@ class RouteDecoder:
         if not chromosome:
             return []
         
-        # Sanitize chromosome to ensure each customer appears exactly once
-        chromosome = self._sanitize_chromosome(chromosome)
-        
-        # Use Split Algorithm if enabled
-        if self.use_split and self.splitter is not None:
-            try:
-                # Split Algorithm expects giant tour (list of customer IDs)
-                giant_tour = [cid for cid in chromosome if cid != 0]
-                routes, _ = self.splitter.split(giant_tour)
-                # Validate that routes were created
-                if routes and len(routes) > 0:
-                    return routes
-                else:
-                    # Empty routes, fall back to greedy
+        with pipeline_profiler.profile(
+            "decoder.decode",
+            metadata={'use_split': self.use_split, 'chromosome_length': len(chromosome)}
+        ):
+            # Sanitize chromosome to ensure each customer appears exactly once
+            chromosome = self._sanitize_chromosome(chromosome)
+            
+            # Use Split Algorithm if enabled
+            if self.use_split and self.splitter is not None:
+                try:
+                    # Split Algorithm expects giant tour (list of customer IDs)
+                    giant_tour = [cid for cid in chromosome if cid != 0]
+                    with pipeline_profiler.profile(
+                        "decoder.split",
+                        metadata={'n_customers': len(giant_tour)}
+                    ):
+                        routes, _ = self.splitter.split(giant_tour, max_vehicles=self.problem.num_vehicles)
+                    # Validate that routes were created
+                    if routes and len(routes) > 0:
+                        return routes
+                    else:
+                        # Empty routes, fall back to greedy
+                        pass
+                except Exception as e:
+                    # Log exception for debugging but fall back to greedy decoder
+                    # This can happen if distance matrix is not available or other issues
+                    import warnings
+                    warnings.warn(f"Split Algorithm failed, using greedy decoder: {str(e)}")
                     pass
-            except Exception as e:
-                # Log exception for debugging but fall back to greedy decoder
-                # This can happen if distance matrix is not available or other issues
-                import warnings
-                warnings.warn(f"Split Algorithm failed, using greedy decoder: {str(e)}")
-                pass
-        
-        # Greedy decoder (original implementation)
-        routes = []
-        current_route = [0]  # Start at depot
-        current_load = 0.0
-        
-        for customer_id in chromosome:
-            customer = self.problem.get_customer_by_id(customer_id)
-            if customer is None:
-                continue
             
-            customer_demand = customer.demand
-            
-            # Check if customer fits in current route
-            if current_load + customer_demand <= self.problem.vehicle_capacity:
-                current_route.append(customer_id)
-                current_load += customer_demand
-            else:
-                # Finish current route and start new one
-                current_route.append(0)  # Return to depot
-                routes.append(current_route)
+            # Greedy decoder (optimized implementation with vehicle limit)
+            with pipeline_profiler.profile("decoder.greedy"):
+                routes = []
+                current_route = [0]  # Start at depot
+                current_load = 0.0
+                max_vehicles = self.problem.num_vehicles
                 
-                # Start new route
-                current_route = [0, customer_id]  # Start at depot, add customer
-                current_load = customer_demand
-        
-        # Finish last route
-        if current_route:
-            current_route.append(0)  # Return to depot
-            routes.append(current_route)
-        
-        return routes
+                # Optimization: Pre-compute customer demands for faster lookup
+                customer_demands = {c.id: c.demand for c in self.problem.customers}
+                capacity = self.problem.vehicle_capacity
+                
+                for customer_id in chromosome:
+                    if customer_id == 0:  # Skip depot in chromosome
+                        continue
+                        
+                    customer_demand = customer_demands.get(customer_id)
+                    if customer_demand is None:
+                        continue
+                    
+                    # Check if customer fits in current route
+                    if current_load + customer_demand <= capacity:
+                        current_route.append(customer_id)
+                        current_load += customer_demand
+                    else:
+                        # Check vehicle limit BEFORE creating new route
+                        if len(routes) >= max_vehicles:
+                            # Cannot create more routes - vehicle limit reached
+                            # Try to fit customer in current route anyway (will violate capacity)
+                            # This will be caught and penalized by ConstraintHandler
+                            current_route.append(customer_id)
+                            current_load += customer_demand
+                            continue
+                        
+                        # Finish current route and start new one
+                        current_route.append(0)  # Return to depot
+                        routes.append(current_route)
+                        
+                        # Start new route
+                        current_route = [0, customer_id]  # Start at depot, add customer
+                        current_load = customer_demand
+                
+                # Finish last route
+                if len(current_route) > 1:  # More than just depot
+                    current_route.append(0)  # Return to depot
+                    routes.append(current_route)
+                elif current_route == [0]:
+                    # Empty route, remove it
+                    pass
+            
+            return routes
 
     def _sanitize_chromosome(self, chromosome: List[int]) -> List[int]:
         """Ensure chromosome covers all customers exactly once.

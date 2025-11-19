@@ -1,0 +1,108 @@
+{
+  "depot": {
+    "id": 0,
+    "x": 105.83,
+    "y": 21.015,
+    "demand": 0,
+    "ready_time": 0.0,
+    "due_date": 1000.0,
+    "service_time": 0.0
+  },
+  "customers": [
+    {
+      "id": 1,
+      "x": 105.762764,
+      "y": 21.084529,
+      "demand": 8,
+      "ready_time": 0.0,
+      "due_date": 1000.0,
+      "service_time": 10.0
+    },
+    {
+      "id": 2,
+      "x": 105.775843,
+      "y": 21.031132,
+      "demand": 23,
+      "ready_time": 0.0,
+      "due_date": 1000.0,
+      "service_time": 10.0
+    },
+    {
+      "id": 3,
+      "x": 105.829977,
+      "y": 21.032808,
+      "demand": 7,
+      "ready_time": 0.0,
+      "due_date": 1000.0,
+      "service_time": 10.0
+    },
+    {
+      "id": 4,
+      "x": 105.773112,
+      "y": 20.96276,
+      "demand": 6,
+      "ready_time": 0.0,
+      "due_date": 1000.0,
+      "service_time": 10.0
+    },
+    {
+      "id": 5,
+      "x": 105.766248,
+      "y": 21.034702,
+      "demand": 5,
+      "ready_time": 0.0,
+      "due_date": 1000.0,
+      "service_time": 10.0
+    },
+    {
+      "id": 6,
+      "x": 105.838778,
+      "y": 21.103571,
+      "demand": 16,
+      "ready_time": 0.0,
+      "due_date": 1000.0,
+      "service_time": 10.0
+    },
+    {
+      "id": 7,
+      "x": 105.816536,
+      "y": 21.013596,
+      "demand": 7,
+      "ready_time": 0.0,
+      "due_date": 1000.0,
+      "service_time": 10.0
+    },
+    {
+      "id": 8,
+      "x": 105.860515,
+      "y": 21.000955,
+      "demand": 17,
+      "ready_time": 0.0,
+      "due_date": 1000.0,
+      "service_time": 10.0
+    }
+  ],
+  "vehicle_capacity": 200,
+  "num_vehicles": 1,
+  "metadata": {
+    "name": "Hanoi Dataset (8 customers)",
+    "source": "generated",
+    "format": "hanoi_mockup",
+    "num_customers": 8,
+    "safe_zones": [
+      "Ba Dinh",
+      "Cau Giay",
+      "Dong Anh",
+      "Dong Da",
+      "Ha Dong",
+      "Hai Ba Trung",
+      "Nam Tu Liem",
+      "Tay Ho"
+    ]
+  },
+  "problem_config": {
+    "vehicle_capacity": 200,
+    "num_vehicles": 1,
+    "traffic_factor": 1.0
+  }
+}

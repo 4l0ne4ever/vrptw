@@ -4,11 +4,14 @@ Implements comprehensive performance evaluation.
 """
 
 import time
+import logging
 from typing import List, Dict, Tuple, Optional
 import numpy as np
 from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
 from src.evaluation.shipping_cost import ShippingCostCalculator
+
+logger = logging.getLogger(__name__)
 
 
 class KPICalculator:
@@ -133,20 +136,44 @@ class KPICalculator:
             order_values = shipping_calculator.generate_order_values(self.problem.customers)
             waiting_times = shipping_calculator.generate_waiting_times(self.problem.customers)
             
-            # Calculate shipping cost
+            # Calculate shipping cost with operational costs
             shipping_cost_data = shipping_calculator.calculate_solution_cost(
                 routes, self.problem, service_type="express", 
-                order_values=order_values, waiting_times=waiting_times
+                order_values=order_values, waiting_times=waiting_times,
+                include_operational_costs=True
             )
             
+            # Extract cost breakdown
+            cost_breakdown = shipping_cost_data.get('cost_breakdown', {})
+            operational_costs = shipping_cost_data.get('operational_costs', {})
+            
             return {
-                'shipping_total_cost': shipping_cost_data['total_cost'],
-                'shipping_cost_per_km': shipping_cost_data['total_cost'] / max(individual.total_distance, 1),
-                'shipping_cost_per_customer': shipping_cost_data['total_cost'] / max(individual.get_customer_count(), 1),
-                'shipping_cost_per_route': shipping_cost_data['total_cost'] / max(individual.get_route_count(), 1),
-                'shipping_service_type': shipping_cost_data['service_type'],
-                'shipping_cost_model': shipping_cost_data['cost_model'],
-                'shipping_route_costs': shipping_cost_data['route_costs']
+                # Total costs
+                'shipping_total_cost': shipping_cost_data.get('shipping_cost', 0),
+                'total_cost': shipping_cost_data.get('total_cost', 0),
+                
+                # Operational costs breakdown
+                'fuel_cost': operational_costs.get('fuel_cost', 0),
+                'driver_cost': operational_costs.get('driver_cost', 0),
+                'vehicle_fixed_cost': operational_costs.get('vehicle_fixed_cost', 0),
+                'total_operational_cost': operational_costs.get('total_operational_cost', 0),
+                
+                # Per-unit costs
+                'shipping_cost_per_km': shipping_cost_data.get('shipping_cost', 0) / max(individual.total_distance, 1),
+                'total_cost_per_km': shipping_cost_data.get('total_cost', 0) / max(individual.total_distance, 1),
+                'shipping_cost_per_customer': shipping_cost_data.get('shipping_cost', 0) / max(individual.get_customer_count(), 1),
+                'total_cost_per_customer': shipping_cost_data.get('total_cost', 0) / max(individual.get_customer_count(), 1),
+                'shipping_cost_per_route': shipping_cost_data.get('shipping_cost', 0) / max(individual.get_route_count(), 1),
+                'total_cost_per_route': shipping_cost_data.get('total_cost', 0) / max(individual.get_route_count(), 1),
+                
+                # Additional metrics
+                'total_distance': shipping_cost_data.get('total_distance', individual.total_distance),
+                'total_duration_hours': shipping_cost_data.get('total_duration_hours', 0),
+                'num_routes': shipping_cost_data.get('num_routes', individual.get_route_count()),
+                'shipping_service_type': shipping_cost_data.get('service_type', 'express'),
+                'shipping_cost_model': shipping_cost_data.get('cost_model', 'ahamove'),
+                'shipping_route_costs': shipping_cost_data.get('route_costs', []),
+                'cost_breakdown': cost_breakdown
             }
             
         except Exception as e:
@@ -237,10 +264,18 @@ class KPICalculator:
         route_loads = []
         for route in routes:
             if route:
-                route_load = sum(
-                    self.problem.get_customer_by_id(c).demand 
-                    for c in route if c != 0
-                )
+                route_load = 0.0
+                for c in route:
+                    if c == 0:
+                        continue
+                    customer = self.problem.get_customer_by_id(c)
+                    if customer is None:
+                        logger.warning(
+                            "Customer ID %s not found in problem definition. Skipping in load calculation.",
+                            c
+                        )
+                        continue
+                    route_load += customer.demand
                 route_loads.append(route_load)
         
         if not route_loads:
@@ -291,17 +326,58 @@ class KPICalculator:
         }
     
     def _calculate_cost_metrics(self, total_distance: float, num_routes: int) -> Dict:
-        """Calculate cost-related metrics."""
-        cost_per_km = 1.0  # Base cost per km
-        total_cost = total_distance * cost_per_km
+        """
+        Calculate comprehensive cost-related metrics including operational costs.
+        
+        Args:
+            total_distance: Total distance traveled
+            num_routes: Number of routes
+            
+        Returns:
+            Dictionary with cost metrics
+        """
+        from config import VRP_CONFIG
+        
+        # Base cost per km (for simple distance-based cost)
+        cost_per_km = VRP_CONFIG.get('cost_per_km', 1.0)
+        base_cost = total_distance * cost_per_km
+        
+        # Operational costs
+        fuel_cost_per_km = VRP_CONFIG.get('fuel_cost_per_km', 4000)
+        fuel_cost = total_distance * fuel_cost_per_km
+        
+        # Estimate driver cost (assume average speed 30 km/h)
+        avg_speed_kmh = 30.0
+        total_duration_hours = total_distance / avg_speed_kmh
+        driver_cost_per_hour = VRP_CONFIG.get('driver_cost_per_hour', 40000)
+        driver_cost = total_duration_hours * driver_cost_per_hour
+        
+        # Vehicle fixed cost
+        vehicle_fixed_cost = VRP_CONFIG.get('vehicle_fixed_cost', 75000)
+        vehicle_fixed_total = num_routes * vehicle_fixed_cost
+        
+        # Total operational cost
+        total_operational_cost = fuel_cost + driver_cost + vehicle_fixed_total
+        
+        # Total cost (base + operational)
+        total_cost = base_cost + total_operational_cost
         
         num_customers = len(self.problem.customers)
         
         return {
+            'base_cost': base_cost,
+            'fuel_cost': fuel_cost,
+            'driver_cost': driver_cost,
+            'vehicle_fixed_cost': vehicle_fixed_total,
+            'total_operational_cost': total_operational_cost,
             'total_cost': total_cost,
             'cost_per_km': cost_per_km,
             'cost_per_customer': total_cost / num_customers if num_customers > 0 else 0,
-            'cost_per_route': total_cost / num_routes if num_routes > 0 else 0
+            'cost_per_route': total_cost / num_routes if num_routes > 0 else 0,
+            'fuel_cost_per_km': fuel_cost_per_km,
+            'driver_cost_per_hour': driver_cost_per_hour,
+            'vehicle_fixed_cost_per_vehicle': vehicle_fixed_cost,
+            'total_duration_hours': total_duration_hours
         }
     
     def _calculate_efficiency_metrics(self, individual: Individual, 

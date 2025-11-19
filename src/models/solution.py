@@ -151,6 +151,7 @@ class Population:
     def calculate_diversity(self) -> float:
         """
         Calculate population diversity based on chromosome differences.
+        Optimized: Use sampling for large populations to avoid O(n²) complexity.
         
         Returns:
             Diversity measure (0-1, higher means more diverse)
@@ -158,21 +159,38 @@ class Population:
         if len(self.individuals) < 2:
             return 0.0
         
+        # For large populations, use sampling to reduce complexity
+        # Sample up to 50 pairs instead of all pairs
+        max_samples = 50
+        n = len(self.individuals)
+        
+        if n <= 10:
+            # Small population: calculate all pairs
+            pairs_to_check = [(i, j) for i in range(n) for j in range(i + 1, n)]
+        else:
+            # Large population: sample pairs
+            import random
+            total_pairs = n * (n - 1) // 2
+            num_samples = min(max_samples, total_pairs)
+            pairs_to_check = random.sample(
+                [(i, j) for i in range(n) for j in range(i + 1, n)],
+                num_samples
+            )
+        
         total_differences = 0
         total_comparisons = 0
         
-        for i in range(len(self.individuals)):
-            for j in range(i + 1, len(self.individuals)):
-                chrom1 = self.individuals[i].chromosome
-                chrom2 = self.individuals[j].chromosome
-                
-                if len(chrom1) != len(chrom2):
-                    continue
-                
-                # Count position differences
-                differences = sum(1 for a, b in zip(chrom1, chrom2) if a != b)
-                total_differences += differences
-                total_comparisons += len(chrom1)
+        for i, j in pairs_to_check:
+            chrom1 = self.individuals[i].chromosome
+            chrom2 = self.individuals[j].chromosome
+            
+            if len(chrom1) != len(chrom2):
+                continue
+            
+            # Count position differences
+            differences = sum(1 for a, b in zip(chrom1, chrom2) if a != b)
+            total_differences += differences
+            total_comparisons += len(chrom1)
         
         if total_comparisons == 0:
             return 0.0

@@ -13,6 +13,7 @@ from src.algorithms.operators import (
     SelectionOperator, CrossoverOperator, MutationOperator, AdaptiveMutationOperator
 )
 from src.algorithms.fitness import FitnessEvaluator
+from src.core.pipeline_profiler import pipeline_profiler
 from config import GA_CONFIG
 
 
@@ -30,8 +31,14 @@ class GeneticAlgorithm:
         self.problem = problem
         self.config = config or GA_CONFIG.copy()
         
+        # Get penalty_weight from config (can be in GA config or VRP config)
+        penalty_weight = self.config.get('penalty_weight')
+        if penalty_weight is None:
+            from config import VRP_CONFIG
+            penalty_weight = VRP_CONFIG.get('penalty_weight', 5000)
+        
         # Initialize components
-        self.fitness_evaluator = FitnessEvaluator(problem)
+        self.fitness_evaluator = FitnessEvaluator(problem, penalty_weight=penalty_weight)
         self.adaptive_mutation = AdaptiveMutationOperator(
             base_mutation_rate=self.config['mutation_prob'],
             diversity_threshold=0.1
@@ -258,24 +265,20 @@ class GeneticAlgorithm:
         return self.best_solution, evolution_data
         
     def _calculate_diversity(self) -> float:
-        """Calculate population diversity."""
-        if len(self.population.individuals) < 2:
-            return 0.0
-        
-        # Calculate average pairwise distance between chromosomes
-        distances = []
-        individuals = self.population.individuals
-        
-        for i in range(len(individuals)):
-            for j in range(i + 1, len(individuals)):
-                # Calculate Hamming distance
-                dist = sum(1 for a, b in zip(individuals[i].chromosome, individuals[j].chromosome) if a != b)
-                distances.append(dist)
-        
-        return np.mean(distances) if distances else 0.0
+        """
+        Calculate population diversity.
+        Optimized: Use Population's optimized diversity calculation.
+        """
+        # Use Population's optimized diversity calculation instead of recalculating
+        return self.population.diversity if hasattr(self.population, 'diversity') else 0.0
     
     def _create_next_generation(self):
         """Create next generation using selection, crossover, and mutation."""
+        population_size = len(self.population.individuals)
+        with pipeline_profiler.profile("ga.generation", metadata={'population_size': population_size}):
+            self._create_next_generation_impl()
+
+    def _create_next_generation_impl(self):
         new_population = []
         
         # Apply elitism
@@ -286,37 +289,100 @@ class GeneticAlgorithm:
         # Create offspring
         offspring_count = len(self.population.individuals) - elite_count
         
-        for _ in range(offspring_count // 2):
+        for offspring_idx in range(offspring_count // 2):
             # Selection
-            parents = SelectionOperator.tournament_selection(
-                self.population.individuals,
-                tournament_size=self.config['tournament_size'],
-                num_parents=2
-            )
-            
-            # Crossover
-            if random.random() < self.config['crossover_prob']:
-                offspring1, offspring2 = CrossoverOperator.order_crossover(
-                    parents[0], parents[1]
+            with pipeline_profiler.profile("ga.selection"):
+                parents = SelectionOperator.tournament_selection(
+                    self.population.individuals,
+                    tournament_size=self.config['tournament_size'],
+                    num_parents=2
                 )
-            else:
-                offspring1, offspring2 = parents[0].copy(), parents[1].copy()
+            
+            # Crossover - use multiple operators for diversity
+            with pipeline_profiler.profile("ga.crossover"):
+                if random.random() < self.config['crossover_prob']:
+                    # Use PMX for 30% of crossovers to increase diversity
+                    if random.random() < 0.3:
+                        try:
+                            offspring1, offspring2 = CrossoverOperator.partially_mapped_crossover(
+                                parents[0], parents[1]
+                            )
+                        except Exception:
+                            # Fallback to OX if PMX fails
+                            offspring1, offspring2 = CrossoverOperator.order_crossover(
+                                parents[0], parents[1]
+                            )
+                    else:
+                        offspring1, offspring2 = CrossoverOperator.order_crossover(
+                            parents[0], parents[1]
+                        )
+                else:
+                    offspring1, offspring2 = parents[0].copy(), parents[1].copy()
             
             # Mutation
-            population_diversity = self.population.diversity
-            offspring1 = self.adaptive_mutation.mutate(offspring1, population_diversity)
-            offspring2 = self.adaptive_mutation.mutate(offspring2, population_diversity)
+            with pipeline_profiler.profile("ga.mutation"):
+                population_diversity = self.population.diversity
+                # Store fitness before mutation for adaptive operator selection
+                fitness_before_1 = offspring1.fitness if hasattr(offspring1, 'fitness') else None
+                fitness_before_2 = offspring2.fitness if hasattr(offspring2, 'fitness') else None
+                
+                offspring1 = self.adaptive_mutation.mutate(offspring1, population_diversity, fitness_before_1)
+                offspring2 = self.adaptive_mutation.mutate(offspring2, population_diversity, fitness_before_2)
+            
+            # Local search improvement (2-opt) - apply selectively to avoid performance issues
+            # Only apply to a small percentage and with limited iterations
+            local_search_prob = self.config.get('local_search_prob', 0.1)  # Default 10%
+            local_search_iterations = self.config.get('local_search_iterations', 10)
+            
+            if random.random() < local_search_prob:
+                with pipeline_profiler.profile("ga.local_search"):
+                    try:
+                        from src.algorithms.local_search import TwoOptOptimizer
+                        if not hasattr(self, '_local_search'):
+                            self._local_search = TwoOptOptimizer(self.problem)
+                        offspring1 = self._local_search.optimize_individual(offspring1, max_iterations=local_search_iterations)
+                    except Exception:
+                        pass
+            
+            if random.random() < local_search_prob:
+                with pipeline_profiler.profile("ga.local_search"):
+                    try:
+                        from src.algorithms.local_search import TwoOptOptimizer
+                        if not hasattr(self, '_local_search'):
+                            self._local_search = TwoOptOptimizer(self.problem)
+                        offspring2 = self._local_search.optimize_individual(offspring2, max_iterations=local_search_iterations)
+                    except Exception:
+                        pass
             
             # Evaluate fitness
-            self.fitness_evaluator.evaluate_fitness(offspring1)
-            self.fitness_evaluator.evaluate_fitness(offspring2)
+            try:
+                with pipeline_profiler.profile("ga.fitness_evaluation"):
+                    self.fitness_evaluator.evaluate_fitness(offspring1)
+                    self.fitness_evaluator.evaluate_fitness(offspring2)
+            except Exception as e:
+                # Log fitness evaluation errors but continue
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Fitness evaluation failed for offspring pair {offspring_idx}: {e}", exc_info=True)
+                # Assign default fitness to prevent crashes
+                offspring1.fitness = 0.0
+                offspring1.total_distance = float('inf')
+                offspring2.fitness = 0.0
+                offspring2.total_distance = float('inf')
+            
+            # Record mutation operator success for adaptive selection
+            if hasattr(offspring1, 'fitness') and hasattr(offspring1, '_fitness_before_mutation'):
+                self.adaptive_mutation.record_success(offspring1, offspring1.fitness)
+            if hasattr(offspring2, 'fitness') and hasattr(offspring2, '_fitness_before_mutation'):
+                self.adaptive_mutation.record_success(offspring2, offspring2.fitness)
             
             new_population.extend([offspring1, offspring2])
             self.stats['total_evaluations'] += 2
         
         # Replace population
-        self.population.replace_individuals(new_population)
-        self.population.next_generation()
+        with pipeline_profiler.profile("ga.replacement"):
+            self.population.replace_individuals(new_population)
+            self.population.next_generation()
     
     def _update_statistics(self):
         """Update GA statistics."""
@@ -333,31 +399,56 @@ class GeneticAlgorithm:
         Returns:
             True if converged, False otherwise
         """
-        # Delay convergence check to allow more exploration (increased from 50 to 200)
-        if len(self.stats['best_fitness_history']) < 200:
+        current_gen = len(self.stats['best_fitness_history'])
+        max_gen = self.config.get('generations', 1000)
+        
+        # CRITICAL: Never converge before running at least 90% of target generations
+        # This prevents premature stopping when fitness is stuck at low values
+        # Increased from 75% to 90% to ensure full exploration
+        min_required_generations = max_gen * 0.90
+        if current_gen < min_required_generations:
+            return False  # Don't even check convergence until we've run enough
+        
+        # Don't check convergence until we have enough history
+        # Use stagnation_limit as minimum history required
+        min_history = max(self.config.get('stagnation_limit', 50), 100)
+        if current_gen < min_history:
             return False
         
-        # Check stagnation using recent history (increased from 50 to 200)
-        recent_fitness = self.stats['best_fitness_history'][-200:]
+        # Check stagnation using recent history (use stagnation_limit, not fixed 200)
+        stagnation_window = self.config.get('stagnation_limit', 50)
+        recent_fitness = self.stats['best_fitness_history'][-stagnation_window:]
+        
+        if len(recent_fitness) < stagnation_window:
+            return False
+        
         fitness_std = np.std(recent_fitness)
         fitness_mean = np.mean(recent_fitness) if recent_fitness else 0.0
         
         # Use relative threshold for more robust convergence detection
         if fitness_mean > 0:
             relative_std = fitness_std / fitness_mean
-            # If relative standard deviation is less than 1%, consider converged
-            if relative_std < 0.01:
+            # If relative standard deviation is less than 0.5%, consider converged
+            # But ONLY if we've run at least 90% of target generations
+            # Made threshold stricter (0.5% instead of 1%) to prevent premature convergence
+            if relative_std < 0.005:
+                # We already checked min_required_generations above, so safe to converge
                 return True
         
-        # Keep absolute threshold as backup
-        if fitness_std < self.config['convergence_threshold']:
+        # Keep absolute threshold as backup (only if fitness is meaningful)
+        # But still require 90% of generations and stricter threshold
+        if fitness_mean > 0.0001 and fitness_std < self.config['convergence_threshold'] * 0.5:
             return True
         
-        # Check stagnation limit
-        if len(self.stats['best_fitness_history']) >= self.config['stagnation_limit']:
-            recent_best = self.stats['best_fitness_history'][-self.config['stagnation_limit']:]
-            if max(recent_best) - min(recent_best) < self.config['convergence_threshold']:
-                return True
+        # Check stagnation limit (only if we've run enough generations)
+        # Require longer stagnation period before considering converged
+        if len(self.stats['best_fitness_history']) >= stagnation_window * 2:
+            recent_best = self.stats['best_fitness_history'][-stagnation_window * 2:]
+            if len(recent_best) >= stagnation_window * 2:
+                best_range = max(recent_best) - min(recent_best)
+                # Only consider converged if range is very small AND we've run enough generations
+                if best_range < self.config['convergence_threshold'] * 0.5:
+                    return True
         
         return False
     

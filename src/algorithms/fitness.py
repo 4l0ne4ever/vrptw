@@ -9,7 +9,8 @@ from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
 from src.data_processing.constraints import ConstraintHandler
 from src.algorithms.decoder import RouteDecoder
-from config import GA_CONFIG
+from src.core.pipeline_profiler import pipeline_profiler
+from config import GA_CONFIG, VRP_CONFIG
 import os
 import time
 import json
@@ -18,19 +19,26 @@ import json
 class FitnessEvaluator:
     """Evaluates fitness of VRP solutions."""
     
-    def __init__(self, problem: VRPProblem, penalty_weight: float = 1000):
+    def __init__(self, problem: VRPProblem, penalty_weight: Optional[float] = None):
         """
         Initialize fitness evaluator.
         
         Args:
             problem: VRP problem instance
-            penalty_weight: Weight for constraint violations
+            penalty_weight: Weight for constraint violations (defaults to VRP_CONFIG or GA config)
         """
         self.problem = problem
+        
+        # Get penalty_weight from config if not provided
+        if penalty_weight is None:
+            # Try to get from VRP_CONFIG first, then default to 5000
+            penalty_weight = VRP_CONFIG.get('penalty_weight', 5000)
+        
         self.penalty_weight = penalty_weight
         self.constraint_handler = ConstraintHandler(
             problem.vehicle_capacity, 
-            problem.num_vehicles
+            problem.num_vehicles,
+            penalty_weight=self.penalty_weight  # Pass penalty_weight to ConstraintHandler
         )
         # Use RouteDecoder to ensure Split Algorithm is used when enabled
         self.decoder = RouteDecoder(problem, use_split_algorithm=GA_CONFIG.get('use_split_algorithm', False))
@@ -48,78 +56,97 @@ class FitnessEvaluator:
         if individual.is_empty():
             return 0.0
         
-        # Decode chromosome to routes using RouteDecoder (which uses Split Algorithm if enabled)
-        routes = self.decoder.decode_chromosome(individual.chromosome)
+        chromosome_length = len(individual.chromosome) if getattr(individual, 'chromosome', None) else 0
+        with pipeline_profiler.profile("fitness.evaluate", metadata={'chromosome_length': chromosome_length}):
+            # Decode chromosome to routes using RouteDecoder (which uses Split Algorithm if enabled)
+            with pipeline_profiler.profile("fitness.decode"):
+                routes = self.decoder.decode_chromosome(individual.chromosome)
 
-        # Early capacity repair (two-phase) to ensure feasible routes before scoring
-        demands = [c.demand for c in self.problem.customers]
-        # Ensure demands array covers all possible customer IDs (1 to N)
-        max_customer_id = max(max(route) for route in routes) if routes else 0
-        while len(demands) < max_customer_id:
-            demands.append(0.0)  # Add zero demand for missing customers
-        # Sanitize routes to valid node ids [0..N] (N = total nodes including depot)
-        num_nodes = len(self.problem.customers) + 1  # +1 for depot
-        routes = [
-            [node for node in route if 0 <= int(node) <= num_nodes]
-            for route in routes
-        ]
-        cap_valid, _ = self.constraint_handler.validate_capacity_constraint(routes, demands)
-        if not cap_valid:
-            try:
-                # Debug JSON files disabled to reduce clutter
-                # Uncomment below if debugging is needed:
-                # try:
-                #     analysis_before = self.constraint_handler.analyze_routes(self.problem, routes)
-                #     ts = int(time.time())
-                #     os.makedirs('results', exist_ok=True)
-                #     with open(os.path.join('results', f'repair_debug_{ts}_before.json'), 'w', encoding='utf-8') as f:
-                #         json.dump({'before': analysis_before}, f, indent=2, ensure_ascii=False)
-                # except Exception:
-                #     pass
-
-                routes = self.constraint_handler.repair_capacity_violations(routes, demands)
-
-                # Debug: write after-analysis snapshot
-                # Debug JSON files disabled to reduce clutter
-                # Uncomment below if debugging is needed:
-                # try:
-                #     analysis_after = self.constraint_handler.analyze_routes(self.problem, routes)
-                #     with open(os.path.join('results', f'repair_debug_{ts}_after.json'), 'w', encoding='utf-8') as f:
-                #         json.dump({'after': analysis_after}, f, indent=2, ensure_ascii=False)
-                # except Exception:
-                #     pass
-            except Exception as e:
-                # if repair fails, keep original routes and let penalty handle infeasibility
-                print(f"Repair failed: {e}")
-                import traceback
-                traceback.print_exc()
-        individual.routes = routes
-        
-        # Calculate total distance
-        total_distance = self._calculate_total_distance(routes)
-        individual.total_distance = total_distance
-        
-        # Calculate penalty for constraint violations
-        penalty = self._calculate_penalty(routes)
-        individual.penalty = penalty
-        
-        # Calculate balance factor
-        balance_factor = self._calculate_balance_factor(routes)
-        
-        # Feasible-first: if any violation, apply strong scaling; otherwise distance-driven
-        if penalty > 0:
-            # Scale penalty to be at least 10x distance to ensure infeasible solutions are heavily penalized
-            # This ensures that even small violations make the solution significantly worse than feasible ones
-            scaled_penalty = max(penalty, total_distance * 10)
-            fitness = 1.0 / (total_distance + scaled_penalty + balance_factor + 1.0)
-        else:
-            fitness = 1.0 / (total_distance + balance_factor + 1.0)
-        individual.fitness = fitness
-        
-        # Mark as valid if no penalty
-        individual.is_valid = penalty == 0.0
-        
-        return fitness
+            # Early capacity repair (two-phase) to ensure feasible routes before scoring
+            demands = [c.demand for c in self.problem.customers]
+            # Ensure demands array covers all possible customer IDs (1 to N)
+            # BUG FIX: Limit max_customer_id to prevent infinite growth
+            max_expected_id = len(self.problem.customers)
+            max_customer_id = max(max(route) for route in routes) if routes else 0
+            
+            # Cap customer ID to prevent runaway growth
+            if max_customer_id > max_expected_id * 2:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Abnormal max_customer_id={max_customer_id}, capping to {max_expected_id}")
+                max_customer_id = max_expected_id
+            
+            while len(demands) < max_customer_id:
+                demands.append(0.0)  # Add zero demand for missing customers
+            
+            # Sanitize routes to valid node ids [0..N] (N = total nodes including depot)
+            num_nodes = len(self.problem.customers) + 1  # +1 for depot
+            routes = [
+                [node for node in route if 0 <= int(node) <= num_nodes]
+                for route in routes
+            ]
+            
+            cap_valid, _ = self.constraint_handler.validate_capacity_constraint(routes, demands)
+            if not cap_valid:
+                try:
+                    with pipeline_profiler.profile("fitness.repair_capacity"):
+                        routes = self.constraint_handler.repair_capacity_violations(routes, demands)
+                except Exception:
+                    # if repair fails, keep original routes and let penalty handle infeasibility
+                    pass
+            individual.routes = routes
+            
+            # Calculate total distance
+            total_distance = self._calculate_total_distance(routes)
+            individual.total_distance = total_distance
+            
+            # Calculate penalty for constraint violations
+            raw_penalty = self._calculate_penalty(routes)
+            
+            # Calculate balance factor
+            balance_factor = self._calculate_balance_factor(routes)
+            
+            # Feasible-first: if any violation, apply strong scaling; otherwise distance-driven
+            if raw_penalty > 0:
+                # EXTREME penalty capping to keep fitness usable
+                # Even with per-violation caps, 76 violations can add to 335k penalty
+                # We need TOTAL penalty cap relative to distance
+                if self.penalty_weight <= 1500:  # Hanoi mode
+                    # Max total penalty = 10x distance
+                    max_raw_penalty = total_distance * 10
+                    min_penalty_scale = 3  # At least 3x distance to differentiate infeasible
+                else:  # Solomon mode  
+                    # Max total penalty = 8x distance (tighter for benchmarks)
+                    max_raw_penalty = total_distance * 8
+                    min_penalty_scale = 3  # At least 3x distance
+                
+                capped_penalty = min(raw_penalty, max_raw_penalty)
+                
+                # Scale penalty to ensure infeasible solutions are worse than feasible ones
+                scaled_penalty = max(capped_penalty, total_distance * min_penalty_scale)
+                
+                # Final safety cap to prevent fitness = 0
+                max_final_penalty = total_distance * 12
+                if scaled_penalty > max_final_penalty:
+                    scaled_penalty = max_final_penalty
+                
+                fitness = 1.0 / (total_distance + scaled_penalty + balance_factor + 1.0)
+            else:
+                fitness = 1.0 / (total_distance + balance_factor + 1.0)
+            
+            individual.fitness = fitness
+            
+            # Store capped penalty for reporting (use tighter cap for display)
+            if self.penalty_weight <= 1500:
+                max_report_penalty = total_distance * 10
+            else:
+                max_report_penalty = total_distance * 8
+            individual.penalty = min(raw_penalty, max_report_penalty)
+            
+            # Mark as valid if no penalty
+            individual.is_valid = raw_penalty == 0.0
+            
+            return fitness
     
     def _decode_chromosome(self, chromosome: List[int]) -> List[List[int]]:
         """
@@ -139,29 +166,75 @@ class FitnessEvaluator:
     
     def _calculate_total_distance(self, routes: List[List[int]]) -> float:
         """
-        Calculate total distance for all routes.
+        Calculate total distance for all routes with adaptive traffic factor.
         
         Args:
             routes: List of routes
             
         Returns:
-            Total distance
+            Total distance (with adaptive traffic factor if enabled)
         """
-        total_distance = 0.0
-        
-        for route in routes:
-            if len(route) < 2:
-                continue
+        with pipeline_profiler.profile("fitness.distance", metadata={'num_routes': len(routes)}):
+            total_distance = 0.0
             
-            route_distance = 0.0
-            for i in range(len(route) - 1):
-                from_idx = route[i]
-                to_idx = route[i + 1]
-                route_distance += self.problem.get_distance(from_idx, to_idx)
+            # Get time window start (default 8:00 = 480 minutes)
+            time_window_start = VRP_CONFIG.get('time_window_start', 480)
             
-            total_distance += route_distance
-        
-        return total_distance
+            for route in routes:
+                if len(route) < 2:
+                    continue
+                
+                # Calculate route schedule to determine travel times
+                current_time = time_window_start  # Start from time window start
+                route_distance = 0.0
+                
+                for i in range(len(route) - 1):
+                    from_id = route[i]
+                    to_id = route[i + 1]
+                    
+                    # Get base distance
+                    base_dist = self.problem.get_distance(from_id, to_id)
+                    
+                    # Apply adaptive traffic factor if enabled
+                    if self.problem.use_adaptive_traffic:
+                        # Assume average speed 30 km/h = 0.5 km/min
+                        # Travel time in minutes = distance / 0.5
+                        # But we need to account for traffic, so use base distance for time estimation
+                        travel_time_minutes = base_dist / 0.5  # Rough estimate
+                        
+                        # Get adaptive distance with current time
+                        segment_distance = self.problem.get_adaptive_distance(
+                            from_id, to_id, current_time
+                        )
+                        
+                        # Update current time (account for traffic in travel time)
+                        # Travel time increases with traffic factor
+                        if self.problem.distance_calculator:
+                            traffic_factor = self.problem.distance_calculator.get_adaptive_traffic_factor(current_time)
+                            actual_travel_time = travel_time_minutes * traffic_factor
+                        else:
+                            actual_travel_time = travel_time_minutes
+                        
+                        current_time += actual_travel_time
+                        
+                        # Add service time if arriving at customer (not depot)
+                        if to_id != 0:
+                            customer = self.problem.get_customer_by_id(to_id)
+                            if customer:
+                                # Wait if arrived early
+                                if current_time < customer.ready_time:
+                                    current_time = customer.ready_time
+                                current_time += customer.service_time
+                        
+                        route_distance += segment_distance
+                    else:
+                        # Non-adaptive mode: use base distance with fixed traffic factor
+                        traffic_factor = VRP_CONFIG.get('traffic_factor', 1.0)
+                        route_distance += base_dist * traffic_factor
+                
+                total_distance += route_distance
+            
+            return total_distance
     
     def _calculate_penalty(self, routes: List[List[int]]) -> float:
         """
@@ -173,15 +246,32 @@ class FitnessEvaluator:
         Returns:
             Total penalty
         """
-        demands = self.problem.get_demands()
-        num_customers = len(self.problem.customers)
-        
-        # Validate constraints
-        validation_results = self.constraint_handler.validate_all_constraints(
-            routes, demands, self.problem.customers
-        )
-        
-        return validation_results['total_penalty']
+        with pipeline_profiler.profile("fitness.penalty", metadata={'num_routes': len(routes)}):
+            demands = self.problem.get_demands()
+            num_customers = len(self.problem.customers)
+            
+            # Get time windows and service times for validation
+            time_windows = self.problem.get_time_windows()
+            service_times = self.problem.get_service_times()
+            distance_matrix = self.problem.distance_matrix
+            
+            # Build distance matrix with proper ID mapping for constraint validation
+            # Constraint handler needs distance matrix indexed by customer IDs, not matrix indices
+            # We'll build a helper matrix or pass id_to_index mapping
+            id_to_index = self.problem.id_to_index if hasattr(self.problem, 'id_to_index') else None
+            
+            # Validate constraints (including time windows if available)
+            validation_results = self.constraint_handler.validate_all_constraints(
+                routes, 
+                demands, 
+                self.problem.customers,
+                time_windows=time_windows if time_windows else None,
+                service_times=service_times if service_times else None,
+                distance_matrix=distance_matrix if distance_matrix is not None else None,
+                id_to_index=id_to_index  # Pass ID to index mapping
+            )
+            
+            return validation_results['total_penalty']
     
     def _calculate_balance_factor(self, routes: List[List[int]]) -> float:
         """
@@ -193,31 +283,32 @@ class FitnessEvaluator:
         Returns:
             Balance factor (lower is better)
         """
-        if not routes:
-            return 0.0
-        
-        route_loads = []
-        for route in routes:
-            if not route:
-                continue
+        with pipeline_profiler.profile("fitness.balance", metadata={'num_routes': len(routes)}):
+            if not routes:
+                return 0.0
             
-            route_load = 0.0
-            for customer_id in route:
-                if customer_id != 0:  # Skip depot
-                    customer = self.problem.get_customer_by_id(customer_id)
-                    route_load += customer.demand
+            route_loads = []
+            for route in routes:
+                if not route:
+                    continue
+                
+                route_load = 0.0
+                for customer_id in route:
+                    if customer_id != 0:  # Skip depot
+                        customer = self.problem.get_customer_by_id(customer_id)
+                        route_load += customer.demand
+                
+                route_loads.append(route_load)
             
-            route_loads.append(route_load)
-        
-        if not route_loads:
-            return 0.0
-        
-        # Calculate standard deviation of route loads
-        if len(route_loads) == 1:
-            return 0.0
-        
-        load_std = np.std(route_loads)
-        return load_std * 10  # Scale factor
+            if not route_loads:
+                return 0.0
+            
+            # Calculate standard deviation of route loads
+            if len(route_loads) == 1:
+                return 0.0
+            
+            load_std = np.std(route_loads)
+            return load_std * 10  # Scale factor
     
     def evaluate_population(self, population: List[Individual]) -> List[Individual]:
         """

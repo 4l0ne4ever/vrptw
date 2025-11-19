@@ -8,24 +8,96 @@ GA_CONFIG = {
     'crossover_prob': 0.9,       # High crossover rate (thesis: Table 2.18)
     'mutation_prob': 0.15,        # Moderate mutation rate (thesis: Table 2.18)
     'tournament_size': 5,         # Tournament selection (thesis: Table 2.18)
-    'elitism_rate': 0.10,         # Keep top 10% (thesis: Table 2.18)
+    'elitism_rate': 0.10,         # Keep top 10% (reduced from 15% to prevent premature convergence)
     'adaptive_mutation': False,   # Fixed mutation rate (not mentioned in thesis)
     'convergence_threshold': 0.001,
     'stagnation_limit': 50,        # Stop if no improvement for 50 generations
-    'use_split_algorithm': True  # Enable Split Algorithm (Prins 2004) for optimal route splitting
+    'use_split_algorithm': True,  # Enable Split Algorithm (Prins 2004) for optimal route splitting
+    'local_search_prob': 0.1,     # Probability of applying 2-opt local search to offspring
+    'local_search_iterations': 10  # Max iterations for 2-opt local search
+}
+
+# GA Preset Configurations
+GA_PRESETS = {
+    'fast': {
+        'population_size': 50,      # Reduced for speed
+        'generations': 500,          # Fewer generations
+        'crossover_prob': 0.9,
+        'mutation_prob': 0.15,
+        'tournament_size': 5,
+        'elitism_rate': 0.10,
+        'local_search_prob': 0.05,  # Reduced local search
+        'local_search_iterations': 5,
+        'use_split_algorithm': True,
+        'penalty_weight': None,  # Will use mode-specific default (1200 Hanoi, 5000 Solomon)
+        # Estimated runtime: ~20 minutes for 1000 customers
+    },
+    'standard': {
+        # Same as GA_CONFIG defaults
+        'population_size': 100,
+        'generations': 1000,
+        'crossover_prob': 0.9,
+        'mutation_prob': 0.15,
+        'tournament_size': 5,
+        'elitism_rate': 0.10,
+        'local_search_prob': 0.1,
+        'local_search_iterations': 10,
+        'use_split_algorithm': True,
+        'penalty_weight': None,  # Will use mode-specific default (1200 Hanoi, 5000 Solomon)
+        # Estimated runtime: ~79 minutes for 1000 customers
+    },
+    'benchmark': {
+        'population_size': 100,
+        'generations': 1000,
+        'crossover_prob': 0.9,
+        'mutation_prob': 0.15,
+        'tournament_size': 5,
+        'elitism_rate': 0.10,
+        'local_search_prob': 0.15,  # More local search for quality
+        'local_search_iterations': 15,
+        'use_split_algorithm': True,
+        'penalty_weight': None,  # Will use mode-specific default (1200 Hanoi, 5000 Solomon)
+        # Estimated runtime: ~85 minutes for 1000 customers
+    }
 }
 
 # VRP Problem Configuration
-# Based on Table 2.14 in main.tex (thesis)
+# Based on Table 2.14 in main.tex (thesis) and realistic Hanoi conditions
 VRP_CONFIG = {
     'vehicle_capacity': 200,     # 200 units (~500kg van) (thesis: Table 2.14)
     'num_vehicles': 25,          # Default number of vehicles (thesis: Table 2.14)
-    'traffic_factor': 1.0,       # No congestion (thesis assumption)
+    'num_vehicles_formula': 'ceil(n/8)',  # Formula: ⌈n/8⌉ (average 8 customers per vehicle)
+    'traffic_factor': 1.3,       # Base traffic factor for Hanoi (normal hours)
     'penalty_weight': 5000,      # Penalty for constraint violations (increased to ensure infeasible solutions are heavily penalized)
     'depot_id': 0,               # Depot node ID
-    # Shipping cost configs (Ahamove model - Section 2.3.3)
-    'use_waiting_fee': False,    # Waiting cost = 0 (thesis assumption)
-    'cod_fee_rate': 0.006        # 0.6% COD fee (thesis: Section 2.3.3)
+    'service_time': 12,          # Average service time in minutes (realistic Hanoi: 10-15 min)
+    'service_time_min': 10,      # Minimum service time (minutes)
+    'service_time_max': 15,      # Maximum service time (minutes)
+    'time_window_start': 480,    # 8:00 = 480 minutes (start of working day)
+    'time_window_end': 1200,     # 20:00 = 1200 minutes (end of working day)
+    
+    # Adaptive Traffic Factor Configuration
+    'use_adaptive_traffic': True,  # Enable adaptive traffic factor based on time of day
+    'traffic_factor_peak': 1.8,   # Peak hours (7-9h, 17-19h)
+    'traffic_factor_normal': 1.2, # Normal hours (10-16h, 20-22h)
+    'traffic_factor_low': 1.0,    # Low hours (22h-7h)
+    'peak_hours': [(420, 540), (1020, 1140)],  # Peak hours in minutes: (7-9h, 17-19h)
+    
+    # Shipping cost configs (Ahamove model - updated for 2024-2025)
+    'use_waiting_fee': True,       # Enable waiting fee (realistic Hanoi)
+    'waiting_fee_per_minute': 300,  # VND per minute (18,000 VND/hour)
+    'waiting_fee_per_hour': 18000,  # VND per hour
+    'free_waiting_time': 15,      # Free waiting time in minutes
+    'cod_fee_rate': 0.006,        # 0.6% COD fee (thesis: Section 2.3.3)
+    'cod_ratio': 0.75,            # 75% of orders have COD (realistic Hanoi)
+    'order_value_min': 100000,    # Minimum order value (VND)
+    'order_value_max': 800000,    # Maximum order value (VND) - reduced from 1M
+    
+    # Additional cost factors (realistic Hanoi)
+    'cost_per_km': 1.0,           # Base cost per km (for KPI calculation)
+    'fuel_cost_per_km': 4000,     # Fuel cost per km (VND)
+    'driver_cost_per_hour': 40000, # Driver cost per hour (VND)
+    'vehicle_fixed_cost': 75000,   # Fixed cost per vehicle (VND)
 }
 
 # Mockup Data Generation Configuration

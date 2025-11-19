@@ -1,0 +1,152 @@
+{
+  "solomon": [
+    {
+      "instance": "R101",
+      "type": "solomon",
+      "ga_distance": 1202.7088613762542,
+      "nn_distance": 1174.361152226612,
+      "ga_feasible": true,
+      "nn_feasible": false,
+      "ga_routes": 9,
+      "nn_routes": 8,
+      "ga_utilization": 81.0,
+      "nn_utilization": 91.125,
+      "improvement": -2.413883420436245,
+      "bks_gap": -27.143878036330616,
+      "bks_quality": "EXCELLENT",
+      "ga_time": 26.793281078338623,
+      "success": true
+    },
+    {
+      "instance": "C101",
+      "type": "solomon",
+      "ga_distance": 876.7732372419962,
+      "nn_distance": 1311.4998703102585,
+      "ga_feasible": true,
+      "nn_feasible": false,
+      "ga_routes": 10,
+      "nn_routes": 10,
+      "ga_utilization": 90.5,
+      "nn_utilization": 90.5,
+      "improvement": 33.147287537696826,
+      "bks_gap": 5.7704100709334964,
+      "bks_quality": "POOR",
+      "ga_time": 21.949732065200806,
+      "success": true
+    },
+    {
+      "instance": "RC101",
+      "type": "solomon",
+      "ga_distance": 1225.5319727020674,
+      "nn_distance": 1422.6026219161465,
+      "ga_feasible": true,
+      "nn_feasible": false,
+      "ga_routes": 10,
+      "nn_routes": 9,
+      "ga_utilization": 86.2,
+      "nn_utilization": 95.77777777777777,
+      "improvement": 13.852824828105456,
+      "bks_gap": -24.34053755389138,
+      "bks_quality": "EXCELLENT",
+      "ga_time": 22.27671718597412,
+      "success": true
+    },
+    {
+      "instance": "R109",
+      "type": "solomon",
+      "ga_distance": 1170.39223872463,
+      "nn_distance": 1174.361152226612,
+      "ga_feasible": true,
+      "nn_feasible": false,
+      "ga_routes": 9,
+      "nn_routes": 8,
+      "ga_utilization": 81.0,
+      "nn_utilization": 91.125,
+      "improvement": 0.3379636234097789,
+      "bks_gap": 2.048324938933642,
+      "bks_quality": "GOOD",
+      "ga_time": 25.8162682056427,
+      "success": true
+    },
+    {
+      "instance": "C103",
+      "type": "solomon",
+      "ga_distance": 881.322852795634,
+      "nn_distance": 1311.4998703102585,
+      "ga_feasible": true,
+      "nn_feasible": false,
+      "ga_routes": 10,
+      "nn_routes": 10,
+      "ga_utilization": 90.5,
+      "nn_utilization": 90.5,
+      "improvement": 32.800385821834546,
+      "bks_gap": 6.432245585541399,
+      "bks_quality": "POOR",
+      "ga_time": 21.66101574897766,
+      "success": true
+    }
+  ],
+  "mockup": [
+    {
+      "instance": "mockup_10",
+      "type": "mockup",
+      "customers": 10,
+      "ga_distance": 133.06051995166885,
+      "nn_distance": 137.74311332979343,
+      "ga_feasible": true,
+      "nn_feasible": true,
+      "ga_routes": 1,
+      "nn_routes": 1,
+      "ga_utilization": 39.0,
+      "nn_utilization": 39.0,
+      "improvement": 3.399511790410322,
+      "ga_time": 0.9006657600402832,
+      "success": true
+    },
+    {
+      "instance": "mockup_20",
+      "type": "mockup",
+      "customers": 20,
+      "ga_distance": 168.44530710669073,
+      "nn_distance": 200.25106529068395,
+      "ga_feasible": true,
+      "nn_feasible": true,
+      "ga_routes": 1,
+      "nn_routes": 1,
+      "ga_utilization": 67.5,
+      "nn_utilization": 67.5,
+      "improvement": 15.882940816231894,
+      "ga_time": 2.5722711086273193,
+      "success": true
+    },
+    {
+      "instance": "mockup_30",
+      "type": "mockup",
+      "customers": 30,
+      "ga_distance": 172.1995153599164,
+      "nn_distance": 177.95190634287277,
+      "ga_feasible": true,
+      "nn_feasible": true,
+      "ga_routes": 1,
+      "nn_routes": 1,
+      "ga_utilization": 93.0,
+      "nn_utilization": 93.0,
+      "improvement": 3.232553728237574,
+      "ga_time": 5.4771857261657715,
+      "success": true
+    }
+  ],
+  "summary": {
+    "solomon": {
+      "success_rate": 1.0,
+      "avg_improvement": 15.544915678122072,
+      "feasible_rate": 1.0,
+      "avg_bks_gap": -7.446686998962692
+    },
+    "mockup": {
+      "success_rate": 1.0,
+      "avg_improvement": 7.505002111626596,
+      "feasible_rate": 1.0
+    }
+  }
+}

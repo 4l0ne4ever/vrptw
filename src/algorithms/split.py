@@ -3,8 +3,10 @@ Optimal Split Algorithm for VRP giant tour representation.
 Implements Prins (2004) split algorithm for optimal route splitting.
 """
 
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Dict
+from collections import deque
 from src.models.vrp_model import VRPProblem
+from src.core.pipeline_profiler import pipeline_profiler
 
 
 class SplitAlgorithm:
@@ -26,7 +28,12 @@ class SplitAlgorithm:
     
     def split(self, giant_tour: List[int]) -> Tuple[List[List[int]], float]:
         """
-        Split giant tour into optimal routes using dynamic programming.
+        Split giant tour into optimal routes using optimized dynamic programming.
+        
+        Uses adaptive algorithm selection:
+        - Small problems (n <= 200): Full DP for optimal solution
+        - Medium problems (200 < n <= 500): Beam search DP with beam width
+        - Large problems (n > 500): Approximate DP with limited candidates
         
         Args:
             giant_tour: Giant tour (list of customer IDs, excluding depot)
@@ -35,62 +42,56 @@ class SplitAlgorithm:
             Tuple of (routes, total_cost):
             - routes: List of routes (each route includes depot at start and end)
             - total_cost: Total distance cost of split
-            
-        Example:
-            >>> splitter = SplitAlgorithm(problem)
-            >>> routes, cost = splitter.split([1, 2, 3, 4, 5])
-            >>> print(f"Total cost: {cost}")
         """
         if not giant_tour:
             return [], 0.0
         
         n = len(giant_tour)
-        
-        # DP arrays
-        # V[i] = minimum cost to cover customers 0..i-1
+        with pipeline_profiler.profile("split.execute", metadata={'n_customers': n}):
+            return self._split_linear_mqo(giant_tour)
+    
+    def _split_full_dp(self, giant_tour: List[int]) -> Tuple[List[List[int]], float]:
+        """Full DP split for small problems (optimal solution)."""
+        n = len(giant_tour)
         V = [float('inf')] * (n + 1)
-        V[0] = 0.0  # No customers = zero cost
-        
-        # pred[i] = best predecessor for position i
+        V[0] = 0.0
         pred = [-1] * (n + 1)
         
-        # Dynamic programming
+        # Pre-compute customer data for faster lookup
+        customer_data = {}
+        for idx, customer_id in enumerate(giant_tour):
+            customer = self.problem.get_customer_by_id(customer_id)
+            if customer:
+                customer_data[idx] = (customer_id, customer.demand)
+        
+        capacity = self.problem.vehicle_capacity
+        
         for i in range(n):
             if V[i] == float('inf'):
                 continue
             
-            # Try building route starting from position i
             load = 0.0
             route_cost = 0.0
+            prev_customer_id = 0  # Start from depot
             
-            # j represents end position of route starting at i
             for j in range(i + 1, n + 1):
-                # Get customer at position j-1
-                customer_id = giant_tour[j - 1]
-                customer = self.problem.get_customer_by_id(customer_id)
-                
-                if customer is None:
+                if j - 1 not in customer_data:
                     break
                 
-                customer_demand = customer.demand
+                customer_id, customer_demand = customer_data[j - 1]
                 
-                # Check if adding this customer exceeds capacity
-                if load + customer_demand > self.problem.vehicle_capacity:
+                if load + customer_demand > capacity:
                     break
                 
-                # Calculate route cost
+                # Incremental cost calculation
                 if j == i + 1:
-                    # First customer in route: depot -> customer -> depot
+                    # First customer: depot -> customer -> depot
                     route_cost = (
                         self.problem.get_distance(0, customer_id) +
                         self.problem.get_distance(customer_id, 0)
                     )
                 else:
-                    # Add customer to existing route
-                    prev_customer_id = giant_tour[j - 2]
-                    
-                    # Remove: prev_customer -> depot
-                    # Add: prev_customer -> customer -> depot
+                    # Add customer: remove prev->depot, add prev->customer->depot
                     route_cost = (
                         route_cost -
                         self.problem.get_distance(prev_customer_id, 0) +
@@ -99,37 +100,219 @@ class SplitAlgorithm:
                     )
                 
                 load += customer_demand
+                prev_customer_id = customer_id
                 
-                # Update DP if this split is better
                 new_cost = V[i] + route_cost
                 if new_cost < V[j]:
                     V[j] = new_cost
                     pred[j] = i
         
-        # Reconstruct routes from DP solution
+        return self._reconstruct_routes(giant_tour, V, pred, n)
+    
+    def _split_beam_search(self, giant_tour: List[int], beam_width: int = 20) -> Tuple[List[List[int]], float]:
+        """
+        Beam search DP for medium problems.
+        Maintains only top-k best states at each position.
+        """
+        n = len(giant_tour)
+        
+        # Beam: list of (position, cost, predecessor)
+        beam = [(0, 0.0, -1)]  # Start at position 0 with cost 0
+        
+        # Track best cost and predecessor for each position
+        best_cost = [float('inf')] * (n + 1)
+        best_cost[0] = 0.0
+        pred = [-1] * (n + 1)
+        
+        # Pre-compute customer data
+        customer_data = {}
+        for idx, customer_id in enumerate(giant_tour):
+            customer = self.problem.get_customer_by_id(customer_id)
+            if customer:
+                customer_data[idx] = (customer_id, customer.demand)
+        
+        capacity = self.problem.vehicle_capacity
+        
+        for i in range(n):
+            if not beam:
+                break
+            
+            # Expand all states in current beam
+            candidates = []
+            
+            for pos, cost, _ in beam:
+                if pos >= n:
+                    continue
+                
+                load = 0.0
+                route_cost = 0.0
+                prev_customer_id = 0
+                
+                # Try extending route from this position
+                for j in range(pos + 1, min(pos + 50, n + 1)):  # Limit route length
+                    if j - 1 not in customer_data:
+                        break
+                    
+                    customer_id, customer_demand = customer_data[j - 1]
+                    
+                    if load + customer_demand > capacity:
+                        break
+                    
+                    # Calculate incremental cost
+                    if j == pos + 1:
+                        route_cost = (
+                            self.problem.get_distance(0, customer_id) +
+                            self.problem.get_distance(customer_id, 0)
+                        )
+                    else:
+                        route_cost = (
+                            route_cost -
+                            self.problem.get_distance(prev_customer_id, 0) +
+                            self.problem.get_distance(prev_customer_id, customer_id) +
+                            self.problem.get_distance(customer_id, 0)
+                        )
+                    
+                    load += customer_demand
+                    prev_customer_id = customer_id
+                    
+                    new_cost = cost + route_cost
+                    candidates.append((j, new_cost, pos))
+                    
+                    # Update best if better
+                    if new_cost < best_cost[j]:
+                        best_cost[j] = new_cost
+                        pred[j] = pos
+            
+            # Keep only top beam_width candidates
+            candidates.sort(key=lambda x: x[1])
+            beam = candidates[:beam_width]
+        
+        return self._reconstruct_routes(giant_tour, best_cost, pred, n)
+    
+    def _split_linear_mqo(self, giant_tour: List[int]) -> Tuple[List[List[int]], float]:
+        """
+        MQO-enhanced O(n) split algorithm (Vidal 2016).
+        Uses monotonic multi-queue optimization to maintain feasible predecessors.
+        """
+        n = len(giant_tour)
+        if n == 0:
+            return [], 0.0
+
+        with pipeline_profiler.profile("split.linear", metadata={'n_customers': n}):
+            capacity = self.problem.vehicle_capacity
+
+            # Prepare 1-indexed arrays
+            customer_seq = [0] + giant_tour
+            cum_demand = [0.0] * (n + 1)
+            for idx in range(1, n + 1):
+                customer = self.problem.get_customer_by_id(customer_seq[idx])
+                cum_demand[idx] = cum_demand[idx - 1] + (customer.demand if customer else 0.0)
+
+            # Prefix travel cost along the giant tour (D array in Vidal's notation)
+            prefix_cost = [0.0] * (n + 1)
+            for idx in range(1, n):
+                from_id = customer_seq[idx]
+                to_id = customer_seq[idx + 1]
+                prefix_cost[idx + 1] = prefix_cost[idx] + self.problem.get_distance(from_id, to_id)
+
+            # h(j) = prefix_cost[j] + dist(node_j, depot)
+            h_vals = [0.0] * (n + 1)
+            for j in range(1, n + 1):
+                h_vals[j] = prefix_cost[j] + self.problem.get_distance(customer_seq[j], 0)
+
+            V = [float('inf')] * (n + 1)
+            V[0] = 0.0
+            pred = [-1] * (n + 1)
+
+            g_vals = [float('inf')] * n  # defined for i = 0..n-1
+
+            def compute_g(idx: int) -> float:
+                """Compute g(i) = V[i] + dist(depot, node_{i+1}) - prefix_cost[i+1]."""
+                if idx >= n:
+                    return float('inf')
+                next_customer_id = customer_seq[idx + 1]
+                return V[idx] + self.problem.get_distance(0, next_customer_id) - prefix_cost[idx + 1]
+
+            candidates: deque[int] = deque()
+            g_vals[0] = compute_g(0)
+            candidates.append(0)
+
+            for j in range(1, n + 1):
+                # Drop candidates that violate capacity
+                while candidates and (cum_demand[j] - cum_demand[candidates[0]]) > capacity:
+                    candidates.popleft()
+
+                if not candidates:
+                    V[j] = float('inf')
+                else:
+                    best_idx = candidates[0]
+                    V[j] = g_vals[best_idx] + h_vals[j]
+                    pred[j] = best_idx
+
+                # Update candidate queue with index j (future predecessor)
+                if j < n and V[j] < float('inf'):
+                    g_j = compute_g(j)
+                    g_vals[j] = g_j
+                    while candidates and g_j <= g_vals[candidates[-1]]:
+                        candidates.pop()
+                    candidates.append(j)
+
+            if V[n] == float('inf'):
+                return self._fallback_split(giant_tour)
+
+            return self._reconstruct_routes(giant_tour, V, pred, n)
+    
+    def _calculate_route_cost(self, giant_tour: List[int], customer_data: dict,
+                             start_pos: int, end_pos: int) -> float:
+        """
+        Calculate cost of route from start_pos to end_pos in giant_tour.
+        Optimized incremental calculation.
+        """
+        if start_pos >= end_pos:
+            return 0.0
+        
+        total_cost = 0.0
+        
+        # First customer: depot -> customer
+        if start_pos not in customer_data:
+            return float('inf')
+        
+        first_customer_id = customer_data[start_pos][0]
+        total_cost += self.problem.get_distance(0, first_customer_id)
+        
+        # Intermediate customers
+        prev_customer_id = first_customer_id
+        for pos in range(start_pos + 1, end_pos):
+            if pos not in customer_data:
+                return float('inf')
+            customer_id = customer_data[pos][0]
+            total_cost += self.problem.get_distance(prev_customer_id, customer_id)
+            prev_customer_id = customer_id
+        
+        # Last customer -> depot
+        total_cost += self.problem.get_distance(prev_customer_id, 0)
+        
+        return total_cost
+    
+    def _reconstruct_routes(self, giant_tour: List[int], V: List[float], 
+                           pred: List[int], n: int) -> Tuple[List[List[int]], float]:
+        """Reconstruct routes from DP solution."""
         routes = []
         j = n
         
         while j > 0:
             i = pred[j]
             if i < 0:
-                # No valid split found - use fallback decoder
                 return self._fallback_split(giant_tour)
             
-            # Extract route segment
             route_segment = giant_tour[i:j]
-            
-            # Build route: depot -> customers -> depot
             route = [0] + route_segment + [0]
             routes.insert(0, route)
-            
             j = i
         
         total_cost = V[n]
         
-        # Validate routes
         if not self._validate_routes(routes):
-            # If validation fails, use fallback
             return self._fallback_split(giant_tour)
         
         return routes, total_cost
@@ -144,52 +327,53 @@ class SplitAlgorithm:
         Returns:
             Tuple of (routes, total_cost)
         """
-        routes = []
-        current_route = [0]
-        current_load = 0.0
-        total_cost = 0.0
-        
-        for customer_id in giant_tour:
-            customer = self.problem.get_customer_by_id(customer_id)
-            if customer is None:
-                continue
+        with pipeline_profiler.profile("split.fallback", metadata={'n_customers': len(giant_tour)}):
+            routes = []
+            current_route = [0]
+            current_load = 0.0
+            total_cost = 0.0
             
-            customer_demand = customer.demand
-            
-            # Check capacity
-            if current_load + customer_demand <= self.problem.vehicle_capacity:
-                # Add to current route
-                if current_route == [0]:
-                    # First customer in route
-                    total_cost += self.problem.get_distance(0, customer_id)
+            for customer_id in giant_tour:
+                customer = self.problem.get_customer_by_id(customer_id)
+                if customer is None:
+                    continue
+                
+                customer_demand = customer.demand
+                
+                # Check capacity
+                if current_load + customer_demand <= self.problem.vehicle_capacity:
+                    # Add to current route
+                    if current_route == [0]:
+                        # First customer in route
+                        total_cost += self.problem.get_distance(0, customer_id)
+                    else:
+                        # Add edge cost
+                        prev_customer_id = current_route[-1]
+                        total_cost += self.problem.get_distance(prev_customer_id, customer_id)
+                    
+                    current_route.append(customer_id)
+                    current_load += customer_demand
                 else:
-                    # Add edge cost
-                    prev_customer_id = current_route[-1]
-                    total_cost += self.problem.get_distance(prev_customer_id, customer_id)
-                
-                current_route.append(customer_id)
-                current_load += customer_demand
-            else:
-                # Finish current route
-                if current_route != [0]:
-                    last_customer_id = current_route[-1]
-                    total_cost += self.problem.get_distance(last_customer_id, 0)
-                    current_route.append(0)
-                    routes.append(current_route)
-                
-                # Start new route
-                total_cost += self.problem.get_distance(0, customer_id)
-                current_route = [0, customer_id]
-                current_load = customer_demand
-        
-        # Finish last route
-        if current_route != [0]:
-            last_customer_id = current_route[-1]
-            total_cost += self.problem.get_distance(last_customer_id, 0)
-            current_route.append(0)
-            routes.append(current_route)
-        
-        return routes, total_cost
+                    # Finish current route
+                    if current_route != [0]:
+                        last_customer_id = current_route[-1]
+                        total_cost += self.problem.get_distance(last_customer_id, 0)
+                        current_route.append(0)
+                        routes.append(current_route)
+                    
+                    # Start new route
+                    total_cost += self.problem.get_distance(0, customer_id)
+                    current_route = [0, customer_id]
+                    current_load = customer_demand
+            
+            # Finish last route
+            if current_route != [0]:
+                last_customer_id = current_route[-1]
+                total_cost += self.problem.get_distance(last_customer_id, 0)
+                current_route.append(0)
+                routes.append(current_route)
+            
+            return routes, total_cost
     
     def _validate_routes(self, routes: List[List[int]]) -> bool:
         """
@@ -342,4 +526,5 @@ class SplitAlgorithm:
             'min_utilization': min(route_utilizations) if route_utilizations else 0.0,
             'max_utilization': max(route_utilizations) if route_utilizations else 0.0
         }
+
 

@@ -64,13 +64,17 @@ class JSONDatasetLoader:
         with open(filepath, 'r', encoding='utf-8') as f:
             json_data = json.load(f)
         
+        # Ensure metadata has dataset_type
+        metadata = json_data['metadata'].copy() if 'metadata' in json_data else {}
+        metadata['dataset_type'] = dataset_type  # Add dataset_type to metadata
+        
         # Convert to standard format
         return {
             'depot': json_data['depot'],
             'customers': json_data['customers'],
             'vehicle_capacity': json_data['problem_config']['vehicle_capacity'],
             'num_vehicles': json_data['problem_config']['num_vehicles'],
-            'metadata': json_data['metadata'],
+            'metadata': metadata,
             'problem_config': json_data['problem_config']
         }
     

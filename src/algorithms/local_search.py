@@ -90,8 +90,16 @@ class TwoOptOptimizer:
             optimized_route = self._two_opt_single_route(route, max_iterations)
             optimized_routes.append(optimized_route)
         
-        # Apply inter-route optimizations
-        optimized_routes = self._inter_route_optimization(optimized_routes, max_iterations)
+        # Apply inter-route optimizations (can be slow, so limit or skip for small iterations)
+        # Inter-route optimization has O(n^2 * m^2) complexity where n=routes, m=customers per route
+        # Skip it if max_iterations is too low to avoid performance issues
+        if max_iterations >= 20 and len(optimized_routes) <= 10:  # Only for reasonable cases
+            try:
+                optimized_routes = self._inter_route_optimization(optimized_routes, min(max_iterations // 2, 5))
+            except Exception:
+                # If inter-route fails, continue with intra-route optimized routes
+                pass
+        # Skip inter-route for high iteration counts or many routes to avoid hanging
         
         return optimized_routes
     

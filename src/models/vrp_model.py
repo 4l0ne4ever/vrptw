@@ -47,7 +47,8 @@ class VRPProblem:
                  depot: Depot,
                  vehicle_capacity: float,
                  num_vehicles: int,
-                 distance_matrix: Optional[np.ndarray] = None):
+                 distance_matrix: Optional[np.ndarray] = None,
+                 use_adaptive_traffic: bool = False):
         """
         Initialize VRP problem.
         
@@ -56,13 +57,16 @@ class VRPProblem:
             depot: Depot information
             vehicle_capacity: Maximum capacity per vehicle
             num_vehicles: Maximum number of vehicles
-            distance_matrix: Optional pre-computed distance matrix
+            distance_matrix: Optional pre-computed distance matrix (base distance)
+            use_adaptive_traffic: Enable adaptive traffic factor based on time
         """
         self.customers = customers
         self.depot = depot
         self.vehicle_capacity = vehicle_capacity
         self.num_vehicles = num_vehicles
         self.distance_matrix = distance_matrix
+        self.use_adaptive_traffic = use_adaptive_traffic
+        self.distance_calculator = None  # Reference to DistanceCalculator for adaptive traffic
         
         # Create ID to index mapping for distance matrix
         self.id_to_index = {0: 0}  # Depot is always index 0
@@ -123,8 +127,12 @@ class VRPProblem:
         """Get list of service times."""
         return [c.service_time for c in self.customers]
     
+    def set_distance_calculator(self, calculator):
+        """Set distance calculator for adaptive traffic factor."""
+        self.distance_calculator = calculator
+    
     def get_distance(self, from_idx: int, to_idx: int) -> float:
-        """Get distance between two points by ID."""
+        """Get base distance between two points by ID (no traffic factor)."""
         if self.distance_matrix is None:
             raise ValueError("Distance matrix not available")
         
@@ -136,6 +144,33 @@ class VRPProblem:
             raise ValueError(f"Invalid customer ID: {from_idx} or {to_idx}")
         
         return self.distance_matrix[from_matrix_idx, to_matrix_idx]
+    
+    def get_adaptive_distance(self, from_id: int, to_id: int, 
+                              time_minutes: float) -> float:
+        """
+        Get distance with adaptive traffic factor applied.
+        
+        Args:
+            from_id: Source customer ID
+            to_id: Destination customer ID
+            time_minutes: Time in minutes from 0:00 when traveling this segment
+        
+        Returns:
+            Distance with adaptive traffic factor (or base distance if adaptive disabled)
+        """
+        if not self.use_adaptive_traffic or self.distance_calculator is None:
+            return self.get_distance(from_id, to_id)
+        
+        # Convert IDs to matrix indices
+        from_matrix_idx = self.id_to_index.get(from_id)
+        to_matrix_idx = self.id_to_index.get(to_id)
+        
+        if from_matrix_idx is None or to_matrix_idx is None:
+            raise ValueError(f"Invalid customer ID: {from_id} or {to_id}")
+        
+        return self.distance_calculator.get_adaptive_distance(
+            from_matrix_idx, to_matrix_idx, time_minutes
+        )
     
     def calculate_total_demand(self) -> float:
         """Calculate total demand of all customers."""
@@ -183,13 +218,15 @@ class VRPProblem:
         }
 
 
-def create_vrp_problem_from_dict(data: Dict, distance_matrix: Optional[np.ndarray] = None) -> VRPProblem:
+def create_vrp_problem_from_dict(data: Dict, distance_matrix: Optional[np.ndarray] = None,
+                                 use_adaptive_traffic: bool = False) -> VRPProblem:
     """
     Create VRP problem from dictionary data.
     
     Args:
         data: Dictionary containing VRP data
-        distance_matrix: Optional pre-computed distance matrix
+        distance_matrix: Optional pre-computed distance matrix (base distance)
+        use_adaptive_traffic: Enable adaptive traffic factor
         
     Returns:
         VRPProblem instance
@@ -226,7 +263,8 @@ def create_vrp_problem_from_dict(data: Dict, distance_matrix: Optional[np.ndarra
         depot=depot,
         vehicle_capacity=data['vehicle_capacity'],
         num_vehicles=data['num_vehicles'],
-        distance_matrix=distance_matrix
+        distance_matrix=distance_matrix,
+        use_adaptive_traffic=use_adaptive_traffic
     )
     
     return problem
