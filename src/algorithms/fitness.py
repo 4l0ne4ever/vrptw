@@ -106,42 +106,30 @@ class FitnessEvaluator:
             # Calculate balance factor
             balance_factor = self._calculate_balance_factor(routes)
             
-            # Feasible-first: if any violation, apply strong scaling; otherwise distance-driven
+            # Distance-first fitness (like NN and BKS)
+            # Penalties guide toward feasibility but don't dominate
             if raw_penalty > 0:
-                # EXTREME penalty capping to keep fitness usable
-                # Even with per-violation caps, 76 violations can add to 335k penalty
-                # We need TOTAL penalty cap relative to distance
+                # Cap penalty to keep fitness meaningful while preserving learning gradient
+                # Key: Penalty must be low enough for GA to learn, but high enough to matter
                 if self.penalty_weight <= 1500:  # Hanoi mode
-                    # Max total penalty = 10x distance
-                    max_raw_penalty = total_distance * 10
-                    min_penalty_scale = 3  # At least 3x distance to differentiate infeasible
-                else:  # Solomon mode  
-                    # Max total penalty = 8x distance (tighter for benchmarks)
-                    max_raw_penalty = total_distance * 8
-                    min_penalty_scale = 3  # At least 3x distance
+                    max_penalty_cap = total_distance * 10
+                else:  # Solomon mode
+                    # Cap at 2× distance for strong learning gradient
+                    # Fitness will vary: 0.00028-0.0008 (learnable range)
+                    # GA can distinguish: 78 vs 40 vs 15 violations
+                    max_penalty_cap = total_distance * 2.0
                 
-                capped_penalty = min(raw_penalty, max_raw_penalty)
+                capped_penalty = min(raw_penalty, max_penalty_cap)
                 
-                # Scale penalty to ensure infeasible solutions are worse than feasible ones
-                scaled_penalty = max(capped_penalty, total_distance * min_penalty_scale)
-                
-                # Final safety cap to prevent fitness = 0
-                max_final_penalty = total_distance * 12
-                if scaled_penalty > max_final_penalty:
-                    scaled_penalty = max_final_penalty
-                
-                fitness = 1.0 / (total_distance + scaled_penalty + balance_factor + 1.0)
+                # Use capped penalty directly
+                fitness = 1.0 / (total_distance + capped_penalty + balance_factor + 1.0)
             else:
                 fitness = 1.0 / (total_distance + balance_factor + 1.0)
             
             individual.fitness = fitness
             
-            # Store capped penalty for reporting (use tighter cap for display)
-            if self.penalty_weight <= 1500:
-                max_report_penalty = total_distance * 10
-            else:
-                max_report_penalty = total_distance * 8
-            individual.penalty = min(raw_penalty, max_report_penalty)
+            # Store capped penalty for reporting
+            individual.penalty = capped_penalty if raw_penalty > 0 else 0.0
             
             # Mark as valid if no penalty
             individual.is_valid = raw_penalty == 0.0

@@ -85,17 +85,82 @@ tab1 = st.tabs(["Select from Catalog"])[0]
 with tab1:
     st.markdown("### Select from Solomon Catalog")
     
-    # List available Solomon datasets
+    # List available Solomon datasets, sorted by difficulty (easiest to hardest)
     solomon_dir = Path("data/datasets/solomon")
     if solomon_dir.exists():
         json_files = list(solomon_dir.glob("*.json"))
         if json_files:
-            dataset_names = [f.stem for f in json_files]
-            selected_dataset = st.selectbox(
-                "Select a Solomon instance:",
-                options=dataset_names,
-                help="Choose a Solomon benchmark instance"
+            # Load BKS data to calculate difficulty
+            bks_path = Path("data/solomon_bks.json")
+            difficulty_scores = {}
+            
+            if bks_path.exists():
+                try:
+                    with open(bks_path, 'r') as f:
+                        bks_data = json.load(f)
+                    
+                    def get_difficulty_score(name, data):
+                        """Calculate difficulty: higher distance + more vehicles = harder"""
+                        distance = data.get('distance', 0)
+                        vehicles = data.get('vehicles', 0)
+                        return (distance / 1000) + (vehicles / 10)
+                    
+                    # Calculate scores for all available datasets
+                    for json_file in json_files:
+                        name = json_file.stem
+                        if name in bks_data:
+                            difficulty_scores[name] = get_difficulty_score(name, bks_data[name])
+                        else:
+                            # If no BKS data, use a default score
+                            difficulty_scores[name] = 999.0
+                    
+                    # Sort by difficulty (easiest first)
+                    dataset_names = sorted(
+                        [f.stem for f in json_files],
+                        key=lambda x: difficulty_scores.get(x, 999.0)
+                    )
+                except Exception:
+                    # Fallback to alphabetical if BKS loading fails
+                    dataset_names = sorted([f.stem for f in json_files])
+            else:
+                # Fallback to alphabetical if BKS file doesn't exist
+                dataset_names = sorted([f.stem for f in json_files])
+            
+            # Create display names with difficulty indicators
+            display_options = []
+            for name in dataset_names:
+                if name in difficulty_scores:
+                    score = difficulty_scores[name]
+                    # Determine type
+                    if name.startswith('C'):
+                        dtype = "C (Clustered - Easier)"
+                    elif name.startswith('RC'):
+                        dtype = "RC (Mixed - Hardest)"
+                    else:
+                        dtype = "R (Random - Medium)"
+                    
+                    # Add difficulty indicator
+                    if score < 1.5:
+                        diff_label = "🟢 Easy"
+                    elif score < 2.0:
+                        diff_label = "🟡 Medium"
+                    elif score < 2.5:
+                        diff_label = "🟠 Hard"
+                    else:
+                        diff_label = "🔴 Very Hard"
+                    
+                    display_options.append(f"{name} - {dtype} - {diff_label}")
+                else:
+                    display_options.append(name)
+            
+            selected_display = st.selectbox(
+                "Select a Solomon instance (sorted easiest → hardest):",
+                options=display_options,
+                help="Datasets are sorted by difficulty. C=Clustered (easier), R=Random (medium), RC=Mixed (hardest)"
             )
+            
+            # Extract dataset name from display string
+            selected_dataset = selected_display.split(" - ")[0] if " - " in selected_display else selected_display
             
             if st.button("Load Dataset", use_container_width=True):
                 try:
@@ -167,7 +232,7 @@ if st.session_state.solomon_dataset:
                     on_stop=stop_optimization,
                     is_running=False,
                     key_prefix="solomon"
-                )
+            )
             
             # Run optimization if requested
             if st.session_state.solomon_optimization_running and not st.session_state.solomon_optimization_results:

@@ -88,6 +88,7 @@ class GeneticAlgorithm:
     def _create_individual(self, index: int, population_size: int) -> Individual:
         """
         Create an individual using different initialization strategies.
+        Includes time-window-aware strategies for VRPTW problems.
         
         Args:
             index: Individual index
@@ -101,24 +102,80 @@ class GeneticAlgorithm:
         
         customer_ids = [c.id for c in self.problem.customers]
         
-        # Use different initialization strategies
-        strategy_ratio = index / population_size
-        
-        if strategy_ratio < 0.6:
-            # Random initialization (60%)
-            chromosome = customer_ids.copy()
-            random.shuffle(chromosome)
-        elif strategy_ratio < 0.8:
-            # Greedy initialization (20%)
-            chromosome = self._greedy_initialization(customer_ids)
-        elif strategy_ratio < 0.95:
-            # Cluster-first initialization (15%)
-            chromosome = self._cluster_first_initialization(customer_ids)
+        # First 5 individuals: Use time-window-aware strategies for VRPTW
+        # This gives GA good starting points that respect time constraints
+        if index == 0:
+            # NN solution (distance-focused baseline)
+            from src.algorithms.nearest_neighbor import NearestNeighborHeuristic
+            nn_heuristic = NearestNeighborHeuristic(self.problem)
+            nn_solution = nn_heuristic.solve()
+            return nn_solution
+        elif index == 1:
+            # Sort by ready_time (serve earliest time windows first)
+            chromosome = self._time_window_initialization(customer_ids, 'ready_time')
+        elif index == 2:
+            # Sort by due_date (serve tightest deadlines first)
+            chromosome = self._time_window_initialization(customer_ids, 'due_date')
+        elif index == 3:
+            # Sort by time window center (middle of [ready, due])
+            chromosome = self._time_window_initialization(customer_ids, 'center')
+        elif index == 4:
+            # Sort by time window slack (due - ready, tight windows first)
+            chromosome = self._time_window_initialization(customer_ids, 'slack')
         else:
-            # Savings-based initialization (5%)
-            chromosome = self._savings_initialization(customer_ids)
+            # Rest: Use mixed strategies for diversity
+            strategy_ratio = (index - 5) / (population_size - 5)
+            if strategy_ratio < 0.5:
+                # Random initialization (50%)
+                chromosome = customer_ids.copy()
+                random.shuffle(chromosome)
+            elif strategy_ratio < 0.7:
+                # Greedy initialization (20%)
+                chromosome = self._greedy_initialization(customer_ids)
+            elif strategy_ratio < 0.85:
+                # Cluster-first initialization (15%)
+                chromosome = self._cluster_first_initialization(customer_ids)
+            else:
+                # Savings-based initialization (15%)
+                chromosome = self._savings_initialization(customer_ids)
         
         return Individual(chromosome=chromosome)
+    
+    def _time_window_initialization(self, customer_ids: List[int], strategy: str) -> List[int]:
+        """
+        Create chromosome sorted by time window characteristics.
+        Critical for VRPTW to give GA feasible starting points.
+        
+        Args:
+            customer_ids: List of customer IDs
+            strategy: One of 'ready_time', 'due_date', 'center', 'slack'
+            
+        Returns:
+            Sorted chromosome
+        """
+        if not customer_ids:
+            return []
+        
+        # Get customers with time windows
+        customers = [self.problem.get_customer_by_id(cid) for cid in customer_ids]
+        
+        if strategy == 'ready_time':
+            # Sort by ready_time (earliest first)
+            sorted_customers = sorted(customers, key=lambda c: c.ready_time)
+        elif strategy == 'due_date':
+            # Sort by due_date (tightest first)
+            sorted_customers = sorted(customers, key=lambda c: c.due_date)
+        elif strategy == 'center':
+            # Sort by time window center (ready_time + due_date) / 2
+            sorted_customers = sorted(customers, key=lambda c: (c.ready_time + c.due_date) / 2)
+        elif strategy == 'slack':
+            # Sort by slack (due_date - ready_time), tight windows first
+            sorted_customers = sorted(customers, key=lambda c: c.due_date - c.ready_time)
+        else:
+            # Fallback to original order
+            return customer_ids
+        
+        return [c.id for c in sorted_customers]
     
     def _greedy_initialization(self, customer_ids: List[int]) -> List[int]:
         """Create chromosome using greedy nearest neighbor approach."""

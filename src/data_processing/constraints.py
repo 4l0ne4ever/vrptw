@@ -257,16 +257,20 @@ class ConstraintHandler:
                     
                     # Check if we arrive too late
                     if current_time > due_date:
-                        # Late arrival penalty with VERY aggressive per-violation cap
-                        # Problem: With many violations (e.g. 76), even small per-violation penalties add up
-                        # Solution: Use tiny per-violation cap to keep total penalty reasonable
+                        # Tiered penalty system: graduated response based on severity
+                        # Small violations get gentle penalties, large violations get strong penalties
                         lateness = current_time - due_date
-                        # Cap each violation to 1 minute equivalent penalty (very aggressive)
-                        # This means 100 violations = 100 minutes = 500k for Solomon (still too high)
-                        # So we need even smaller cap: 0.5 minutes equivalent
-                        max_lateness_minutes = 2 if self.penalty_weight <= 1500 else 0.5
-                        max_lateness_penalty = self.penalty_weight * max_lateness_minutes
-                        lateness_penalty = min(self.penalty_weight * lateness, max_lateness_penalty)
+                        
+                        # Tier 1: Minor violations (< 10 time units)
+                        if lateness < 10:
+                            lateness_penalty = 100 * lateness
+                        # Tier 2: Medium violations (10-60 time units)
+                        elif lateness < 60:
+                            lateness_penalty = 1000 + 500 * (lateness - 10)
+                        # Tier 3: Major violations (>= 60 time units)
+                        else:
+                            lateness_penalty = 26000 + 1000 * (lateness - 60)
+                        
                         total_penalty += lateness_penalty
                     
                     # Add service time

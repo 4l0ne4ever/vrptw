@@ -29,8 +29,7 @@ class SplitAlgorithm:
         """
         Split giant tour into optimal routes using full DP/Bellman algorithm.
         
-        Uses optimal dynamic programming (Prins 2004) optimizing for distance.
-        Time window constraints are handled by the penalty system in fitness evaluation.
+        Uses optimal dynamic programming (Prins 2004) with soft time-window awareness.
         
         Args:
             giant_tour: Giant tour (list of customer IDs, excluding depot)
@@ -45,14 +44,98 @@ class SplitAlgorithm:
         
         n = len(giant_tour)
         with pipeline_profiler.profile("split.execute", metadata={'n_customers': n}):
-            # Use full DP/Bellman for optimal distance-based solution
+            # Use full DP/Bellman for optimal solution with soft TW awareness
             return self._split_full_dp(giant_tour)
     
+    def _is_route_segment_tw_feasible(self, customer_seq: List[int], start_idx: int, end_idx: int) -> bool:
+        """
+        Check if route segment is acceptable with soft time-window constraints.
+        Focuses on preventing catastrophic violations while allowing minor ones.
+        
+        Philosophy: Split should optimize DISTANCE, penalty system handles VIOLATIONS.
+        Only break routes for severe violations that would make the solution unusable.
+        
+        Args:
+            customer_seq: 1-indexed customer sequence (0=depot, then customers)
+            start_idx: Start position (0-based, where 0 means start from depot)
+            end_idx: End position (1-indexed, inclusive)
+            
+        Returns:
+            True if segment is acceptable, False if violations are catastrophic
+        """
+        # Check if problem has time windows
+        has_tw = any(
+            c.ready_time > 0 or c.due_date < float('inf')
+            for c in self.problem.customers
+        )
+        if not has_tw:
+            return True  # No time windows, always acceptable
+        
+        # Simulate route execution
+        current_time = 0.0  # Start from depot at time 0
+        prev_id = 0  # Start from depot
+        violations = 0
+        total_customers = 0
+        max_lateness = 0.0
+        
+        # Process customers from start_idx+1 to end_idx (1-indexed)
+        for idx in range(start_idx + 1, end_idx + 1):
+            if idx >= len(customer_seq):
+                break
+            
+            customer_id = customer_seq[idx]
+            customer = self.problem.get_customer_by_id(customer_id)
+            if not customer:
+                continue
+            
+            total_customers += 1
+            
+            # Travel time
+            travel_time = self.problem.get_distance(prev_id, customer_id)
+            arrival_time = current_time + travel_time
+            
+            # Wait if early
+            if arrival_time < customer.ready_time:
+                arrival_time = customer.ready_time
+            
+            # Check if late (violates time window)
+            if arrival_time > customer.due_date:
+                violations += 1
+                lateness = arrival_time - customer.due_date
+                max_lateness = max(max_lateness, lateness)
+            
+            # Service time
+            current_time = arrival_time + customer.service_time
+            prev_id = customer_id
+        
+        # Reject only if violations are CATASTROPHIC
+        # Allow moderate violations - penalty system will guide GA to optimize them
+        
+        if total_customers == 0:
+            return True
+        
+        violation_rate = violations / total_customers
+        
+        # Break route if:
+        # 1. Single customer is extremely late (>150 min)
+        if max_lateness > 150:
+            return False
+        
+        # 2. Too many customers violated (>50% of route)
+        if violation_rate > 0.5:
+            return False
+        
+        # 3. Moderate lateness with many violations
+        if max_lateness > 80 and violation_rate > 0.3:
+            return False
+        
+        # Otherwise, accept the route (let penalty system handle minor violations)
+        return True
     
     def _split_full_dp(self, giant_tour: List[int]) -> Tuple[List[List[int]], float]:
         """
-        Full DP/Bellman split algorithm (Prins 2004).
-        Optimal solution using dynamic programming, optimizing for distance.
+        Full DP/Bellman split algorithm (Prins 2004) with soft time-window awareness.
+        Optimal solution using dynamic programming.
         """
         n = len(giant_tour)
         V = [float('inf')] * (n + 1)
@@ -65,6 +148,9 @@ class SplitAlgorithm:
             customer = self.problem.get_customer_by_id(customer_id)
             if customer:
                 customer_data[idx] = (customer_id, customer.demand)
+        
+        # Prepare 1-indexed customer sequence for TW feasibility check
+        customer_seq = [0] + giant_tour
         
         capacity = self.problem.vehicle_capacity
         
@@ -82,9 +168,14 @@ class SplitAlgorithm:
                 
                 customer_id, customer_demand = customer_data[j - 1]
                 
-                # Capacity check (ONLY constraint checked during split)
-                # Time windows are handled by penalty system
+                # Capacity check
                 if load + customer_demand > capacity:
+                    break
+                
+                # Soft time-window feasibility check
+                if not self._is_route_segment_tw_feasible(customer_seq, i, j):
+                    # Only break if violations are catastrophic
+                    # Allow minor violations to maintain reasonable route lengths
                     break
                 
                 # Incremental cost calculation

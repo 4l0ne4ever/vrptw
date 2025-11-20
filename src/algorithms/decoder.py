@@ -77,7 +77,8 @@ class RouteDecoder:
                         "decoder.split",
                         metadata={'n_customers': len(giant_tour)}
                     ):
-                        routes, _ = self.splitter.split(giant_tour, max_vehicles=self.problem.num_vehicles)
+                        # Split algorithm determines vehicle count naturally via capacity
+                        routes, _ = self.splitter.split(giant_tour)
                     # Validate that routes were created
                     if routes and len(routes) > 0:
                         return routes
