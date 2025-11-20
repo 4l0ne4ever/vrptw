@@ -153,10 +153,16 @@ class DistanceCalculator:
                 self.distance_matrix = np.zeros((n_points, n_points))
                 
                 # Use real road routes for Hanoi, otherwise use haversine/euclidean
-                if self.use_real_routes and self._should_use_haversine(coordinates):
-                    # Use OSRM Table Service for real road routes (much faster for large datasets)
-                    import logging
-                    logger = logging.getLogger(__name__)
+                import logging
+                logger = logging.getLogger(__name__)
+                
+                # Force Euclidean for Solomon datasets (never use OSRM)
+                if self.dataset_type.lower() == "solomon":
+                    logger.info(f"📐 Using Euclidean distance for Solomon dataset ({n_points} locations)")
+                    with pipeline_profiler.profile("distance.euclidean_vectorized", metadata={'n_points': n_points}):
+                        self.distance_matrix = self._calculate_euclidean_matrix_vectorized(coordinates, n_points)
+                elif self.use_real_routes and self._should_use_haversine(coordinates):
+                    # Use OSRM Table Service for real road routes (Hanoi mode only)
                     logger.info(f"🔄 Calculating real road route distances for {n_points} locations using OSRM Table Service...")
                     
                     # Use OSRM Table Service (calculates entire matrix in 1 request)
@@ -170,6 +176,7 @@ class DistanceCalculator:
                     # Vectorized approach is 10x-25x faster than nested loops
                     use_haversine = self._should_use_haversine(coordinates)
                     loop_label = "distance.haversine_vectorized" if use_haversine else "distance.euclidean_vectorized"
+                    logger.info(f"📐 Using {loop_label} for {self.dataset_type} dataset ({n_points} locations, use_real_routes={self.use_real_routes})")
                     with pipeline_profiler.profile(loop_label, metadata={'n_points': n_points}):
                         if use_haversine:
                             self.distance_matrix = self._calculate_haversine_matrix_vectorized(coordinates, n_points)

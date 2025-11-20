@@ -13,8 +13,28 @@ GA_CONFIG = {
     'convergence_threshold': 0.001,
     'stagnation_limit': 50,        # Stop if no improvement for 50 generations
     'use_split_algorithm': True,  # Enable Split Algorithm (Prins 2004) for optimal route splitting
-    'local_search_prob': 0.1,     # Probability of applying 2-opt local search to offspring
-    'local_search_iterations': 10  # Max iterations for 2-opt local search
+    'local_search_prob': 0.3,     # Probability of applying 2-opt/TW repair to offspring
+    'local_search_iterations': 30,  # Max iterations for local search
+    'force_full_generations': True,
+    'tw_repair': {
+        'enabled': True,
+        'max_iterations': 20,  # Increased: need more iterations for high violations
+        'max_iterations_soft': 10,  # Increased: 4 iterations not enough for lateness 36000-65000
+        'violation_weight': 50.0,
+        'max_relocations_per_route': 2,
+        'max_routes_to_try': None,
+        'max_positions_to_try': None,
+        'max_routes_soft_limit': 5,
+        'max_positions_soft_limit': 6,
+        'lateness_soft_threshold': 5000.0,  # Lowered: repair more individuals
+        'lateness_skip_threshold': 100000.0,  # Raised: allow repair for high violations (was 20000, too low)
+        'apply_in_decoder': False,  # Disabled: too expensive, use selective repair instead
+        'apply_in_decoder_solomon': False,
+        'apply_after_local_search': True,
+        'apply_post_generation': True,  # Apply to top 50% best + top 50% high-violation individuals
+        'apply_after_local_search_solomon': True,
+        'apply_on_final_solution': True
+    }
 }
 
 # GA Preset Configurations

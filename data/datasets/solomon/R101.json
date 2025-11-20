@@ -922,7 +922,6 @@
   "problem_config": {
     "vehicle_capacity": 200,
     "num_vehicles": 10,
-    "traffic_factor": 1.0,
-    "penalty_weight": 1000
+    "traffic_factor": 1.0
   }
 }

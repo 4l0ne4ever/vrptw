@@ -29,8 +29,13 @@ class SplitAlgorithm:
         """
         Split giant tour into optimal routes using full DP/Bellman algorithm.
         
-        Uses optimal dynamic programming (Prins 2004) optimizing for distance.
-        Time window constraints are handled by the penalty system in fitness evaluation.
+        Uses optimal dynamic programming (Prins 2004) optimizing for distance only.
+        Time window constraints are handled by the fitness function and GA evolution.
+        
+        This separation of concerns ensures generalization:
+        - Split: Fast, optimal distance-based decoding
+        - Fitness: Constraint evaluation and penalties  
+        - GA: Search for TW-compatible giant tours
         
         Args:
             giant_tour: Giant tour (list of customer IDs, excluding depot)
@@ -48,11 +53,12 @@ class SplitAlgorithm:
             # Use full DP/Bellman for optimal distance-based solution
             return self._split_full_dp(giant_tour)
     
-    
     def _split_full_dp(self, giant_tour: List[int]) -> Tuple[List[List[int]], float]:
         """
         Full DP/Bellman split algorithm (Prins 2004).
-        Optimal solution using dynamic programming, optimizing for distance.
+        
+        Optimal solution using dynamic programming, optimizing for distance only.
+        Time window constraints are handled by the penalty system in fitness evaluation.
         """
         n = len(giant_tour)
         V = [float('inf')] * (n + 1)

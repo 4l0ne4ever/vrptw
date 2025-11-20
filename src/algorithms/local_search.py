@@ -8,6 +8,7 @@ from typing import List, Tuple, Optional
 from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
 from src.algorithms.decoder import RouteDecoder
+from src.algorithms.tw_repair import TWRepairOperator
 from config import GA_CONFIG
 
 
@@ -22,8 +23,31 @@ class TwoOptOptimizer:
             problem: VRP problem instance
         """
         self.problem = problem
+        self.dataset_type = getattr(problem, 'dataset_type', None)
         # Use RouteDecoder with Split Algorithm if enabled in config
         self.decoder = RouteDecoder(problem, use_split_algorithm=GA_CONFIG.get('use_split_algorithm', False))
+        tw_cfg = GA_CONFIG.get('tw_repair', {})
+        self.tw_penalty_weight = tw_cfg.get('violation_weight', 50.0)
+        self.tw_repair_operator = None
+        self.apply_tw_repair_after_local_search = tw_cfg.get('apply_after_local_search', False)
+        allow_solomon = tw_cfg.get('apply_after_local_search_solomon', True)
+        if self.dataset_type and str(self.dataset_type).lower() == 'solomon' and not allow_solomon:
+            self.apply_tw_repair_after_local_search = False
+        
+        if tw_cfg.get('enabled', False) and self.apply_tw_repair_after_local_search:
+            self.tw_repair_operator = TWRepairOperator(
+                problem,
+                max_iterations=tw_cfg.get('max_iterations', 50),
+                violation_weight=tw_cfg.get('violation_weight', 50.0),
+                max_relocations_per_route=tw_cfg.get('max_relocations_per_route', 2),
+                max_routes_to_try=tw_cfg.get('max_routes_to_try', None),
+                max_positions_to_try=tw_cfg.get('max_positions_to_try', None),
+                max_iterations_soft=tw_cfg.get('max_iterations_soft'),
+                max_routes_soft_limit=tw_cfg.get('max_routes_soft_limit'),
+                max_positions_soft_limit=tw_cfg.get('max_positions_soft_limit'),
+                lateness_soft_threshold=tw_cfg.get('lateness_soft_threshold'),
+                lateness_skip_threshold=tw_cfg.get('lateness_skip_threshold'),
+            )
     
     def optimize_individual(self, individual: Individual, 
                            max_iterations: int = 100) -> Individual:
@@ -45,6 +69,10 @@ class TwoOptOptimizer:
         
         # Apply 2-opt optimization
         optimized_routes = self.optimize_routes(routes, max_iterations)
+        
+        # Apply TW repair selectively after local search (cheaper than per-decode)
+        if self.tw_repair_operator:
+            optimized_routes = self.tw_repair_operator.repair_routes(optimized_routes)
         
         # Update individual
         optimized_individual = individual.copy()
@@ -182,6 +210,28 @@ class TwoOptOptimizer:
             total_distance += self.problem.get_distance(route[i], route[i + 1])
         
         return total_distance
+
+    def _calculate_route_tw_penalty(self, route: List[int]) -> float:
+        """Calculate aggregate lateness for a route."""
+        if len(route) < 2:
+            return 0.0
+        
+        lateness = 0.0
+        current_time = 0.0
+        for idx in range(1, len(route) - 1):
+            prev = route[idx - 1]
+            cid = route[idx]
+            customer = self.problem.get_customer_by_id(cid)
+            if customer is None:
+                # Invalid customer ID, skip
+                continue
+            travel = self.problem.get_distance(prev, cid)
+            arrival = current_time + travel
+            if arrival < customer.ready_time:
+                arrival = customer.ready_time
+            lateness += max(0.0, arrival - customer.due_date)
+            current_time = arrival + customer.service_time
+        return lateness
     
     def _check_route_capacity(self, route: List[int]) -> bool:
         """
@@ -232,6 +282,8 @@ class TwoOptOptimizer:
             iteration += 1
             
             current_distance = sum(self._calculate_route_distance(route) for route in optimized_routes)
+            current_penalty = sum(self._calculate_route_tw_penalty(route) for route in optimized_routes)
+            current_score = current_distance + self.tw_penalty_weight * current_penalty
             
             # Try swapping customers between routes
             for i in range(len(optimized_routes)):
@@ -253,13 +305,23 @@ class TwoOptOptimizer:
                                 new_route1[k] = customer2
                                 new_route2[l] = customer1
                                 
-                                # Calculate new total distance
-                                new_distance = (self._calculate_route_distance(new_route1) + 
-                                              self._calculate_route_distance(new_route2))
+                                # Calculate new total distance and TW penalty
+                                new_distance = (
+                                    self._calculate_route_distance(new_route1)
+                                    + self._calculate_route_distance(new_route2)
+                                )
+                                new_penalty = (
+                                    self._calculate_route_tw_penalty(new_route1)
+                                    + self._calculate_route_tw_penalty(new_route2)
+                                )
+                                new_score = new_distance + self.tw_penalty_weight * new_penalty
                                 
-                                if new_distance < current_distance:
+                                if new_score < current_score:
                                     optimized_routes[i] = new_route1
                                     optimized_routes[j] = new_route2
+                                    current_distance = new_distance
+                                    current_penalty = new_penalty
+                                    current_score = new_score
                                     improved = True
                                     break
                         

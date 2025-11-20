@@ -116,17 +116,18 @@ class SplitAlgorithm:
         
         violation_rate = violations / total_customers
         
-        # Break route if:
-        # 1. Single customer is extremely late (>150 min)
-        if max_lateness > 150:
+        # Break route if violations are too severe
+        # Stricter thresholds to prevent routes with excessive violations
+        # 1. Single customer is very late (>60 min, was 150)
+        if max_lateness > 60:
             return False
         
-        # 2. Too many customers violated (>50% of route)
-        if violation_rate > 0.5:
+        # 2. Too many customers violated (>30% of route, was 50%)
+        if violation_rate > 0.3:
             return False
         
-        # 3. Moderate lateness with many violations
-        if max_lateness > 80 and violation_rate > 0.3:
+        # 3. Moderate lateness with many violations (>40 min and >20%, was 80 and 30%)
+        if max_lateness > 40 and violation_rate > 0.2:
             return False
         
         # Otherwise, accept the route (let penalty system handle minor violations)

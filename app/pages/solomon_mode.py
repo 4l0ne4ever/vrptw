@@ -27,8 +27,13 @@ from app.components.run_summary import render_run_summary
 from app.services.data_service import DataService
 from app.services.optimization_service import OptimizationService
 from app.services.visualization_service import VisualizationService
+from app.services.history_service import HistoryService
+from app.services.database_service import DatabaseService
 from app.core.exceptions import ValidationError, DatasetError, OptimizationError
+from app.core.logger import setup_app_logger
 from src.data_processing.solomon_cache_warmer import SolomonCacheWarmer
+
+logger = setup_app_logger()
 
 st.set_page_config(
     page_title="Solomon Mode - VRP-GA",
@@ -172,6 +177,7 @@ with tab1:
                         data_dict = json.load(f)
                     
                     _update_solomon_dataset(data_dict)
+                    st.session_state['solomon_dataset_name'] = selected_dataset
                     st.success(f"Loaded {selected_dataset} successfully!")
                     st.rerun()
                 except Exception as e:
@@ -232,7 +238,7 @@ if st.session_state.solomon_dataset:
                     on_stop=stop_optimization,
                     is_running=False,
                     key_prefix="solomon"
-            )
+                )
             
             # Run optimization if requested
             if st.session_state.solomon_optimization_running and not st.session_state.solomon_optimization_results:
@@ -254,6 +260,57 @@ if st.session_state.solomon_dataset:
                         'config': ga_config
                     }
                     st.session_state.solomon_optimization_running = False
+                    
+                    # Save to history
+                    try:
+                        history_service = HistoryService()
+                        db_service = DatabaseService()
+                        
+                        # Get dataset name from metadata or use default
+                        dataset_metadata = (st.session_state.solomon_dataset or {}).get('metadata', {})
+                        dataset_name = dataset_metadata.get('name', st.session_state.get('solomon_dataset_name', 'Solomon Dataset'))
+                        
+                        # Try to find existing dataset or create new one
+                        db = db_service.get_session()
+                        from app.database.crud import get_datasets, create_dataset
+                        datasets = get_datasets(db, type='solomon')
+                        dataset_id = None
+                        
+                        # Find dataset by name
+                        for ds in datasets:
+                            if ds.name == dataset_name:
+                                dataset_id = ds.id
+                                break
+                        
+                        if not dataset_id:
+                            # Create new dataset entry
+                            dataset_json = json.dumps(st.session_state.solomon_dataset)
+                            dataset = create_dataset(
+                                db,
+                                name=dataset_name,
+                                description=f"Solomon benchmark: {dataset_name}",
+                                type='solomon',
+                                data_json=dataset_json
+                            )
+                            dataset_id = dataset.id
+                        
+                        db.close()
+                        
+                        # Save result
+                        run_id, is_new_best = history_service.save_result(
+                            dataset_id=dataset_id,
+                            dataset_name=dataset_name,
+                            solution=best_solution,
+                            statistics=statistics,
+                            config=ga_config,
+                            dataset_type="solomon"
+                        )
+                        
+                        if is_new_best:
+                            st.session_state['new_best_result'] = True
+                    except Exception as e:
+                        logger.warning(f"Failed to save to history: {e}")
+                    
                     # Clear progress
                     if 'optimization_progress' in st.session_state:
                         del st.session_state.optimization_progress

@@ -618,6 +618,34 @@ def run_optimization(problem, args, mode_name):
     else:
         print("Final repair: No capacity violations found")
     
+    # Optional TW repair on final solution (post-processing)
+    tw_cfg = GA_CONFIG.get('tw_repair', {})
+    if (
+        tw_cfg.get('enabled', False)
+        and tw_cfg.get('apply_on_final_solution', False)
+        and ga_solution.routes
+    ):
+        try:
+            from src.algorithms.tw_repair import TWRepairOperator
+            tw_repair = TWRepairOperator(
+                problem,
+                max_iterations=tw_cfg.get('max_iterations', 50),
+                violation_weight=tw_cfg.get('violation_weight', 50.0),
+                max_relocations_per_route=tw_cfg.get('max_relocations_per_route', 2),
+                max_routes_to_try=tw_cfg.get('max_routes_to_try', None),
+                max_positions_to_try=tw_cfg.get('max_positions_to_try', None),
+                max_iterations_soft=tw_cfg.get('max_iterations_soft'),
+                max_routes_soft_limit=tw_cfg.get('max_routes_soft_limit'),
+                max_positions_soft_limit=tw_cfg.get('max_positions_soft_limit'),
+                lateness_soft_threshold=tw_cfg.get('lateness_soft_threshold'),
+                lateness_skip_threshold=tw_cfg.get('lateness_skip_threshold'),
+            )
+            repaired_routes = tw_repair.repair_routes(ga_solution.routes)
+            ga_solution.routes = repaired_routes
+            ga_solution.chromosome = decoder.encode_routes(repaired_routes)
+        except Exception as tw_err:
+            logger.warning(f"Final TW repair skipped: {tw_err}")
+    
     # Apply 2-opt local search if not disabled
     if not args.no_local_search:
         print("Applying 2-opt local search optimization...")

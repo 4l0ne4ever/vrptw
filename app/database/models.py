@@ -96,3 +96,38 @@ class DistanceMatrixCache(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
+
+class BestResult(Base):
+    """Best result model for storing the best optimization result per dataset."""
+    
+    __tablename__ = "best_results"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    dataset_id = Column(Integer, ForeignKey("datasets.id"), nullable=False, unique=True, index=True)
+    dataset_name = Column(String(255), nullable=False)  # Cache dataset name for quick access
+    run_id = Column(Integer, ForeignKey("optimization_runs.id"), nullable=False, index=True)
+    
+    # Key metrics
+    total_distance = Column(Float, nullable=False)
+    num_routes = Column(Integer, nullable=False)
+    time_window_violations = Column(Integer, default=0, nullable=False)
+    compliance_rate = Column(Float, default=0.0, nullable=False)
+    fitness = Column(Float, nullable=False)
+    penalty = Column(Float, default=0.0, nullable=False)
+    
+    # Additional metrics
+    gap_vs_bks = Column(Float, nullable=True)  # For Solomon datasets
+    bks_distance = Column(Float, nullable=True)  # For Solomon datasets
+    
+    # Parameters used
+    parameters_json = Column(Text, nullable=False)  # GA parameters as JSON
+    
+    # Timestamps
+    achieved_at = Column(DateTime, nullable=False)  # When this best result was achieved
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    dataset = relationship("Dataset", backref="best_result")
+    optimization_run = relationship("OptimizationRun", backref="best_result_record")
+

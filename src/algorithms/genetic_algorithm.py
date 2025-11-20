@@ -130,10 +130,10 @@ class GeneticAlgorithm:
                 chromosome = customer_ids.copy()
                 random.shuffle(chromosome)
             elif strategy_ratio < 0.7:
-                # Greedy initialization (20%)
+            # Greedy initialization (20%)
                 chromosome = self._greedy_initialization(customer_ids)
             elif strategy_ratio < 0.85:
-                # Cluster-first initialization (15%)
+            # Cluster-first initialization (15%)
                 chromosome = self._cluster_first_initialization(customer_ids)
             else:
                 # Savings-based initialization (15%)
@@ -156,8 +156,13 @@ class GeneticAlgorithm:
         if not customer_ids:
             return []
         
-        # Get customers with time windows
+        # Get customers with time windows, filter out None
         customers = [self.problem.get_customer_by_id(cid) for cid in customer_ids]
+        customers = [c for c in customers if c is not None]
+        
+        if not customers:
+            # No valid customers found, return original order
+            return customer_ids
         
         if strategy == 'ready_time':
             # Sort by ready_time (earliest first)
@@ -440,6 +445,103 @@ class GeneticAlgorithm:
         with pipeline_profiler.profile("ga.replacement"):
             self.population.replace_individuals(new_population)
             self.population.next_generation()
+        
+        # Post-generation TW repair: apply to top-K best individuals
+        # This ensures best solutions get repaired without slowing down fitness evaluation
+        tw_repair_cfg = self.config.get('tw_repair', {})
+        if tw_repair_cfg.get('enabled', False) and tw_repair_cfg.get('apply_post_generation', True):
+            try:
+                from src.algorithms.tw_repair import TWRepairOperator
+                if not hasattr(self, '_post_gen_tw_repair'):
+                    self._post_gen_tw_repair = TWRepairOperator(
+                        self.problem,
+                        max_iterations=tw_repair_cfg.get('max_iterations', 12),
+                        violation_weight=tw_repair_cfg.get('violation_weight', 50.0),
+                        max_relocations_per_route=tw_repair_cfg.get('max_relocations_per_route', 2),
+                        max_routes_to_try=tw_repair_cfg.get('max_routes_to_try'),
+                        max_positions_to_try=tw_repair_cfg.get('max_positions_to_try'),
+                        lateness_soft_threshold=tw_repair_cfg.get('lateness_soft_threshold'),
+                        lateness_skip_threshold=tw_repair_cfg.get('lateness_skip_threshold'),
+                    )
+                
+                # Smart repair strategy: repair both best individuals AND high-violation individuals
+                # This ensures both quality improvement and violation reduction
+                lateness_soft = tw_repair_cfg.get('lateness_soft_threshold', 5000.0)
+                lateness_skip = tw_repair_cfg.get('lateness_skip_threshold', 100000.0)
+                
+                # Strategy 1: Repair top 50% best individuals (ensure best solutions improve)
+                top_k_best = max(1, int(len(self.population.individuals) * 0.5))
+                sorted_by_fitness = sorted(
+                    self.population.individuals, 
+                    key=lambda ind: ind.fitness, 
+                    reverse=True
+                )[:top_k_best]
+                
+                # Strategy 2: Repair top 50% individuals with highest violations (in repairable range)
+                # Calculate lateness for all individuals
+                individuals_with_lateness = []
+                for ind in self.population.individuals:
+                    if ind.routes:
+                        try:
+                            total_lateness = sum(
+                                self._post_gen_tw_repair._route_lateness(route) 
+                                for route in ind.routes
+                            )
+                            # Only consider if in repairable range
+                            if lateness_soft < total_lateness < lateness_skip:
+                                individuals_with_lateness.append((ind, total_lateness))
+                        except Exception:
+                            continue
+                
+                # Sort by lateness (highest first) and take top 50%
+                top_k_violations = max(1, int(len(self.population.individuals) * 0.5))
+                sorted_by_violations = sorted(
+                    individuals_with_lateness,
+                    key=lambda x: x[1],
+                    reverse=True
+                )[:top_k_violations]
+                
+                # Combine both sets (use set to avoid duplicates)
+                individuals_to_repair = set()
+                for ind in sorted_by_fitness:
+                    individuals_to_repair.add(id(ind))
+                for ind, _ in sorted_by_violations:
+                    individuals_to_repair.add(id(ind))
+                
+                # Repair all selected individuals
+                repair_count = 0
+                for ind in self.population.individuals:
+                    if id(ind) in individuals_to_repair and ind.routes:
+                        try:
+                            total_lateness = sum(
+                                self._post_gen_tw_repair._route_lateness(route) 
+                                for route in ind.routes
+                            )
+                            # Only repair if has violations but not catastrophic
+                            if 0 < total_lateness < lateness_skip:
+                                with pipeline_profiler.profile("ga.post_generation_tw_repair"):
+                                    repaired_routes = self._post_gen_tw_repair.repair_routes(ind.routes)
+                                    ind.routes = repaired_routes
+                                    # Recalculate distance after repair
+                                    ind.total_distance = sum(
+                                        self._post_gen_tw_repair._route_distance(route)
+                                        for route in repaired_routes
+                                    )
+                                    # Re-evaluate fitness with repaired routes
+                                    self.fitness_evaluator.evaluate_fitness(ind)
+                                    repair_count += 1
+                        except Exception:
+                            # If repair fails, keep original
+                            pass
+                
+                # Log repair statistics
+                if repair_count > 0:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.debug(f"Post-generation TW repair: {repair_count} individuals repaired")
+            except Exception:
+                # If post-generation repair fails, continue normally
+                pass
     
     def _update_statistics(self):
         """Update GA statistics."""
@@ -456,6 +558,8 @@ class GeneticAlgorithm:
         Returns:
             True if converged, False otherwise
         """
+        if self.config.get('force_full_generations'):
+            return False
         current_gen = len(self.stats['best_fitness_history'])
         max_gen = self.config.get('generations', 1000)
         
@@ -485,10 +589,11 @@ class GeneticAlgorithm:
         # Use relative threshold for more robust convergence detection
         if fitness_mean > 0:
             relative_std = fitness_std / fitness_mean
-            # If relative standard deviation is less than 0.5%, consider converged
-            # But ONLY if we've run at least 90% of target generations
-            # Made threshold stricter (0.5% instead of 1%) to prevent premature convergence
-            if relative_std < 0.005:
+            # Relaxed threshold: 0.3% instead of 0.5% to prevent premature convergence
+            # For loose TW instances with high violations, fitness can be very stable
+            # but solution quality (violations) can still improve
+            # Only converge if truly stable (0.3% variation)
+            if relative_std < 0.003:
                 # We already checked min_required_generations above, so safe to converge
                 return True
         

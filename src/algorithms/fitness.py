@@ -96,6 +96,35 @@ class FitnessEvaluator:
                     pass
             individual.routes = routes
             
+            # Selective TW repair: only for individuals with moderate violations
+            # Skip repair for catastrophic violations (let penalty handle) and no violations (already good)
+            tw_repair_cfg = GA_CONFIG.get('tw_repair', {})
+            if (tw_repair_cfg.get('enabled', False) and 
+                hasattr(self.decoder, 'tw_repair') and 
+                self.decoder.tw_repair is not None):
+                # Quick check: calculate total lateness
+                try:
+                    total_lateness = sum(
+                        self.decoder.tw_repair._route_lateness(route) for route in routes
+                    )
+                    lateness_soft = tw_repair_cfg.get('lateness_soft_threshold', 5000.0)
+                    lateness_skip = tw_repair_cfg.get('lateness_skip_threshold', 100000.0)
+                    
+                    # Repair if lateness is above soft threshold (moderate to high violations)
+                    # Skip only if catastrophic (above skip threshold)
+                    if lateness_soft < total_lateness < lateness_skip:
+                        # Apply quick repair (soft mode - limited iterations)
+                        try:
+                            with pipeline_profiler.profile("fitness.selective_tw_repair"):
+                                routes = self.decoder.tw_repair.repair_routes(routes)
+                                individual.routes = routes
+                        except Exception:
+                            # If repair fails, continue with original routes
+                            pass
+                except Exception:
+                    # If lateness calculation fails, skip repair
+                    pass
+            
             # Calculate total distance
             total_distance = self._calculate_total_distance(routes)
             individual.total_distance = total_distance
@@ -109,15 +138,30 @@ class FitnessEvaluator:
             # Distance-first fitness (like NN and BKS)
             # Penalties guide toward feasibility but don't dominate
             if raw_penalty > 0:
-                # Cap penalty to keep fitness meaningful while preserving learning gradient
-                # Key: Penalty must be low enough for GA to learn, but high enough to matter
+                # Adaptive penalty cap based on mode and problem size
+                # Loose time windows need higher caps (violations less severe)
+                # Tight time windows need lower caps (violations more critical)
+                
                 if self.penalty_weight <= 1500:  # Hanoi mode
                     max_penalty_cap = total_distance * 10
                 else:  # Solomon mode
-                    # Cap at 2× distance for strong learning gradient
-                    # Fitness will vary: 0.00028-0.0008 (learnable range)
-                    # GA can distinguish: 78 vs 40 vs 15 violations
-                    max_penalty_cap = total_distance * 2.0
+                    # Adaptive cap for Solomon datasets
+                    # Tight TW (C1/R1/RC1): 2× distance (strict)
+                    # Loose TW (C2/R2/RC2): 10× distance (allow more violations)
+                    num_customers = len(self.problem.customers)
+                    
+                    # Heuristic: Loose TW if vehicle_capacity >= 700
+                    # C1/R1/RC1 use capacity 200, C2/R2/RC2 use 700/1000
+                    is_loose_tw = self.problem.vehicle_capacity >= 700
+                    
+                    if is_loose_tw:
+                        # Loose TW: much higher cap to allow GA to see penalty gradient
+                        # Increased from 20× to 50× because violations can be very high (36000-65000)
+                        # Penalty was hitting 100% cap, preventing GA from learning
+                        max_penalty_cap = total_distance * 50.0
+                    else:
+                        # Tight TW: lower cap to enforce constraints
+                        max_penalty_cap = total_distance * 2.0
                 
                 capped_penalty = min(raw_penalty, max_penalty_cap)
                 
@@ -284,6 +328,9 @@ class FitnessEvaluator:
                 for customer_id in route:
                     if customer_id != 0:  # Skip depot
                         customer = self.problem.get_customer_by_id(customer_id)
+                        if customer is None:
+                            # Invalid customer ID, skip
+                            continue
                         route_load += customer.demand
                 
                 route_loads.append(route_load)

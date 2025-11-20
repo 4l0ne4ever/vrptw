@@ -5,7 +5,7 @@ CRUD operations for database models.
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
-from app.database.models import Dataset, OptimizationRun, RouteDetail, SavedConfiguration, DistanceMatrixCache
+from app.database.models import Dataset, OptimizationRun, RouteDetail, SavedConfiguration, DistanceMatrixCache, BestResult
 
 
 # Dataset CRUD
@@ -228,6 +228,86 @@ def delete_distance_matrix_cache(db: Session, cache_key: str) -> bool:
     cache = get_distance_matrix_cache(db, cache_key)
     if cache:
         db.delete(cache)
+        db.commit()
+        return True
+    return False
+
+
+# BestResult CRUD
+def get_best_result(db: Session, dataset_id: int) -> Optional[BestResult]:
+    """Get best result for a dataset."""
+    return db.query(BestResult).filter(BestResult.dataset_id == dataset_id).first()
+
+
+def get_all_best_results(db: Session, skip: int = 0, limit: int = 100) -> List[BestResult]:
+    """Get all best results."""
+    return db.query(BestResult).order_by(BestResult.updated_at.desc()).offset(skip).limit(limit).all()
+
+
+def create_or_update_best_result(
+    db: Session,
+    dataset_id: int,
+    dataset_name: str,
+    run_id: int,
+    total_distance: float,
+    num_routes: int,
+    time_window_violations: int,
+    compliance_rate: float,
+    fitness: float,
+    penalty: float,
+    parameters_json: str,
+    gap_vs_bks: Optional[float] = None,
+    bks_distance: Optional[float] = None
+) -> BestResult:
+    """Create or update best result for a dataset."""
+    existing = get_best_result(db, dataset_id)
+    
+    if existing:
+        # Update existing best result
+        existing.run_id = run_id
+        existing.dataset_name = dataset_name
+        existing.total_distance = total_distance
+        existing.num_routes = num_routes
+        existing.time_window_violations = time_window_violations
+        existing.compliance_rate = compliance_rate
+        existing.fitness = fitness
+        existing.penalty = penalty
+        existing.parameters_json = parameters_json
+        existing.gap_vs_bks = gap_vs_bks
+        existing.bks_distance = bks_distance
+        existing.achieved_at = datetime.utcnow()
+        existing.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existing)
+        return existing
+    else:
+        # Create new best result
+        best_result = BestResult(
+            dataset_id=dataset_id,
+            dataset_name=dataset_name,
+            run_id=run_id,
+            total_distance=total_distance,
+            num_routes=num_routes,
+            time_window_violations=time_window_violations,
+            compliance_rate=compliance_rate,
+            fitness=fitness,
+            penalty=penalty,
+            parameters_json=parameters_json,
+            gap_vs_bks=gap_vs_bks,
+            bks_distance=bks_distance,
+            achieved_at=datetime.utcnow()
+        )
+        db.add(best_result)
+        db.commit()
+        db.refresh(best_result)
+        return best_result
+
+
+def delete_best_result(db: Session, dataset_id: int) -> bool:
+    """Delete best result for a dataset."""
+    best_result = get_best_result(db, dataset_id)
+    if best_result:
+        db.delete(best_result)
         db.commit()
         return True
     return False

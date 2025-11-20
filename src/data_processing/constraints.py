@@ -271,6 +271,9 @@ class ConstraintHandler:
                         else:
                             lateness_penalty = 26000 + 1000 * (lateness - 60)
                         
+                        # Multiply by penalty_weight to match other constraint penalties
+                        # This ensures time window penalties are proportional to distance
+                        lateness_penalty *= self.penalty_weight
                         total_penalty += lateness_penalty
                     
                     # Add service time

@@ -920,9 +920,8 @@
     }
   ],
   "problem_config": {
-    "vehicle_capacity": 200,
-    "num_vehicles": 12,
-    "traffic_factor": 1.0,
-    "penalty_weight": 1000
+    "vehicle_capacity": 700,
+    "num_vehicles": 5,
+    "traffic_factor": 1.0
   }
 }

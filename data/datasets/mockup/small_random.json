@@ -111,10 +111,9 @@
     }
   ],
   "problem_config": {
-    "vehicle_capacity": 50,
-    "num_vehicles": 4,
+    "vehicle_capacity": 800,
+    "num_vehicles": 2,
     "traffic_factor": 1.0,
-    "penalty_weight": 1000,
     "clustering": "random"
   }
 }

@@ -267,4 +267,11 @@ def create_vrp_problem_from_dict(data: Dict, distance_matrix: Optional[np.ndarra
         use_adaptive_traffic=use_adaptive_traffic
     )
     
+    # Attach metadata/dataset type for downstream components (decoder, repair, etc.)
+    metadata = data.get('metadata', {}) or {}
+    dataset_type = metadata.get('dataset_type') or data.get('dataset_type')
+    problem.metadata = metadata
+    if dataset_type:
+        problem.dataset_type = dataset_type
+    
     return problem

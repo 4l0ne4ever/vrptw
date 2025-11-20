@@ -8,6 +8,7 @@ from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
 from src.core.pipeline_profiler import pipeline_profiler
 from config import GA_CONFIG
+from src.algorithms.tw_repair import TWRepairOperator
 
 
 class RouteDecoder:
@@ -23,6 +24,7 @@ class RouteDecoder:
                                  If None, uses config setting or defaults to False.
         """
         self.problem = problem
+        self.dataset_type = getattr(problem, 'dataset_type', None)
         
         # Determine if we should use Split Algorithm
         if use_split_algorithm is None:
@@ -44,6 +46,32 @@ class RouteDecoder:
             except ImportError:
                 self.use_split = False
                 self.splitter = None
+        else:
+            self.splitter = None
+
+        tw_repair_cfg = GA_CONFIG.get('tw_repair', {})
+        self.use_tw_repair = tw_repair_cfg.get('enabled', False)
+        self.apply_tw_repair_in_decoder = tw_repair_cfg.get('apply_in_decoder', False)
+        allow_solomon_decoder = tw_repair_cfg.get('apply_in_decoder_solomon', False)
+        if self.dataset_type and str(self.dataset_type).lower() == 'solomon' and not allow_solomon_decoder:
+            self.apply_tw_repair_in_decoder = False
+
+        if self.use_tw_repair:
+            self.tw_repair = TWRepairOperator(
+                problem,
+                max_iterations=tw_repair_cfg.get('max_iterations', 50),
+                violation_weight=tw_repair_cfg.get('violation_weight', 50.0),
+                max_relocations_per_route=tw_repair_cfg.get('max_relocations_per_route', 2),
+                max_routes_to_try=tw_repair_cfg.get('max_routes_to_try', None),
+                max_positions_to_try=tw_repair_cfg.get('max_positions_to_try', None),
+                max_iterations_soft=tw_repair_cfg.get('max_iterations_soft'),
+                max_routes_soft_limit=tw_repair_cfg.get('max_routes_soft_limit'),
+                max_positions_soft_limit=tw_repair_cfg.get('max_positions_soft_limit'),
+                lateness_soft_threshold=tw_repair_cfg.get('lateness_soft_threshold'),
+                lateness_skip_threshold=tw_repair_cfg.get('lateness_skip_threshold'),
+            )
+        else:
+            self.tw_repair = None
     
     def decode_chromosome(self, chromosome: List[int]) -> List[List[int]]:
         """
@@ -81,6 +109,8 @@ class RouteDecoder:
                         routes, _ = self.splitter.split(giant_tour)
                     # Validate that routes were created
                     if routes and len(routes) > 0:
+                        if self.tw_repair and self.apply_tw_repair_in_decoder:
+                            routes = self.tw_repair.repair_routes(routes)
                         return routes
                     else:
                         # Empty routes, fall back to greedy
@@ -141,6 +171,8 @@ class RouteDecoder:
                     # Empty route, remove it
                     pass
             
+            if self.tw_repair and self.apply_tw_repair_in_decoder:
+                routes = self.tw_repair.repair_routes(routes)
             return routes
 
     def _sanitize_chromosome(self, chromosome: List[int]) -> List[int]:
@@ -231,6 +263,9 @@ class RouteDecoder:
             for customer_id in route:
                 if customer_id != 0:  # Skip depot
                     customer = self.problem.get_customer_by_id(customer_id)
+                    if customer is None:
+                        errors.append(f"Route {i} contains invalid customer ID: {customer_id}")
+                        continue
                     route_load += customer.demand
             
             if route_load > self.problem.vehicle_capacity:
@@ -442,7 +477,7 @@ class RouteDecoder:
             
             # Check capacity
             route_load = sum(
-                self.problem.get_customer_by_id(c).demand 
+                (self.problem.get_customer_by_id(c).demand if self.problem.get_customer_by_id(c) is not None else 0.0)
                 for c in route if c != 0
             )
             
