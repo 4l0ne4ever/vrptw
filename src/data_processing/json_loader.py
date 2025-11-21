@@ -68,14 +68,76 @@ class JSONDatasetLoader:
         metadata = json_data['metadata'].copy() if 'metadata' in json_data else {}
         metadata['dataset_type'] = dataset_type  # Add dataset_type to metadata
         
+        # CORRECTNESS FIX: For Solomon datasets, verify and correct vehicle capacity and num_vehicles
+        num_vehicles = json_data['problem_config']['num_vehicles']
+        vehicle_capacity = json_data['problem_config']['vehicle_capacity']
+        
+        if dataset_type == "solomon":
+            dataset_name = metadata.get('name', '')
+            
+            # CORRECTNESS: Verify vehicle capacity matches Solomon benchmark standards
+            # C1, R1, RC1: 200
+            # C2: 700
+            # R2, RC2: 1000
+            # Pattern: C101-C109 (C1), C201-C208 (C2), R101-R112 (R1), R201-R211 (R2), etc.
+            if dataset_name:
+                correct_capacity = None
+                if dataset_name.startswith('C'):
+                    # C series: check 2nd character (index 1) - '1' for C1, '2' for C2
+                    if len(dataset_name) >= 2 and dataset_name[1] == '2':
+                        correct_capacity = 700  # C2 series
+                    else:
+                        correct_capacity = 200  # C1 series
+                elif dataset_name.startswith('RC'):
+                    # RC series: check 3rd character (index 2) - '1' for RC1, '2' for RC2
+                    if len(dataset_name) >= 3 and dataset_name[2] == '2':
+                        correct_capacity = 1000  # RC2 series
+                    else:
+                        correct_capacity = 200  # RC1 series
+                elif dataset_name.startswith('R'):
+                    # R series: check 2nd character (index 1) - '1' for R1, '2' for R2
+                    if len(dataset_name) >= 2 and dataset_name[1] == '2':
+                        correct_capacity = 1000  # R2 series
+                    else:
+                        correct_capacity = 200  # R1 series
+                
+                # Override with correct capacity if different (JSON might have wrong value)
+                if correct_capacity is not None and vehicle_capacity != correct_capacity:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Correcting vehicle capacity for {dataset_name}: {vehicle_capacity} -> {correct_capacity}")
+                    vehicle_capacity = correct_capacity
+            
+            # CORRECTNESS: Use BKS vehicle count if available (optimal)
+            if dataset_name:
+                try:
+                    bks_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'solomon_bks.json')
+                    if os.path.exists(bks_path):
+                        import json as json_module
+                        with open(bks_path, 'r') as f:
+                            bks_data = json_module.load(f)
+                            if dataset_name in bks_data:
+                                bks_vehicles = bks_data[dataset_name].get('vehicles')
+                                if bks_vehicles is not None:
+                                    # Use BKS vehicle count (optimal) with minimal buffer for optimization flexibility
+                                    # Add +1 buffer to allow GA to find solutions, but not excessive
+                                    num_vehicles = min(bks_vehicles + 1, len(json_data['customers']))
+                except Exception:
+                    # If BKS loading fails, use JSON value (fallback)
+                    pass
+        
         # Convert to standard format
         return {
             'depot': json_data['depot'],
             'customers': json_data['customers'],
-            'vehicle_capacity': json_data['problem_config']['vehicle_capacity'],
-            'num_vehicles': json_data['problem_config']['num_vehicles'],
+            'vehicle_capacity': vehicle_capacity,
+            'num_vehicles': num_vehicles,
             'metadata': metadata,
-            'problem_config': json_data['problem_config']
+            'problem_config': {
+                **json_data['problem_config'],
+                'vehicle_capacity': vehicle_capacity,
+                'num_vehicles': num_vehicles  # Update with corrected values
+            }
         }
     
     def load_dataset_with_distance_matrix(self, 

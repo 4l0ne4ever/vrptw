@@ -134,6 +134,11 @@ class RouteDecoder:
                         routes, _ = self.splitter.split(giant_tour)
                     # Validate that routes were created
                     if routes and len(routes) > 0:
+                        # SPEED OPTIMIZATION: Disable route optimization for speed
+                        # Old version didn't have this, and it's expensive
+                        # Split Algorithm already creates reasonable routes
+                        # Route optimization can be done later if needed
+                        
                         if self.tw_repair and self.apply_tw_repair_in_decoder:
                             routes = self.tw_repair.repair_routes(routes)
                         return routes

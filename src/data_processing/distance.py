@@ -38,10 +38,17 @@ class DistanceCalculator:
             use_real_routes: Use real road routes (OSRM) instead of straight line (default: True for Hanoi)
             dataset_type: Type of dataset ("hanoi" or "solomon") - affects routing method
         """
-        self.traffic_factor = traffic_factor or VRP_CONFIG.get('traffic_factor', 1.0)
-        self.use_adaptive = use_adaptive or VRP_CONFIG.get('use_adaptive_traffic', False)
         self.mode_profile = get_mode_profile(dataset_type)
         self.dataset_type = dataset_type
+        
+        # CORRECTNESS FIX: For Solomon datasets, traffic_factor should always be 1.0 (pure Euclidean)
+        # For Hanoi datasets, use provided traffic_factor or config default
+        if dataset_type.lower() == "solomon":
+            self.traffic_factor = 1.0  # Solomon: pure Euclidean, no traffic factor
+            self.use_adaptive = False  # Solomon: no adaptive traffic
+        else:
+            self.traffic_factor = traffic_factor or VRP_CONFIG.get('traffic_factor', 1.0)
+            self.use_adaptive = use_adaptive or VRP_CONFIG.get('use_adaptive_traffic', False)
         self.dataset_name = dataset_name
         self._dataset_name_normalized = dataset_name.strip().upper() if dataset_name else None
         
@@ -539,9 +546,14 @@ class DistanceCalculator:
             time_minutes: Time in minutes from 0:00 when traveling this segment
         
         Returns:
-            Distance with adaptive traffic factor
+            Distance with adaptive traffic factor (or base distance for Solomon)
         """
         base_distance = self.get_distance(from_idx, to_idx)
+        
+        # CORRECTNESS: Solomon datasets should always return pure Euclidean distance
+        if self.dataset_type.lower() == "solomon":
+            return base_distance  # No traffic factor for Solomon
+        
         if self.use_adaptive:
             traffic_factor = self.get_adaptive_traffic_factor(time_minutes)
             return base_distance * traffic_factor

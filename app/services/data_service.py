@@ -341,8 +341,12 @@ class DataService:
                     data_dict['metadata'] = {}
                 data_dict['metadata']['dataset_type'] = actual_dataset_type
                 
-                # Create VRPProblem with adaptive traffic support
+                # CORRECTNESS FIX: For Solomon datasets, disable adaptive traffic
+                # Solomon should use pure Euclidean distance without traffic factors
                 use_adaptive = VRP_CONFIG.get('use_adaptive_traffic', False)
+                if actual_dataset_type.lower() == "solomon":
+                    use_adaptive = False  # Force disable for Solomon
+                
                 with pipeline_profiler.profile("data.create_vrp_problem.model_build"):
                     problem = create_vrp_problem_from_dict(
                         data_dict, 
@@ -350,7 +354,7 @@ class DataService:
                         use_adaptive_traffic=use_adaptive
                     )
                 
-                # Set distance calculator reference for adaptive traffic
+                # Set distance calculator reference for adaptive traffic (Hanoi only)
                 if use_adaptive and self.distance_calculator:
                     problem.set_distance_calculator(self.distance_calculator)
                 

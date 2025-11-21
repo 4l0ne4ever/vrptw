@@ -422,10 +422,14 @@ class GeneticAlgorithm:
                 offspring1 = self.adaptive_mutation.mutate(offspring1, population_diversity, fitness_before_1)
                 offspring2 = self.adaptive_mutation.mutate(offspring2, population_diversity, fitness_before_2)
             
-            # FIX #7 & #8: Apply TW repair immediately after genetic operators
+            # FIX #7 & #8: Apply TW repair immediately after genetic operators (with probability control)
             # This prevents genetic operators from destroying TW feasibility
             tw_cfg = self.config.get('tw_repair', {})
-            if tw_cfg.get('enabled', False) and tw_cfg.get('apply_after_genetic_operators', False):
+            apply_prob = tw_cfg.get('apply_after_genetic_operators_prob', 1.0)
+            should_apply = tw_cfg.get('enabled', False) and tw_cfg.get('apply_after_genetic_operators', False)
+            
+            # Apply with probability to reduce frequency and improve performance
+            if should_apply and (apply_prob >= 1.0 or np.random.random() < apply_prob):
                 with pipeline_profiler.profile("ga.post_genetic_tw_repair"):
                     try:
                         from src.algorithms.tw_repair import TWRepairOperator
@@ -444,24 +448,19 @@ class GeneticAlgorithm:
                             from src.data_processing.mode_configs import get_mode_config
                             mode_config = get_mode_config(dataset_type)
                             
-                            # Use mode-specific repair intensity (original aggressive settings)
-                            # User prefers quality over speed
-                            max_iter = mode_config.max_repair_iterations
-                            
-                            # INTELLIGENT SEARCH LIMITS: Balance quality and performance
-                            # Limit search space to most promising routes/positions
-                            # This reduces O(n²) complexity while maintaining repair quality
-                            num_routes_estimate = max(3, len(self.problem.customers) // 30)  # Estimate routes
-                            max_routes_to_try = min(5, num_routes_estimate)  # Try up to 5 most promising routes
-                            max_positions_to_try = 15  # Sample up to 15 positions per route (not all)
+                            # PERFORMANCE FIX: Use soft limits for frequent post-genetic operator repairs
+                            # This repair is called frequently (50% of offspring pairs), so use lighter settings
+                            max_iter_soft = tw_cfg.get('max_iterations_soft', 10)  # Reduced iterations for frequent calls
+                            max_routes_soft = tw_cfg.get('max_routes_soft_limit', 5)  # Limit search space
+                            max_positions_soft = tw_cfg.get('max_positions_soft_limit', 6)  # Limit positions
                             
                             self._genetic_tw_repair = TWRepairOperator(
                                 self.problem,
-                                max_iterations=max_iter,
+                                max_iterations=max_iter_soft,  # Use soft limit for frequent repairs
                                 violation_weight=tw_cfg.get('violation_weight', 50.0),
                                 max_relocations_per_route=tw_cfg.get('max_relocations_per_route', None),
-                                max_routes_to_try=max_routes_to_try,  # Limit to most promising routes
-                                max_positions_to_try=max_positions_to_try,  # Sample positions intelligently
+                                max_routes_to_try=max_routes_soft,  # Limited search space for performance
+                                max_positions_to_try=max_positions_soft,  # Limited positions for performance
                                 lateness_soft_threshold=0.0,  # Apply to all that need repair
                                 lateness_skip_threshold=100000.0,  # Skip hopeless cases (handled in should_repair)
                             )
@@ -638,17 +637,20 @@ class GeneticAlgorithm:
                 lateness_soft = tw_repair_cfg.get('lateness_soft_threshold', 5000.0)
                 lateness_skip = tw_repair_cfg.get('lateness_skip_threshold', 100000.0)
                 
-                # Strategy 1: Repair top 50% best individuals (ensure best solutions improve)
-                top_k_best = max(1, int(len(self.population.individuals) * 0.5))
+                # PERFORMANCE FIX: Reduce repair percentage from 50% to 20% for better performance
+                # Strategy 1: Repair top 20% best individuals (ensure best solutions improve)
+                post_gen_top_k_ratio = tw_repair_cfg.get('post_generation_top_k_ratio', 0.2)
+                top_k_best = max(1, int(len(self.population.individuals) * post_gen_top_k_ratio))
                 sorted_by_fitness = sorted(
                     self.population.individuals, 
                     key=lambda ind: ind.fitness, 
                     reverse=True
                 )[:top_k_best]
                 
-                # Strategy 2: Repair top 50% individuals with highest violations (in repairable range)
-                # Calculate lateness for all individuals
+                # Strategy 2: Repair individuals with violations in repairable range
+                # Calculate lateness for all individuals ONCE (avoid duplicate calculations)
                 individuals_with_lateness = []
+                min_threshold = tw_repair_cfg.get('lateness_soft_threshold', 5000.0)
                 for ind in self.population.individuals:
                     if ind.routes:
                         try:
@@ -656,19 +658,18 @@ class GeneticAlgorithm:
                                 self._post_gen_tw_repair._route_lateness(route) 
                                 for route in ind.routes
                             )
-                            # Only consider if in repairable range
-                            if lateness_soft < total_lateness < lateness_skip:
+                            # Only consider if in repairable range (above min threshold, below skip threshold)
+                            if min_threshold < total_lateness < lateness_skip:
                                 individuals_with_lateness.append((ind, total_lateness))
                         except Exception:
                             continue
                 
-                # Sort by lateness (highest first) and take top 50%
-                top_k_violations = max(1, int(len(self.population.individuals) * 0.5))
+                # Sort by lateness (highest first) and take top candidates
                 sorted_by_violations = sorted(
                     individuals_with_lateness,
                     key=lambda x: x[1],
                     reverse=True
-                )[:top_k_violations]
+                )[:top_k_best]  # Use same limit as top fitness
                 
                 # Combine both sets (use set to avoid duplicates)
                 individuals_to_repair = set()
@@ -677,17 +678,22 @@ class GeneticAlgorithm:
                 for ind, _ in sorted_by_violations:
                     individuals_to_repair.add(id(ind))
                 
-                # Repair all selected individuals
+                # Repair all selected individuals (lateness already calculated above)
                 repair_count = 0
+                lateness_cache = {id(ind): lateness for ind, lateness in individuals_with_lateness}
                 for ind in self.population.individuals:
                     if id(ind) in individuals_to_repair and ind.routes:
                         try:
-                            total_lateness = sum(
-                                self._post_gen_tw_repair._route_lateness(route) 
-                                for route in ind.routes
-                            )
+                            # Use cached lateness if available, otherwise calculate
+                            if id(ind) in lateness_cache:
+                                total_lateness = lateness_cache[id(ind)]
+                            else:
+                                total_lateness = sum(
+                                    self._post_gen_tw_repair._route_lateness(route) 
+                                    for route in ind.routes
+                                )
                             # Only repair if has violations but not catastrophic
-                            if 0 < total_lateness < lateness_skip:
+                            if min_threshold < total_lateness < lateness_skip:
                                 with pipeline_profiler.profile("ga.post_generation_tw_repair"):
                                     repaired_routes = self._post_gen_tw_repair.repair_routes(ind.routes)
                                     ind.routes = repaired_routes

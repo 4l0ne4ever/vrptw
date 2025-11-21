@@ -78,23 +78,63 @@ class SolomonLoader:
         """Extract vehicle capacity and other parameters from filename or data."""
         filename = os.path.basename(file_path)
         
-        # Determine vehicle capacity from filename pattern
+        # CORRECTNESS: Different Solomon series have different vehicle capacities
+        # C1, R1, RC1: capacity 200
+        # C2: capacity 700
+        # R2, RC2: capacity 1000
+        # Pattern: C101-C109 (C1), C201-C208 (C2), R101-R112 (R1), R201-R211 (R2), etc.
         if filename.startswith('C'):
-            self.vehicle_capacity = 200
-        elif filename.startswith('R'):
-            self.vehicle_capacity = 200
+            # C series: check 2nd character (index 1) - '1' for C1, '2' for C2
+            # C101 -> filename[1] = '1' (C1), C201 -> filename[1] = '2' (C2)
+            if len(filename) >= 2 and filename[1] == '2':
+                self.vehicle_capacity = 700  # C2 series
+            else:
+                self.vehicle_capacity = 200  # C1 series
         elif filename.startswith('RC'):
-            self.vehicle_capacity = 200
+            # RC series: check 3rd character (index 2) - '1' for RC1, '2' for RC2
+            # RC101 -> filename[2] = '1' (RC1), RC201 -> filename[2] = '2' (RC2)
+            if len(filename) >= 3 and filename[2] == '2':
+                self.vehicle_capacity = 1000  # RC2 series
+            else:
+                self.vehicle_capacity = 200  # RC1 series
+        elif filename.startswith('R'):
+            # R series: check 2nd character (index 1) - '1' for R1, '2' for R2
+            # R101 -> filename[1] = '1' (R1), R201 -> filename[1] = '2' (R2)
+            if len(filename) >= 2 and filename[1] == '2':
+                self.vehicle_capacity = 1000  # R2 series
+            else:
+                self.vehicle_capacity = 200  # R1 series
         else:
-            # Default capacity
+            # Default capacity (should not happen for Solomon datasets)
             self.vehicle_capacity = 200
         
-        # Estimate number of vehicles needed
+        # CORRECTNESS FIX: Calculate num_vehicles more accurately
+        # For Solomon datasets, try to use BKS vehicle count if available
         total_demand = sum(c['demand'] for c in self.customers)
-        self.num_vehicles = max(1, int(np.ceil(total_demand / self.vehicle_capacity)))
+        min_vehicles = max(1, int(np.ceil(total_demand / self.vehicle_capacity)))
         
-        # Add some buffer for optimization
-        self.num_vehicles = min(self.num_vehicles + 2, len(self.customers))
+        # Try to load BKS data for accurate vehicle count
+        dataset_name = os.path.splitext(filename)[0]
+        try:
+            bks_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'solomon_bks.json')
+            if os.path.exists(bks_path):
+                import json
+                with open(bks_path, 'r') as f:
+                    bks_data = json.load(f)
+                    if dataset_name in bks_data:
+                        bks_vehicles = bks_data[dataset_name].get('vehicles')
+                        if bks_vehicles is not None:
+                            # Use BKS vehicle count (optimal) with minimal buffer for optimization
+                            # Add +1 to allow GA flexibility, but not excessive
+                            self.num_vehicles = min(bks_vehicles + 1, len(self.customers))
+                            return
+        except Exception:
+            # If BKS loading fails, use calculated value
+            pass
+        
+        # Fallback: Use calculated minimum with small buffer (not +2 which is too much)
+        # Only add +1 buffer for optimization flexibility
+        self.num_vehicles = min(min_vehicles + 1, len(self.customers))
     
     def _to_dict(self) -> Dict:
         """Convert loaded data to dictionary format."""

@@ -30,9 +30,12 @@ GA_CONFIG = {
         'lateness_skip_threshold': 100000.0,  # Never skip repair
         'apply_in_decoder': False,  # Disabled: expensive
         'apply_in_decoder_solomon': False,
-        'apply_after_genetic_operators': True,  # NEW: Apply immediately after crossover/mutation
+        'apply_after_genetic_operators': False,  # DISABLED for speed: old version didn't have this
+        'apply_after_genetic_operators_prob': 0.0,  # Disabled
         'apply_after_local_search': True,
         'apply_post_generation': True,  # Apply to top individuals
+        'apply_post_generation_prob': 1.0,  # Always apply (but to fewer individuals)
+        'post_generation_top_k_ratio': 0.1,  # Top 10% only (reduced from 20% for speed)
         'apply_after_local_search_solomon': True,
         'apply_on_final_solution': True
     }

@@ -188,23 +188,43 @@ class FitnessEvaluator:
                         f"accept_near_feasible={mode_config.accept_near_feasible}")
             
             if raw_penalty > 0:
-                # For Solomon mode: NO CAP - penalties must be high enough to force feasibility
-                # For Hanoi mode: Allow cap for soft violations
-                if mode_config.accept_near_feasible:
-                    # Hanoi mode: cap at reasonable level to allow soft violations
-                    max_penalty_cap = total_distance * 10.0
-                    capped_penalty = min(raw_penalty, max_penalty_cap)
+                # Adaptive penalty cap based on mode and problem size
+                # Loose time windows need higher caps (violations less severe)
+                # Tight time windows need lower caps (violations more critical)
+                # This prevents GA from being overwhelmed by huge penalty values
+                # while still guiding toward feasible solutions
+                
+                if dataset_type and dataset_type.startswith('solomon'):
+                    # Solomon mode: Adaptive cap based on TW tightness
+                    num_customers = len(self.problem.customers)
+                    
+                    # Heuristic: Loose TW if vehicle_capacity >= 700
+                    # C1/R1/RC1 use capacity 200, C2/R2/RC2 use 700/1000
+                    is_loose_tw = self.problem.vehicle_capacity >= 700
+                    
+                    if is_loose_tw:
+                        # Loose TW (C2/R2/RC2): much higher cap to allow GA to see penalty gradient
+                        # Increased from 20× to 50× because violations can be very high (36000-65000)
+                        # Penalty was hitting 100% cap, preventing GA from learning
+                        max_penalty_cap = total_distance * 50.0
+                    else:
+                        # Tight TW (C1/R1/RC1): lower cap to enforce constraints
+                        max_penalty_cap = total_distance * 2.0
                 else:
-                    # Solomon mode: NO CAP - let penalties be as high as needed
-                    # This ensures GA can see gradient and prioritize feasibility
-                    capped_penalty = raw_penalty
+                    # Hanoi mode: Higher cap to allow more flexibility
+                    max_penalty_cap = total_distance * 10.0
+                
+                capped_penalty = min(raw_penalty, max_penalty_cap)
                 
                 # CRITICAL FIX: Penalties are ALREADY multiplied by penalty_weight (5000) in ConstraintHandler
                 # DO NOT multiply again here! Penalty values are already HUGE (billions)
                 # fitness = -(penalty + distance)
                 
-                logger.warning(f"FITNESS: raw_penalty={raw_penalty:.2e}, capped={capped_penalty:.2e}, "
-                             f"distance={total_distance:.2f}, mode={dataset_type}")
+                # Debug logging for distance calculation
+                logger.debug(f"FITNESS: raw_penalty={raw_penalty:.2e}, capped={capped_penalty:.2e}, "
+                             f"distance={total_distance:.2f}, mode={dataset_type}, "
+                             f"is_solomon={dataset_type.startswith('solomon') if dataset_type else False}, "
+                             f"cap_ratio={max_penalty_cap/total_distance:.1f}x")
                 
                 fitness = -(capped_penalty + total_distance + balance_factor)
             else:
@@ -217,8 +237,15 @@ class FitnessEvaluator:
             if raw_penalty > 0:
                 import logging
                 logger = logging.getLogger(__name__)
+                # Add route info to debug distance calculation
+                routes = self._decode_chromosome(individual.chromosome)
+                num_routes = len(routes)
+                route_lengths = [len(r) for r in routes]
+                total_customers = sum(len(r) - 2 for r in routes)  # Exclude depot visits
                 logger.warning(f"PENALTY: raw={raw_penalty:.2e}, capped={capped_penalty:.2e}, "
-                           f"distance={total_distance:.2f}, fitness={fitness:.2e}, mode={dataset_type}")
+                           f"distance={total_distance:.2f}, fitness={fitness:.2e}, mode={dataset_type}, "
+                           f"num_routes={num_routes}, route_lengths={route_lengths[:5]}, "
+                           f"total_customers={total_customers}")
             
             # Store raw_penalty for display (actual penalty before capping)
             # Store capped_penalty for fitness calculation tracking
@@ -259,6 +286,13 @@ class FitnessEvaluator:
         with pipeline_profiler.profile("fitness.distance", metadata={'num_routes': len(routes)}):
             total_distance = 0.0
             
+            # DEBUG: Log route count and structure
+            if routes:
+                import logging
+                debug_logger = logging.getLogger(__name__)
+                debug_logger.info(f"DISTANCE_START: num_routes={len(routes)}, "
+                                 f"route_lengths={[len(r) for r in routes[:5]]}")
+            
             # Get time window start (default 8:00 = 480 minutes)
             time_window_start = VRP_CONFIG.get('time_window_start', 480)
             
@@ -277,8 +311,31 @@ class FitnessEvaluator:
                     # Get base distance
                     base_dist = self.problem.get_distance(from_id, to_id)
                     
-                    # Apply adaptive traffic factor if enabled
-                    if self.problem.use_adaptive_traffic:
+                    # CORRECTNESS FIX: Check dataset type to determine if traffic factor should be applied
+                    # Solomon datasets should use pure Euclidean distance (no traffic factor)
+                    # Hanoi datasets use traffic factor for realistic routing
+                    dataset_type = None
+                    if hasattr(self.problem, 'metadata') and self.problem.metadata:
+                        dataset_type = self.problem.metadata.get('dataset_type', 'hanoi')
+                    elif hasattr(self.problem, 'dataset_type'):
+                        dataset_type = self.problem.dataset_type
+                    else:
+                        dataset_type = 'hanoi'
+                    
+                    dataset_type = str(dataset_type).strip().lower()
+                    is_solomon = dataset_type.startswith('solomon')
+                    
+                    # DEBUG: Log distance calculation for first few segments
+                    if i == 0 and len(routes) > 0 and route == routes[0]:
+                        import logging
+                        debug_logger = logging.getLogger(__name__)
+                        debug_logger.info(f"DISTANCE_CALC: from_id={from_id}, to_id={to_id}, "
+                                         f"base_dist={base_dist:.4f}, is_solomon={is_solomon}, "
+                                         f"use_adaptive_traffic={self.problem.use_adaptive_traffic}, "
+                                         f"dataset_type={dataset_type}")
+                    
+                    # Apply adaptive traffic factor if enabled (Hanoi mode only)
+                    if self.problem.use_adaptive_traffic and not is_solomon:
                         # Assume average speed 30 km/h = 0.5 km/min
                         # Travel time in minutes = distance / 0.5
                         # But we need to account for traffic, so use base distance for time estimation
@@ -310,11 +367,38 @@ class FitnessEvaluator:
                         
                         route_distance += segment_distance
                     else:
-                        # Non-adaptive mode: use base distance with fixed traffic factor
-                        traffic_factor = VRP_CONFIG.get('traffic_factor', 1.0)
-                        route_distance += base_dist * traffic_factor
+                        # For Solomon datasets: use pure Euclidean distance (no traffic factor)
+                        # For Hanoi non-adaptive: use base distance with fixed traffic factor
+                        if is_solomon:
+                            # Solomon: pure Euclidean, no multiplier
+                            route_distance += base_dist
+                            # DEBUG: Verify no traffic factor is applied
+                            if i == 0 and len(routes) > 0 and route == routes[0]:
+                                import logging
+                                debug_logger = logging.getLogger(__name__)
+                                debug_logger.info(f"SOLOMON_DIST: base_dist={base_dist:.4f}, "
+                                                 f"route_distance={route_distance:.4f}, "
+                                                 f"NO traffic factor applied")
+                        else:
+                            # Hanoi non-adaptive: apply traffic factor
+                            traffic_factor = VRP_CONFIG.get('traffic_factor', 1.0)
+                            route_distance += base_dist * traffic_factor
                 
                 total_distance += route_distance
+                
+                # DEBUG: Log route distance for first few routes to understand structure
+                route_idx = routes.index(route) if route in routes else -1
+                if route_idx < 3:  # Log first 3 routes
+                    import logging
+                    debug_logger = logging.getLogger(__name__)
+                    # Calculate manual distance for verification
+                    manual_dist = 0.0
+                    for i in range(len(route) - 1):
+                        manual_dist += self.problem.get_distance(route[i], route[i + 1])
+                    debug_logger.warning(f"ROUTE_DIST[{route_idx}]: route={route[:8]}{'...' if len(route) > 8 else ''}{route[-3:]}, "
+                                     f"len={len(route)}, customers={len(route)-2}, "
+                                     f"route_distance={route_distance:.2f}, manual={manual_dist:.2f}, "
+                                     f"total_distance={total_distance:.2f}, num_routes={len(routes)}")
             
             return total_distance
     
