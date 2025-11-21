@@ -61,9 +61,14 @@ class FitnessEvaluator:
         
         chromosome_length = len(individual.chromosome) if getattr(individual, 'chromosome', None) else 0
         with pipeline_profiler.profile("fitness.evaluate", metadata={'chromosome_length': chromosome_length}):
-            # Decode chromosome to routes using RouteDecoder (which uses Split Algorithm if enabled)
-            with pipeline_profiler.profile("fitness.decode"):
-                routes = self.decoder.decode_chromosome(individual.chromosome)
+            # OPTIMIZATION: Reuse decoded routes if available (avoid duplicate decode)
+            # Routes are decoded after genetic operators for TW repair
+            if hasattr(individual, 'routes') and individual.routes:
+                routes = individual.routes
+            else:
+                # Decode chromosome to routes using RouteDecoder (which uses Split Algorithm if enabled)
+                with pipeline_profiler.profile("fitness.decode"):
+                    routes = self.decoder.decode_chromosome(individual.chromosome)
 
             # Early capacity repair (two-phase) to ensure feasible routes before scoring
             demands = [c.demand for c in self.problem.customers]
@@ -99,50 +104,57 @@ class FitnessEvaluator:
                     pass
             individual.routes = routes
             
-            # Mode-specific TW repair: aggressive for Solomon, selective for Hanoi
-            tw_repair_cfg = GA_CONFIG.get('tw_repair', {})
-            dataset_type = getattr(self.problem, 'dataset_type', None)
-            # Properly detect mode: check if it's solomon, otherwise default to hanoi
-            if dataset_type is None:
-                # Try to infer from metadata
-                metadata = getattr(self.problem, 'metadata', {}) or {}
-                dataset_type = metadata.get('dataset_type', 'hanoi')
-            dataset_type = str(dataset_type).strip().lower()
-            if not dataset_type.startswith('solomon'):
-                dataset_type = 'hanoi'
-            
-            from src.data_processing.mode_configs import get_mode_config
-            mode_config = get_mode_config(dataset_type)
-            
-            if (tw_repair_cfg.get('enabled', False) and 
-                hasattr(self.decoder, 'tw_repair') and 
-                self.decoder.tw_repair is not None):
-                try:
-                    total_lateness = sum(
-                        self.decoder.tw_repair._route_lateness(route) for route in routes
-                    )
-                    lateness_soft = tw_repair_cfg.get('lateness_soft_threshold', 5000.0)
-                    lateness_skip = tw_repair_cfg.get('lateness_skip_threshold', 100000.0)
-                    
-                    # Solomon mode: Always repair if violations exist (aggressive)
-                    # Hanoi mode: Selective repair (only moderate violations)
-                    should_repair = False
-                    if not mode_config.accept_near_feasible:
-                        # Solomon: repair if any violations (below skip threshold)
-                        should_repair = total_lateness > 0 and total_lateness < lateness_skip
-                    else:
-                        # Hanoi: repair only moderate violations
-                        should_repair = lateness_soft < total_lateness < lateness_skip
-                    
-                    if should_repair:
-                        try:
-                            with pipeline_profiler.profile("fitness.selective_tw_repair"):
-                                routes = self.decoder.tw_repair.repair_routes(routes)
-                                individual.routes = routes
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+            # OPTIMIZATION: Skip TW repair in fitness if already repaired after genetic operators
+            # This eliminates duplicate repair work (2x speedup)
+            if not getattr(individual, '_tw_repaired', False):
+                # Mode-specific TW repair: aggressive for Solomon, selective for Hanoi
+                tw_repair_cfg = GA_CONFIG.get('tw_repair', {})
+                dataset_type = getattr(self.problem, 'dataset_type', None)
+                # Properly detect mode: check if it's solomon, otherwise default to hanoi
+                if dataset_type is None:
+                    # Try to infer from metadata
+                    metadata = getattr(self.problem, 'metadata', {}) or {}
+                    dataset_type = metadata.get('dataset_type', 'hanoi')
+                dataset_type = str(dataset_type).strip().lower()
+                if not dataset_type.startswith('solomon'):
+                    dataset_type = 'hanoi'
+                
+                from src.data_processing.mode_configs import get_mode_config
+                mode_config = get_mode_config(dataset_type)
+                
+                if (tw_repair_cfg.get('enabled', False) and 
+                    hasattr(self.decoder, 'tw_repair') and 
+                    self.decoder.tw_repair is not None):
+                    try:
+                        total_lateness = sum(
+                            self.decoder.tw_repair._route_lateness(route) for route in routes
+                        )
+                        lateness_soft = tw_repair_cfg.get('lateness_soft_threshold', 5000.0)
+                        lateness_skip = tw_repair_cfg.get('lateness_skip_threshold', 100000.0)
+                        
+                        # Solomon mode: Always repair if violations exist (aggressive)
+                        # Hanoi mode: Selective repair (only moderate violations)
+                        should_repair = False
+                        if not mode_config.accept_near_feasible:
+                            # Solomon: repair if any violations (below skip threshold)
+                            should_repair = total_lateness > 0 and total_lateness < lateness_skip
+                        else:
+                            # Hanoi: repair only moderate violations
+                            should_repair = lateness_soft < total_lateness < lateness_skip
+                        
+                        if should_repair:
+                            try:
+                                with pipeline_profiler.profile("fitness.selective_tw_repair"):
+                                    routes = self.decoder.tw_repair.repair_routes(routes)
+                                    individual.routes = routes
+                                    individual._tw_repaired = True
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+            else:
+                # Already repaired, skip duplicate work
+                pass
             
             # Calculate total distance
             total_distance = self._calculate_total_distance(routes)

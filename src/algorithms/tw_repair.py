@@ -75,9 +75,11 @@ class TWRepairOperator:
 
         iterations = 0
         improved = True
+        no_improvement_count = 0
+        max_no_improvement = 5  # Early termination: stop if no improvement for 5 iterations
         relocation_time = 0.0
         swap_time = 0.0
-        while improved and iterations < effective_max_iterations:
+        while improved and iterations < effective_max_iterations and no_improvement_count < max_no_improvement:
             improved = False
             iterations += 1
 
@@ -94,6 +96,9 @@ class TWRepairOperator:
                 best_routes = move["routes"]
                 best_score = move["score"]
                 improved = True
+                no_improvement_count = 0  # Reset counter on improvement
+            else:
+                no_improvement_count += 1  # Increment if no improvement
 
         total_time = time.perf_counter() - start_time
         if total_time > 0.05:

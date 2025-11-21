@@ -448,15 +448,22 @@ class GeneticAlgorithm:
                             # User prefers quality over speed
                             max_iter = mode_config.max_repair_iterations
                             
+                            # INTELLIGENT SEARCH LIMITS: Balance quality and performance
+                            # Limit search space to most promising routes/positions
+                            # This reduces O(n²) complexity while maintaining repair quality
+                            num_routes_estimate = max(3, len(self.problem.customers) // 30)  # Estimate routes
+                            max_routes_to_try = min(5, num_routes_estimate)  # Try up to 5 most promising routes
+                            max_positions_to_try = 15  # Sample up to 15 positions per route (not all)
+                            
                             self._genetic_tw_repair = TWRepairOperator(
                                 self.problem,
                                 max_iterations=max_iter,
                                 violation_weight=tw_cfg.get('violation_weight', 50.0),
                                 max_relocations_per_route=tw_cfg.get('max_relocations_per_route', None),
-                                max_routes_to_try=None,  # Try all routes (original: no limit)
-                                max_positions_to_try=None,  # Try all positions (original: no limit)
-                                lateness_soft_threshold=0.0,  # Apply to all
-                                lateness_skip_threshold=float('inf'),  # Never skip
+                                max_routes_to_try=max_routes_to_try,  # Limit to most promising routes
+                                max_positions_to_try=max_positions_to_try,  # Sample positions intelligently
+                                lateness_soft_threshold=0.0,  # Apply to all that need repair
+                                lateness_skip_threshold=100000.0,  # Skip hopeless cases (handled in should_repair)
                             )
                         
                         # Decode chromosomes to routes for repair
@@ -469,10 +476,85 @@ class GeneticAlgorithm:
                         if not hasattr(offspring2, 'routes') or not offspring2.routes:
                             offspring2.routes = self._decoder_for_repair.decode_chromosome(offspring2.chromosome)
                         
-                        # Repair both offspring with full aggressive repair (original settings)
-                        # User prefers quality over speed
-                        offspring1.routes = self._genetic_tw_repair.repair_routes(offspring1.routes)
-                        offspring2.routes = self._genetic_tw_repair.repair_routes(offspring2.routes)
+                        # SELECTIVE REPAIR: Only repair if violations are significant
+                        # This prevents wasting time on low-violation or hopeless cases
+                        # while maintaining quality for high-violation offspring
+                        
+                        # Calculate adaptive thresholds ONCE per generation (cache to avoid recalculation)
+                        if not hasattr(self, '_repair_thresholds') or not hasattr(self, '_repair_thresholds_gen') or self._repair_thresholds_gen != self.generation:
+                            num_customers = len(self.problem.customers)
+                            
+                            # Calculate time window range to understand problem scale
+                            tw_range = 0.0
+                            if self.problem.customers:
+                                ready_times = [c.ready_time for c in self.problem.customers]
+                                due_dates = [c.due_date for c in self.problem.customers]
+                                if ready_times and due_dates:
+                                    tw_range = max(due_dates) - min(ready_times)
+                            
+                            # Adaptive thresholds based on problem size and TW range
+                            # MIN_REPAIR: Below this, violations are negligible (don't waste time)
+                            min_repair_threshold = 10.0  # 10 minutes total lateness = negligible
+                            
+                            # MAX_REPAIR (hopeless): Above this, violations are too severe to fix
+                            # Use problem-adaptive calculation: num_customers * avg_violation_per_customer
+                            # Typical: 50-100 minutes per customer for severe violations
+                            if tw_range > 0:
+                                # Use TW range as reference: if lateness > 50% of TW range, likely hopeless
+                                max_repair_threshold = max(tw_range * 0.5, num_customers * 50.0)
+                            else:
+                                # Fallback: use customer count
+                                max_repair_threshold = num_customers * 100.0
+                            
+                            # Cache thresholds for this generation
+                            self._repair_thresholds = {
+                                'min': min_repair_threshold,
+                                'max': max_repair_threshold
+                            }
+                            self._repair_thresholds_gen = self.generation
+                            
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            logger.debug(f"TW repair thresholds (gen {self.generation}): min={min_repair_threshold:.1f}, "
+                                       f"max={max_repair_threshold:.1f}, "
+                                       f"customers={num_customers}, tw_range={tw_range:.1f}")
+                        
+                        def should_repair(routes):
+                            """Determine if repair is needed based on violation severity."""
+                            try:
+                                total_lateness = sum(
+                                    self._genetic_tw_repair._route_lateness(route) for route in routes
+                                )
+                                
+                                # Skip repair if no violations (negligible)
+                                if total_lateness <= self._repair_thresholds['min']:
+                                    return False, f"no_violations ({total_lateness:.1f} <= {self._repair_thresholds['min']:.1f})"
+                                
+                                # Skip if violations are extreme (hopeless - repair won't help)
+                                if total_lateness >= self._repair_thresholds['max']:
+                                    return False, f"hopeless ({total_lateness:.1f} >= {self._repair_thresholds['max']:.1f})"
+                                
+                                return True, f"needs_repair ({total_lateness:.1f} in range)"
+                            except Exception:
+                                return True, "error_checking"  # Repair on error to be safe
+                        
+                        # Check and repair offspring1
+                        should_repair_1, reason_1 = should_repair(offspring1.routes)
+                        if should_repair_1:
+                            offspring1.routes = self._genetic_tw_repair.repair_routes(offspring1.routes)
+                            # Mark as repaired to skip duplicate repair in fitness evaluation
+                            offspring1._tw_repaired = True
+                        else:
+                            offspring1._tw_repaired = False
+                        
+                        # Check and repair offspring2
+                        should_repair_2, reason_2 = should_repair(offspring2.routes)
+                        if should_repair_2:
+                            offspring2.routes = self._genetic_tw_repair.repair_routes(offspring2.routes)
+                            # Mark as repaired to skip duplicate repair in fitness evaluation
+                            offspring2._tw_repaired = True
+                        else:
+                            offspring2._tw_repaired = False
                     except Exception as e:
                         import logging
                         logger = logging.getLogger(__name__)
