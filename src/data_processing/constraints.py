@@ -15,7 +15,9 @@ from src.core.pipeline_profiler import pipeline_profiler
 class ConstraintHandler:
     """Handles VRP constraints validation and repair."""
     
-    def __init__(self, vehicle_capacity: float, num_vehicles: int, penalty_weight: Optional[float] = None):
+    def __init__(self, vehicle_capacity: float, num_vehicles: int, 
+                 penalty_weight: Optional[float] = None,
+                 dataset_type: Optional[str] = None):
         """
         Initialize constraint handler.
         
@@ -23,6 +25,7 @@ class ConstraintHandler:
             vehicle_capacity: Maximum capacity per vehicle
             num_vehicles: Maximum number of vehicles available
             penalty_weight: Penalty weight for constraint violations (defaults to VRP_CONFIG)
+            dataset_type: Dataset type ("hanoi" or "solomon") for mode-specific behavior
         """
         self.vehicle_capacity = vehicle_capacity
         self.num_vehicles = num_vehicles
@@ -31,6 +34,18 @@ class ConstraintHandler:
             self.penalty_weight = VRP_CONFIG.get('penalty_weight', 5000)
         else:
             self.penalty_weight = penalty_weight
+        
+        # Get mode-specific configuration
+        # Properly detect mode: check if it's solomon, otherwise default to hanoi
+        if dataset_type is None:
+            dataset_type = "hanoi"
+        dataset_type = str(dataset_type).strip().lower()
+        if not dataset_type.startswith('solomon'):
+            dataset_type = 'hanoi'
+        
+        self.dataset_type = dataset_type
+        from src.data_processing.mode_configs import get_mode_config
+        self.mode_config = get_mode_config(self.dataset_type)
     
     def validate_capacity_constraint(self, 
                                   routes: List[List[int]], 
@@ -255,32 +270,117 @@ class ConstraintHandler:
                     if current_time < ready_time:
                         current_time = ready_time
                     
-                    # Check if we arrive too late
-                    if current_time > due_date:
-                        # Tiered penalty system: graduated response based on severity
-                        # Small violations get gentle penalties, large violations get strong penalties
-                        lateness = current_time - due_date
-                        
-                        # Tier 1: Minor violations (< 10 time units)
-                        if lateness < 10:
-                            lateness_penalty = 100 * lateness
-                        # Tier 2: Medium violations (10-60 time units)
-                        elif lateness < 60:
-                            lateness_penalty = 1000 + 500 * (lateness - 10)
-                        # Tier 3: Major violations (>= 60 time units)
-                        else:
-                            lateness_penalty = 26000 + 1000 * (lateness - 60)
-                        
-                        # Multiply by penalty_weight to match other constraint penalties
-                        # This ensures time window penalties are proportional to distance
-                        lateness_penalty *= self.penalty_weight
-                        total_penalty += lateness_penalty
+                    # Check time window violation with mode-specific handling
+                    violation_type, violation_amount = self._check_time_window_violation(
+                        current_time, ready_time, due_date
+                    )
+                    
+                    if violation_type != "ok":
+                        penalty = self._calculate_time_window_penalty(
+                            violation_type, violation_amount
+                        )
+                        total_penalty += penalty
+                        # DEBUG: Log first few violations to understand scale
+                        if total_penalty < 1000000:  # Only log if penalty is still small
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            logger.debug(f"TW violation: type={violation_type}, amount={violation_amount:.2f}, "
+                                       f"penalty={penalty:.2f}, total={total_penalty:.2f}")
                     
                     # Add service time
                     current_time += service_time
             
             is_valid = total_penalty == 0.0
             return is_valid, total_penalty
+    
+    def _check_time_window_violation(self, arrival_time: float, 
+                                     ready_time: float, due_date: float) -> Tuple[str, float]:
+        """
+        Check time window violation with mode-specific soft windows.
+        
+        Args:
+            arrival_time: Actual arrival time
+            ready_time: Earliest acceptable arrival time
+            due_date: Latest acceptable arrival time
+            
+        Returns:
+            Tuple of (violation_type, violation_amount):
+            - "ok": No violation
+            - "soft_early": Slightly early (within buffer)
+            - "soft_late": Slightly late (within buffer)
+            - "hard_early": Too early (outside buffer)
+            - "hard_late": Too late (outside buffer)
+        """
+        buffer = self.mode_config.time_window_buffer
+        
+        if not self.mode_config.allow_time_flexibility or buffer == 0:
+            # Strict mode (Solomon): no buffer
+            if arrival_time < ready_time:
+                return ("hard_early", ready_time - arrival_time)
+            elif arrival_time > due_date:
+                return ("hard_late", arrival_time - due_date)
+            else:
+                return ("ok", 0.0)
+        
+        # Soft mode (Hanoi): allow buffer
+        early_buffer = ready_time - buffer
+        late_buffer = due_date + buffer
+        
+        if arrival_time < early_buffer:
+            # Too early - significant violation
+            return ("hard_early", early_buffer - arrival_time)
+        elif arrival_time > late_buffer:
+            # Too late - significant violation
+            return ("hard_late", arrival_time - late_buffer)
+        elif arrival_time < ready_time:
+            # Slightly early - minor violation (soft penalty)
+            return ("soft_early", ready_time - arrival_time)
+        elif arrival_time > due_date:
+            # Slightly late - minor violation (soft penalty)
+            return ("soft_late", arrival_time - due_date)
+        else:
+            # Perfect timing
+            return ("ok", 0.0)
+    
+    def _calculate_time_window_penalty(self, violation_type: str, 
+                                      violation_amount: float) -> float:
+        """
+        Calculate penalty for time window violation with graduated system.
+        
+        Args:
+            violation_type: Type of violation ("soft_early", "soft_late", "hard_early", "hard_late")
+            violation_amount: Amount of violation in time units
+            
+        Returns:
+            Penalty value
+        """
+        if violation_type == "ok":
+            return 0.0
+        
+        # Get base penalty based on violation type
+        if violation_type in ["soft_early", "soft_late"]:
+            # Soft violations: use soft penalty weight
+            base_penalty = violation_amount * self.mode_config.time_window_penalty_soft
+        else:
+            # Hard violations: use tiered system with hard penalty weight
+            if violation_amount < 10:
+                # Tier 1: Minor violations
+                base_penalty = 100 * violation_amount
+            elif violation_amount < 60:
+                # Tier 2: Medium violations
+                base_penalty = 1000 + 500 * (violation_amount - 10)
+            else:
+                # Tier 3: Major violations
+                base_penalty = 26000 + 1000 * (violation_amount - 60)
+            
+            # Apply hard penalty weight (normalize to base 1000)
+            base_penalty *= (self.mode_config.time_window_penalty_hard / 1000.0)
+        
+        # CRITICAL FIX: DO NOT multiply by penalty_weight again!
+        # penalty_weight (5000) makes penalties TOO LARGE (trillions)
+        # This creates flat gradient - GA can't fine-tune violations
+        # Mode-specific penalty weights (hard/soft) are sufficient
+        return base_penalty
     
     def validate_all_constraints(self, 
                                routes: List[List[int]], 

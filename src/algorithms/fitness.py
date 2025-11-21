@@ -35,10 +35,13 @@ class FitnessEvaluator:
             penalty_weight = VRP_CONFIG.get('penalty_weight', 5000)
         
         self.penalty_weight = penalty_weight
+        # Get dataset_type from problem for mode-specific behavior
+        dataset_type = getattr(problem, 'dataset_type', None)
         self.constraint_handler = ConstraintHandler(
             problem.vehicle_capacity, 
             problem.num_vehicles,
-            penalty_weight=self.penalty_weight  # Pass penalty_weight to ConstraintHandler
+            penalty_weight=self.penalty_weight,  # Pass penalty_weight to ConstraintHandler
+            dataset_type=dataset_type  # Pass dataset_type for mode-specific behavior
         )
         # Use RouteDecoder to ensure Split Algorithm is used when enabled
         self.decoder = RouteDecoder(problem, use_split_algorithm=GA_CONFIG.get('use_split_algorithm', False))
@@ -96,13 +99,24 @@ class FitnessEvaluator:
                     pass
             individual.routes = routes
             
-            # Selective TW repair: only for individuals with moderate violations
-            # Skip repair for catastrophic violations (let penalty handle) and no violations (already good)
+            # Mode-specific TW repair: aggressive for Solomon, selective for Hanoi
             tw_repair_cfg = GA_CONFIG.get('tw_repair', {})
+            dataset_type = getattr(self.problem, 'dataset_type', None)
+            # Properly detect mode: check if it's solomon, otherwise default to hanoi
+            if dataset_type is None:
+                # Try to infer from metadata
+                metadata = getattr(self.problem, 'metadata', {}) or {}
+                dataset_type = metadata.get('dataset_type', 'hanoi')
+            dataset_type = str(dataset_type).strip().lower()
+            if not dataset_type.startswith('solomon'):
+                dataset_type = 'hanoi'
+            
+            from src.data_processing.mode_configs import get_mode_config
+            mode_config = get_mode_config(dataset_type)
+            
             if (tw_repair_cfg.get('enabled', False) and 
                 hasattr(self.decoder, 'tw_repair') and 
                 self.decoder.tw_repair is not None):
-                # Quick check: calculate total lateness
                 try:
                     total_lateness = sum(
                         self.decoder.tw_repair._route_lateness(route) for route in routes
@@ -110,19 +124,24 @@ class FitnessEvaluator:
                     lateness_soft = tw_repair_cfg.get('lateness_soft_threshold', 5000.0)
                     lateness_skip = tw_repair_cfg.get('lateness_skip_threshold', 100000.0)
                     
-                    # Repair if lateness is above soft threshold (moderate to high violations)
-                    # Skip only if catastrophic (above skip threshold)
-                    if lateness_soft < total_lateness < lateness_skip:
-                        # Apply quick repair (soft mode - limited iterations)
+                    # Solomon mode: Always repair if violations exist (aggressive)
+                    # Hanoi mode: Selective repair (only moderate violations)
+                    should_repair = False
+                    if not mode_config.accept_near_feasible:
+                        # Solomon: repair if any violations (below skip threshold)
+                        should_repair = total_lateness > 0 and total_lateness < lateness_skip
+                    else:
+                        # Hanoi: repair only moderate violations
+                        should_repair = lateness_soft < total_lateness < lateness_skip
+                    
+                    if should_repair:
                         try:
                             with pipeline_profiler.profile("fitness.selective_tw_repair"):
                                 routes = self.decoder.tw_repair.repair_routes(routes)
                                 individual.routes = routes
                         except Exception:
-                            # If repair fails, continue with original routes
                             pass
                 except Exception:
-                    # If lateness calculation fails, skip repair
                     pass
             
             # Calculate total distance
@@ -135,45 +154,64 @@ class FitnessEvaluator:
             # Calculate balance factor
             balance_factor = self._calculate_balance_factor(routes)
             
-            # Distance-first fitness (like NN and BKS)
-            # Penalties guide toward feasibility but don't dominate
+            # Mode-specific penalty handling
+            dataset_type = getattr(self.problem, 'dataset_type', None)
+            # Properly detect mode: check if it's solomon, otherwise default to hanoi
+            if dataset_type is None:
+                # Try to infer from metadata
+                metadata = getattr(self.problem, 'metadata', {}) or {}
+                dataset_type = metadata.get('dataset_type', 'hanoi')
+            dataset_type = str(dataset_type).strip().lower()
+            if not dataset_type.startswith('solomon'):
+                dataset_type = 'hanoi'
+            
+            from src.data_processing.mode_configs import get_mode_config
+            mode_config = get_mode_config(dataset_type)
+            
+            # DEBUG: Log mode detection
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Fitness calculation: dataset_type={dataset_type}, "
+                        f"mode_config={type(mode_config).__name__}, "
+                        f"accept_near_feasible={mode_config.accept_near_feasible}")
+            
             if raw_penalty > 0:
-                # Adaptive penalty cap based on mode and problem size
-                # Loose time windows need higher caps (violations less severe)
-                # Tight time windows need lower caps (violations more critical)
+                # For Solomon mode: NO CAP - penalties must be high enough to force feasibility
+                # For Hanoi mode: Allow cap for soft violations
+                if mode_config.accept_near_feasible:
+                    # Hanoi mode: cap at reasonable level to allow soft violations
+                    max_penalty_cap = total_distance * 10.0
+                    capped_penalty = min(raw_penalty, max_penalty_cap)
+                else:
+                    # Solomon mode: NO CAP - let penalties be as high as needed
+                    # This ensures GA can see gradient and prioritize feasibility
+                    capped_penalty = raw_penalty
                 
-                if self.penalty_weight <= 1500:  # Hanoi mode
-                    max_penalty_cap = total_distance * 10
-                else:  # Solomon mode
-                    # Adaptive cap for Solomon datasets
-                    # Tight TW (C1/R1/RC1): 2× distance (strict)
-                    # Loose TW (C2/R2/RC2): 10× distance (allow more violations)
-                    num_customers = len(self.problem.customers)
-                    
-                    # Heuristic: Loose TW if vehicle_capacity >= 700
-                    # C1/R1/RC1 use capacity 200, C2/R2/RC2 use 700/1000
-                    is_loose_tw = self.problem.vehicle_capacity >= 700
-                    
-                    if is_loose_tw:
-                        # Loose TW: much higher cap to allow GA to see penalty gradient
-                        # Increased from 20× to 50× because violations can be very high (36000-65000)
-                        # Penalty was hitting 100% cap, preventing GA from learning
-                        max_penalty_cap = total_distance * 50.0
-                    else:
-                        # Tight TW: lower cap to enforce constraints
-                        max_penalty_cap = total_distance * 2.0
+                # CRITICAL FIX: Penalties are ALREADY multiplied by penalty_weight (5000) in ConstraintHandler
+                # DO NOT multiply again here! Penalty values are already HUGE (billions)
+                # fitness = -(penalty + distance)
                 
-                capped_penalty = min(raw_penalty, max_penalty_cap)
+                logger.warning(f"FITNESS: raw_penalty={raw_penalty:.2e}, capped={capped_penalty:.2e}, "
+                             f"distance={total_distance:.2f}, mode={dataset_type}")
                 
-                # Use capped penalty directly
-                fitness = 1.0 / (total_distance + capped_penalty + balance_factor + 1.0)
+                fitness = -(capped_penalty + total_distance + balance_factor)
             else:
-                fitness = 1.0 / (total_distance + balance_factor + 1.0)
+                # Feasible solutions: optimize distance only
+                fitness = -(total_distance + balance_factor)
             
             individual.fitness = fitness
             
-            # Store capped penalty for reporting
-            individual.penalty = capped_penalty if raw_penalty > 0 else 0.0
+            # Store penalties for reporting and debugging
+            if raw_penalty > 0:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"PENALTY: raw={raw_penalty:.2e}, capped={capped_penalty:.2e}, "
+                           f"distance={total_distance:.2f}, fitness={fitness:.2e}, mode={dataset_type}")
+            
+            # Store raw_penalty for display (actual penalty before capping)
+            # Store capped_penalty for fitness calculation tracking
+            individual.penalty = raw_penalty if raw_penalty > 0 else 0.0
+            individual.capped_penalty = capped_penalty if raw_penalty > 0 else 0.0
             
             # Mark as valid if no penalty
             individual.is_valid = raw_penalty == 0.0
@@ -424,13 +462,13 @@ class FitnessEvaluator:
     
     def is_feasible_solution(self, individual: Individual) -> bool:
         """
-        Check if solution is feasible.
+        Check if solution is feasible (mode-specific acceptance criteria).
         
         Args:
             individual: Individual to check
             
         Returns:
-            True if feasible, False otherwise
+            True if acceptable according to mode-specific criteria, False otherwise
         """
         if individual.is_empty():
             return False
@@ -438,7 +476,176 @@ class FitnessEvaluator:
         routes = self._decode_chromosome(individual.chromosome)
         penalty = self._calculate_penalty(routes)
         
-        return penalty == 0.0
+        # Mode-specific acceptance criteria
+        dataset_type = getattr(self.problem, 'dataset_type', None)
+        # Properly detect mode: check if it's solomon, otherwise default to hanoi
+        if dataset_type is None:
+            # Try to infer from metadata
+            metadata = getattr(self.problem, 'metadata', {}) or {}
+            dataset_type = metadata.get('dataset_type', 'hanoi')
+        dataset_type = str(dataset_type).strip().lower()
+        if not dataset_type.startswith('solomon'):
+            dataset_type = 'hanoi'
+        
+        from src.data_processing.mode_configs import get_mode_config
+        mode_config = get_mode_config(dataset_type)
+        
+        if not mode_config.accept_near_feasible:
+            # Strict mode (Solomon): must be perfectly feasible
+            return penalty == 0.0
+        
+        # Relaxed mode (Hanoi): check if acceptable
+        return self._is_acceptable_solution(routes, mode_config)
+    
+    def _is_acceptable_solution(self, routes: List[List[int]], mode_config) -> bool:
+        """
+        Check if solution is acceptable according to mode-specific criteria.
+        
+        Args:
+            routes: List of routes
+            mode_config: Mode configuration (HanoiConfig or SolomonConfig)
+            
+        Returns:
+            True if acceptable, False otherwise
+        """
+        # Check capacity violations (must be 0)
+        demands = self.problem.get_demands()
+        cap_valid, cap_penalty = self.constraint_handler.validate_capacity_constraint(routes, demands)
+        if not cap_valid:
+            return False
+        
+        # Count time window violations
+        total_customers = len(self.problem.customers)
+        violations = self._count_time_window_violations(routes)
+        hard_violations = self._count_hard_time_window_violations(routes)
+        
+        # Check acceptance criteria
+        if violations > mode_config.max_acceptable_violations:
+            return False
+        
+        if hard_violations > mode_config.max_acceptable_hard_violations:
+            return False
+        
+        # Check compliance rate
+        compliance_rate = (total_customers - violations) / total_customers if total_customers > 0 else 0.0
+        if compliance_rate < mode_config.feasibility_threshold:
+            return False
+        
+        return True
+    
+    def _count_time_window_violations(self, routes: List[List[int]]) -> int:
+        """
+        Count total time window violations by simulating routes.
+        
+        Args:
+            routes: List of routes
+            
+        Returns:
+            Number of violations
+        """
+        violations = 0
+        from config import VRP_CONFIG
+        time_window_start = VRP_CONFIG.get('time_window_start', 480)
+        
+        for route in routes:
+            if len(route) < 2:
+                continue
+            
+            current_time = float(time_window_start)
+            
+            for i in range(len(route) - 1):
+                to_customer_id = route[i + 1]
+                if to_customer_id == 0:  # Skip depot
+                    continue
+                
+                customer = self.problem.get_customer_by_id(to_customer_id)
+                if customer is None:
+                    continue
+                
+                # Travel time
+                from_id = route[i]
+                travel_time = self.problem.get_distance(from_id, to_customer_id)
+                arrival_time = current_time + travel_time
+                
+                # Wait if early
+                if arrival_time < customer.ready_time:
+                    arrival_time = customer.ready_time
+                
+                # Check violation
+                if arrival_time > customer.due_date:
+                    violations += 1
+                
+                # Service time
+                current_time = arrival_time + customer.service_time
+        
+        return violations
+    
+    def _count_hard_time_window_violations(self, routes: List[List[int]]) -> int:
+        """
+        Count hard time window violations (outside buffer for Hanoi mode).
+        
+        Args:
+            routes: List of routes
+            
+        Returns:
+            Number of hard violations
+        """
+        dataset_type = getattr(self.problem, 'dataset_type', None)
+        # Properly detect mode: check if it's solomon, otherwise default to hanoi
+        if dataset_type is None:
+            # Try to infer from metadata
+            metadata = getattr(self.problem, 'metadata', {}) or {}
+            dataset_type = metadata.get('dataset_type', 'hanoi')
+        dataset_type = str(dataset_type).strip().lower()
+        if not dataset_type.startswith('solomon'):
+            dataset_type = 'hanoi'
+        
+        from src.data_processing.mode_configs import get_mode_config
+        mode_config = get_mode_config(dataset_type)
+        
+        if not mode_config.allow_time_flexibility:
+            # Strict mode: all violations are hard
+            return self._count_time_window_violations(routes)
+        
+        # Soft mode: count violations outside buffer
+        hard_violations = 0
+        from config import VRP_CONFIG
+        time_window_start = VRP_CONFIG.get('time_window_start', 480)
+        buffer = mode_config.time_window_buffer
+        
+        for route in routes:
+            if len(route) < 2:
+                continue
+            
+            current_time = float(time_window_start)
+            
+            for i in range(len(route) - 1):
+                to_customer_id = route[i + 1]
+                if to_customer_id == 0:  # Skip depot
+                    continue
+                
+                customer = self.problem.get_customer_by_id(to_customer_id)
+                if customer is None:
+                    continue
+                
+                # Travel time
+                from_id = route[i]
+                travel_time = self.problem.get_distance(from_id, to_customer_id)
+                arrival_time = current_time + travel_time
+                
+                # Check hard violation (outside buffer)
+                early_buffer = customer.ready_time - buffer
+                late_buffer = customer.due_date + buffer
+                
+                if arrival_time < early_buffer or arrival_time > late_buffer:
+                    hard_violations += 1
+                
+                # Update time
+                if arrival_time < customer.ready_time:
+                    arrival_time = customer.ready_time
+                current_time = arrival_time + customer.service_time
+        
+        return hard_violations
     
     def get_best_feasible_solution(self, population: List[Individual]) -> Optional[Individual]:
         """

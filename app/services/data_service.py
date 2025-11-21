@@ -336,6 +336,11 @@ class DataService:
                     ):
                         distance_matrix = self.distance_calculator.calculate_distance_matrix(coordinates)
                 
+                # Ensure dataset_type is set in metadata for downstream components
+                if 'metadata' not in data_dict:
+                    data_dict['metadata'] = {}
+                data_dict['metadata']['dataset_type'] = actual_dataset_type
+                
                 # Create VRPProblem with adaptive traffic support
                 use_adaptive = VRP_CONFIG.get('use_adaptive_traffic', False)
                 with pipeline_profiler.profile("data.create_vrp_problem.model_build"):

@@ -304,9 +304,11 @@ class KPICalculator:
         """Calculate constraint violations."""
         from src.data_processing.constraints import ConstraintHandler
         
+        dataset_type = getattr(self.problem, 'dataset_type', None)
         constraint_handler = ConstraintHandler(
             self.problem.vehicle_capacity, 
-            self.problem.num_vehicles
+            self.problem.num_vehicles,
+            dataset_type=dataset_type
         )
         
         demands = self.problem.get_demands()

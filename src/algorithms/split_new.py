@@ -117,21 +117,85 @@ class SplitAlgorithm:
         violation_rate = violations / total_customers
         
         # Break route if violations are too severe
-        # Stricter thresholds to prevent routes with excessive violations
-        # 1. Single customer is very late (>60 min, was 150)
-        if max_lateness > 60:
+        # Much stricter thresholds to prevent routes with excessive violations
+        # With penalty_weight now applied, violations are much more expensive
+        # Split should create routes with minimal violations to help GA converge
+        # 1. Single customer is late (>30 min, was 60)
+        if max_lateness > 30:
             return False
         
-        # 2. Too many customers violated (>30% of route, was 50%)
-        if violation_rate > 0.3:
+        # 2. Too many customers violated (>20% of route, was 30%)
+        if violation_rate > 0.2:
             return False
         
-        # 3. Moderate lateness with many violations (>40 min and >20%, was 80 and 30%)
-        if max_lateness > 40 and violation_rate > 0.2:
+        # 3. Moderate lateness with many violations (>20 min and >10%, was 40 and 20%)
+        if max_lateness > 20 and violation_rate > 0.1:
             return False
         
         # Otherwise, accept the route (let penalty system handle minor violations)
         return True
+    
+    def _calculate_segment_tw_penalty(self, customer_seq: List[int], start_idx: int, end_idx: int) -> float:
+        """
+        Calculate time window penalty for a route segment.
+        Used in split cost function to make split TW-aware.
+        
+        Args:
+            customer_seq: 1-indexed customer sequence (0=depot, then customers)
+            start_idx: Start position (0-based, where 0 means start from depot)
+            end_idx: End position (1-indexed, inclusive)
+            
+        Returns:
+            Total TW penalty for the segment
+        """
+        # Check if problem has time windows
+        has_tw = any(
+            c.ready_time > 0 or c.due_date < float('inf')
+            for c in self.problem.customers
+        )
+        if not has_tw:
+            return 0.0
+        
+        # Simulate route execution
+        current_time = 0.0  # Start from depot at time 0
+        prev_id = 0  # Start from depot
+        total_penalty = 0.0
+        
+        # Process customers from start_idx+1 to end_idx (1-indexed)
+        for idx in range(start_idx + 1, end_idx + 1):
+            if idx >= len(customer_seq):
+                break
+            
+            customer_id = customer_seq[idx]
+            customer = self.problem.get_customer_by_id(customer_id)
+            if not customer:
+                continue
+            
+            # Travel time
+            travel_time = self.problem.get_distance(prev_id, customer_id)
+            arrival_time = current_time + travel_time
+            
+            # Wait if early
+            if arrival_time < customer.ready_time:
+                arrival_time = customer.ready_time
+            
+            # Check if late (violates time window)
+            if arrival_time > customer.due_date:
+                lateness = arrival_time - customer.due_date
+                # Use same tiered penalty system as constraint handler
+                if lateness < 10:
+                    penalty = 100 * lateness
+                elif lateness < 60:
+                    penalty = 1000 + 500 * (lateness - 10)
+                else:
+                    penalty = 26000 + 1000 * (lateness - 60)
+                total_penalty += penalty
+            
+            # Service time
+            current_time = arrival_time + customer.service_time
+            prev_id = customer_id
+        
+        return total_penalty
     
     def _split_full_dp(self, giant_tour: List[int]) -> Tuple[List[List[int]], float]:
         """
@@ -179,21 +243,29 @@ class SplitAlgorithm:
                     # Allow minor violations to maintain reasonable route lengths
                     break
                 
-                # Incremental cost calculation
+                # Incremental cost calculation (distance)
                 if j == i + 1:
                     # First customer: depot -> customer -> depot
-                    route_cost = (
+                    route_distance = (
                         self.problem.get_distance(0, customer_id) +
                         self.problem.get_distance(customer_id, 0)
                     )
                 else:
                     # Add customer: remove prev->depot, add prev->customer->depot
-                    route_cost = (
+                    route_distance = (
                         route_cost -
                         self.problem.get_distance(prev_customer_id, 0) +
                         self.problem.get_distance(prev_customer_id, customer_id) +
                         self.problem.get_distance(customer_id, 0)
                     )
+                
+                # Calculate TW penalty for this route segment
+                # This makes split algorithm TW-aware, not just distance-optimizing
+                tw_penalty = self._calculate_segment_tw_penalty(customer_seq, i, j)
+                
+                # Combined cost: distance + α * TW_penalty
+                # Use small weight (0.1) to prioritize distance but penalize violations
+                route_cost = route_distance + 0.1 * tw_penalty
                 
                 load += customer_demand
                 prev_customer_id = customer_id

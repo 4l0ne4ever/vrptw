@@ -35,14 +35,38 @@ class TwoOptOptimizer:
             self.apply_tw_repair_after_local_search = False
         
         if tw_cfg.get('enabled', False) and self.apply_tw_repair_after_local_search:
+            # Use mode-specific repair intensity
+            dataset_type = getattr(problem, 'dataset_type', None)
+            # Properly detect mode: check if it's solomon, otherwise default to hanoi
+            if dataset_type is None:
+                # Try to infer from metadata
+                metadata = getattr(problem, 'metadata', {}) or {}
+                dataset_type = metadata.get('dataset_type', 'hanoi')
+            dataset_type = str(dataset_type).strip().lower()
+            if not dataset_type.startswith('solomon'):
+                dataset_type = 'hanoi'
+            
+            from src.data_processing.mode_configs import get_mode_config
+            mode_config = get_mode_config(dataset_type)
+            repair_intensity = mode_config.repair_intensity
+            
+            if repair_intensity == "aggressive":
+                # Solomon mode: aggressive repair
+                max_iter = mode_config.max_repair_iterations
+                max_iter_soft = max(1, max_iter // 3)
+            else:
+                # Hanoi mode: moderate repair
+                max_iter = mode_config.max_repair_iterations
+                max_iter_soft = max(1, max_iter // 2)
+            
             self.tw_repair_operator = TWRepairOperator(
                 problem,
-                max_iterations=tw_cfg.get('max_iterations', 50),
+                max_iterations=max_iter,
                 violation_weight=tw_cfg.get('violation_weight', 50.0),
                 max_relocations_per_route=tw_cfg.get('max_relocations_per_route', 2),
                 max_routes_to_try=tw_cfg.get('max_routes_to_try', None),
                 max_positions_to_try=tw_cfg.get('max_positions_to_try', None),
-                max_iterations_soft=tw_cfg.get('max_iterations_soft'),
+                max_iterations_soft=max_iter_soft,
                 max_routes_soft_limit=tw_cfg.get('max_routes_soft_limit'),
                 max_positions_soft_limit=tw_cfg.get('max_positions_soft_limit'),
                 lateness_soft_threshold=tw_cfg.get('lateness_soft_threshold'),

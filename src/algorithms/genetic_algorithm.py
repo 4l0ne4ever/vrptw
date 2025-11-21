@@ -130,14 +130,45 @@ class GeneticAlgorithm:
                 chromosome = customer_ids.copy()
                 random.shuffle(chromosome)
             elif strategy_ratio < 0.7:
-            # Greedy initialization (20%)
+                # Greedy initialization (20%)
                 chromosome = self._greedy_initialization(customer_ids)
             elif strategy_ratio < 0.85:
-            # Cluster-first initialization (15%)
+                # Cluster-first initialization (15%)
                 chromosome = self._cluster_first_initialization(customer_ids)
             else:
                 # Savings-based initialization (15%)
                 chromosome = self._savings_initialization(customer_ids)
+        
+        # Mode-specific initialization: adjust TW-aware ratio
+        dataset_type = getattr(self.problem, 'dataset_type', None)
+        # Properly detect mode: check if it's solomon, otherwise default to hanoi
+        if dataset_type is None:
+            # Try to infer from metadata
+            metadata = getattr(self.problem, 'metadata', {}) or {}
+            dataset_type = metadata.get('dataset_type', 'hanoi')
+        dataset_type = str(dataset_type).strip().lower()
+        if not dataset_type.startswith('solomon'):
+            dataset_type = 'hanoi'
+        
+        from src.data_processing.mode_configs import get_mode_config
+        mode_config = get_mode_config(dataset_type)
+        
+        # Override strategy if needed for mode-specific TW-aware ratio
+        tw_aware_ratio = mode_config.initialization_tw_aware_ratio
+        tw_aware_count = int(population_size * tw_aware_ratio)
+        
+        # If this individual should be TW-aware but isn't, convert it
+        if index < tw_aware_count and index >= 5:
+            # Convert to TW-aware strategy
+            strategy_idx = index % 4  # Cycle through 4 TW-aware strategies
+            if strategy_idx == 0:
+                chromosome = self._time_window_initialization(customer_ids, 'ready_time')
+            elif strategy_idx == 1:
+                chromosome = self._time_window_initialization(customer_ids, 'due_date')
+            elif strategy_idx == 2:
+                chromosome = self._time_window_initialization(customer_ids, 'center')
+            else:
+                chromosome = self._time_window_initialization(customer_ids, 'slack')
         
         return Individual(chromosome=chromosome)
     
@@ -390,6 +421,62 @@ class GeneticAlgorithm:
                 
                 offspring1 = self.adaptive_mutation.mutate(offspring1, population_diversity, fitness_before_1)
                 offspring2 = self.adaptive_mutation.mutate(offspring2, population_diversity, fitness_before_2)
+            
+            # FIX #7 & #8: Apply TW repair immediately after genetic operators
+            # This prevents genetic operators from destroying TW feasibility
+            tw_cfg = self.config.get('tw_repair', {})
+            if tw_cfg.get('enabled', False) and tw_cfg.get('apply_after_genetic_operators', False):
+                with pipeline_profiler.profile("ga.post_genetic_tw_repair"):
+                    try:
+                        from src.algorithms.tw_repair import TWRepairOperator
+                        if not hasattr(self, '_genetic_tw_repair'):
+                            # Use mode-specific repair intensity
+                            dataset_type = getattr(self.problem, 'dataset_type', None)
+                            # Properly detect mode: check if it's solomon, otherwise default to hanoi
+                            if dataset_type is None:
+                                # Try to infer from metadata
+                                metadata = getattr(self.problem, 'metadata', {}) or {}
+                                dataset_type = metadata.get('dataset_type', 'hanoi')
+                            dataset_type = str(dataset_type).strip().lower()
+                            if not dataset_type.startswith('solomon'):
+                                dataset_type = 'hanoi'
+                            
+                            from src.data_processing.mode_configs import get_mode_config
+                            mode_config = get_mode_config(dataset_type)
+                            
+                            # Use mode-specific repair intensity (original aggressive settings)
+                            # User prefers quality over speed
+                            max_iter = mode_config.max_repair_iterations
+                            
+                            self._genetic_tw_repair = TWRepairOperator(
+                                self.problem,
+                                max_iterations=max_iter,
+                                violation_weight=tw_cfg.get('violation_weight', 50.0),
+                                max_relocations_per_route=tw_cfg.get('max_relocations_per_route', None),
+                                max_routes_to_try=None,  # Try all routes (original: no limit)
+                                max_positions_to_try=None,  # Try all positions (original: no limit)
+                                lateness_soft_threshold=0.0,  # Apply to all
+                                lateness_skip_threshold=float('inf'),  # Never skip
+                            )
+                        
+                        # Decode chromosomes to routes for repair
+                        from src.algorithms.decoder import RouteDecoder
+                        if not hasattr(self, '_decoder_for_repair'):
+                            self._decoder_for_repair = RouteDecoder(self.problem, use_split_algorithm=True)
+                        
+                        if not hasattr(offspring1, 'routes') or not offspring1.routes:
+                            offspring1.routes = self._decoder_for_repair.decode_chromosome(offspring1.chromosome)
+                        if not hasattr(offspring2, 'routes') or not offspring2.routes:
+                            offspring2.routes = self._decoder_for_repair.decode_chromosome(offspring2.chromosome)
+                        
+                        # Repair both offspring with full aggressive repair (original settings)
+                        # User prefers quality over speed
+                        offspring1.routes = self._genetic_tw_repair.repair_routes(offspring1.routes)
+                        offspring2.routes = self._genetic_tw_repair.repair_routes(offspring2.routes)
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.debug(f"Post-genetic TW repair failed: {e}")
             
             # Local search improvement (2-opt) - apply selectively to avoid performance issues
             # Only apply to a small percentage and with limited iterations

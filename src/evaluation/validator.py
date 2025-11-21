@@ -20,9 +20,11 @@ class SolutionValidator:
             problem: VRP problem instance
         """
         self.problem = problem
+        dataset_type = getattr(problem, 'dataset_type', None)
         self.constraint_handler = ConstraintHandler(
             problem.vehicle_capacity, 
-            problem.num_vehicles
+            problem.num_vehicles,
+            dataset_type=dataset_type
         )
     
     def validate_solution(self, individual: Individual) -> Dict:

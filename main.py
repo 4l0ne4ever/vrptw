@@ -599,7 +599,8 @@ def run_optimization(problem, args, mode_name):
     while len(demands) < max_customer_id:
         demands.append(0.0)  # Add zero demand for missing customers
     
-    constraint_handler = ConstraintHandler(problem.vehicle_capacity, problem.num_vehicles)
+    dataset_type = getattr(problem, 'dataset_type', None)
+    constraint_handler = ConstraintHandler(problem.vehicle_capacity, problem.num_vehicles, dataset_type=dataset_type)
     cap_valid, _ = constraint_handler.validate_capacity_constraint(routes, demands)
     if not cap_valid:
         print("Final repair: Capacity violations detected, repairing...")
@@ -666,7 +667,8 @@ def run_optimization(problem, args, mode_name):
         while len(demands) < max_customer_id:
             demands.append(0.0)  # Add zero demand for missing customers
         
-        constraint_handler = ConstraintHandler(problem.vehicle_capacity, problem.num_vehicles)
+        dataset_type = getattr(problem, 'dataset_type', None)
+        constraint_handler = ConstraintHandler(problem.vehicle_capacity, problem.num_vehicles, dataset_type=dataset_type)
         cap_valid, _ = constraint_handler.validate_capacity_constraint(routes, demands)
         if not cap_valid:
             print("Post-2opt repair: Capacity violations detected, repairing...")
@@ -810,7 +812,8 @@ def run_optimization(problem, args, mode_name):
     if args.debug_constraints:
         try:
             os.makedirs(args.output, exist_ok=True)
-            ch = ConstraintHandler(problem.vehicle_capacity, problem.num_vehicles)
+            dataset_type = getattr(problem, 'dataset_type', None)
+            ch = ConstraintHandler(problem.vehicle_capacity, problem.num_vehicles, dataset_type=dataset_type)
             decoder = RouteDecoder(problem)
             # Use the repaired routes from the solution, not decode from chromosome
             ga_routes = ga_solution.routes if ga_solution.routes else decoder.decode_chromosome(ga_solution.chromosome)

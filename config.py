@@ -18,20 +18,21 @@ GA_CONFIG = {
     'force_full_generations': True,
     'tw_repair': {
         'enabled': True,
-        'max_iterations': 20,  # Increased: need more iterations for high violations
-        'max_iterations_soft': 10,  # Increased: 4 iterations not enough for lateness 36000-65000
+        'max_iterations': 20,  # Base iterations
+        'max_iterations_soft': 10,  # Soft mode iterations
         'violation_weight': 50.0,
         'max_relocations_per_route': 2,
         'max_routes_to_try': None,
         'max_positions_to_try': None,
         'max_routes_soft_limit': 5,
         'max_positions_soft_limit': 6,
-        'lateness_soft_threshold': 5000.0,  # Lowered: repair more individuals
-        'lateness_skip_threshold': 100000.0,  # Raised: allow repair for high violations (was 20000, too low)
-        'apply_in_decoder': False,  # Disabled: too expensive, use selective repair instead
+        'lateness_soft_threshold': 5000.0,  # Threshold for soft mode
+        'lateness_skip_threshold': 100000.0,  # Never skip repair
+        'apply_in_decoder': False,  # Disabled: expensive
         'apply_in_decoder_solomon': False,
+        'apply_after_genetic_operators': True,  # NEW: Apply immediately after crossover/mutation
         'apply_after_local_search': True,
-        'apply_post_generation': True,  # Apply to top 50% best + top 50% high-violation individuals
+        'apply_post_generation': True,  # Apply to top individuals
         'apply_after_local_search_solomon': True,
         'apply_on_final_solution': True
     }
