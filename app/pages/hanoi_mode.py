@@ -25,7 +25,11 @@ from app.components.pipeline_progress import PipelineProgress
 from app.components.run_summary import render_run_summary
 from app.services.data_service import DataService
 from app.services.optimization_service import OptimizationService
+from app.services.history_service import HistoryService
 from app.core.exceptions import ValidationError, DatasetError, OptimizationError
+from app.core.logger import setup_app_logger
+
+logger = setup_app_logger()
 
 st.set_page_config(
     page_title="Hanoi Mode - VRP-GA",
@@ -225,6 +229,76 @@ if st.session_state.hanoi_dataset:
                             'config': ga_config
                         }
                         st.session_state.hanoi_optimization_running = False
+                        
+                        # Save to history
+                        try:
+                            history_service = HistoryService()
+                            
+                            # Get dataset name from metadata or use default
+                            dataset_metadata = (st.session_state.hanoi_dataset or {}).get('metadata', {})
+                            dataset_name = dataset_metadata.get('name', st.session_state.get('hanoi_dataset_name', 'Hanoi Dataset'))
+                            
+                            # Ensure we have a valid dataset
+                            if not st.session_state.hanoi_dataset:
+                                logger.warning("Cannot save to history: hanoi_dataset is None")
+                                st.warning("⚠️ Không thể lưu vào history: Dataset không tồn tại")
+                            else:
+                                # Try to find existing dataset or create new one
+                                from app.config.database import SessionLocal
+                                from app.database.crud import get_datasets, create_dataset
+                                db = SessionLocal()
+                                try:
+                                    datasets = get_datasets(db, type='hanoi_mockup')
+                                    dataset_id = None
+                                    
+                                    # Find dataset by name
+                                    for ds in datasets:
+                                        if ds.name == dataset_name:
+                                            dataset_id = ds.id
+                                            break
+                                    
+                                    if not dataset_id:
+                                        # Create new dataset entry
+                                        dataset_json = json.dumps(st.session_state.hanoi_dataset)
+                                        dataset = create_dataset(
+                                            db,
+                                            name=dataset_name,
+                                            description=f"Hanoi delivery: {dataset_name}",
+                                            type='hanoi_mockup',
+                                            data_json=dataset_json
+                                        )
+                                        dataset_id = dataset.id
+                                        logger.info(f"Created new dataset entry: {dataset_name} (ID: {dataset_id})")
+                                    
+                                    # Save result
+                                    run_id, is_new_best = history_service.save_result(
+                                        dataset_id=dataset_id,
+                                        dataset_name=dataset_name,
+                                        solution=best_solution,
+                                        statistics=statistics,
+                                        config=ga_config,
+                                        dataset_type="hanoi_mockup"
+                                    )
+                                    
+                                    if run_id:
+                                        logger.info(f"Saved optimization run to history: {run_id}")
+                                        if is_new_best:
+                                            st.session_state['new_best_result'] = True
+                                            st.success(f"✅ Đã lưu vào history và đây là kết quả tốt nhất!")
+                                        else:
+                                            st.info(f"✅ Đã lưu vào history (Run ID: {run_id})")
+                                    else:
+                                        logger.warning("Failed to save to history: run_id is None")
+                                        st.warning("⚠️ Không thể lưu vào history")
+                                except Exception as db_error:
+                                    logger.error(f"Database error saving to history: {db_error}", exc_info=True)
+                                    st.error(f"❌ Lỗi khi lưu vào history: {str(db_error)}")
+                                finally:
+                                    db.close()
+                        except Exception as e:
+                            logger.error(f"Failed to save to history: {e}", exc_info=True)
+                            st.error(f"❌ Lỗi khi lưu vào history: {str(e)}")
+                        
                         st.rerun()
                         
                 except OptimizationError as e:

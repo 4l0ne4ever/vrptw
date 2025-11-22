@@ -628,9 +628,15 @@ class DistanceCalculator:
                     max_concurrency = OSRM_MAX_CONCURRENCY
                     completed_batches = 0
                     
+                    # Add delay between batch submissions to avoid rate limiting
+                    def process_batch_with_delay(batch_idx: int):
+                        if batch_idx > 0:
+                            time.sleep(1.0)  # 1s delay between batches to avoid rate limiting
+                        return process_batch(batch_idx)
+                    
                     with ThreadPoolExecutor(max_workers=max_concurrency) as executor:
-                        # Submit all batch tasks
-                        future_to_batch = {executor.submit(process_batch, batch_idx): batch_idx 
+                        # Submit all batch tasks with delay
+                        future_to_batch = {executor.submit(process_batch_with_delay, batch_idx): batch_idx 
                                          for batch_idx in range(num_batches)}
                         
                         # Process completed batches as they finish
@@ -667,10 +673,16 @@ class DistanceCalculator:
                 max_concurrency = OSRM_MAX_CONCURRENCY
                 completed_batches = 0
                 
+                # Add delay between batch submissions to avoid rate limiting
+                def process_batch_with_delay(batch_idx: int):
+                    if batch_idx > 0:
+                        time.sleep(0.5)  # 500ms delay between batches
+                    return process_batch(batch_idx)
+                
                 # Use parallel processing with concurrency limit
                 with ThreadPoolExecutor(max_workers=max_concurrency) as executor:
-                    # Submit all batch tasks
-                    future_to_batch = {executor.submit(process_batch, batch_idx): batch_idx 
+                    # Submit all batch tasks with delay
+                    future_to_batch = {executor.submit(process_batch_with_delay, batch_idx): batch_idx 
                                      for batch_idx in range(num_batches)}
                     
                     # Process completed batches as they finish
@@ -774,9 +786,9 @@ class DistanceCalculator:
             "annotations": "distance,duration"  # Request both distance and duration
         }
         
-        # Exponential backoff retry logic (max 3 retries: 1s, 2s, 4s)
-        max_retries = 3
-        retry_delays = [1.0, 2.0, 4.0]  # Exponential backoff delays in seconds
+        # Fast fail: only 1 retry for timeout, immediate fallback for other errors
+        max_retries = 1  # Only 1 retry to fail fast and fallback quickly
+        retry_delays = [1.0]  # Short delay: 1s
         
         for attempt in range(max_retries + 1):  # 0 to max_retries (4 attempts total)
             try:
@@ -792,7 +804,8 @@ class DistanceCalculator:
                     "distance.osrm_request",
                     metadata={'num_sources': num_sources, 'total_points': total_points, 'attempt': attempt + 1}
                 ):
-                    response = self._session.get(url, params=params, timeout=max(self.osrm_timeout * 2, 30))
+                    # Timeout: 20 points takes ~10s, so allow up to 25s for safety
+                    response = self._session.get(url, params=params, timeout=min(self.osrm_timeout * 2.5, 25))
                     response.raise_for_status()
                     data = response.json()
                 
@@ -890,27 +903,46 @@ class DistanceCalculator:
                     # Successfully processed - break out of retry loop
                     return
                 else:
-                    # Response code not 'Ok' - retry
+                    # Response code not 'Ok' - check for rate limiting
+                    error_code = data.get('code', '')
+                    if error_code == 'TooBig':
+                        logger.warning("OSRM request too large. Falling back to Haversine distance.")
+                        break
+                    
+                    # Retry for other errors
                     if attempt < max_retries:
-                        delay = retry_delays[attempt]
-                        logger.warning(f"OSRM response error (attempt {attempt + 1}/{max_retries + 1}): {data.get('code')}. Retrying in {delay}s...")
+                        delay = retry_delays[attempt] if attempt < len(retry_delays) else 16.0
+                        logger.warning(f"OSRM response error (attempt {attempt + 1}/{max_retries + 1}): {error_code}. Retrying in {delay}s...")
                         time.sleep(delay)
                         continue
                     else:
-                        logger.error(f"OSRM Table Service returned error after {max_retries + 1} attempts: {data.get('code')}")
+                        logger.error(f"OSRM Table Service returned error after {max_retries + 1} attempts: {error_code}")
                         break
                 
             except (requests.exceptions.RequestException, requests.exceptions.Timeout, 
                     requests.exceptions.HTTPError, KeyError, ValueError) as e:
-                # Retryable errors - log and retry with exponential backoff
-                if attempt < max_retries:
-                    delay = retry_delays[attempt]
-                    logger.warning(f"OSRM request failed (attempt {attempt + 1}/{max_retries + 1}): {e}. Retrying in {delay}s...")
+                # Check for specific error types
+                is_timeout = isinstance(e, requests.exceptions.Timeout)
+                is_rate_limit = (hasattr(e, 'response') and e.response is not None 
+                                and e.response.status_code == 429)
+                
+                # Immediate fallback for rate limiting or non-timeout errors
+                if is_rate_limit or (not is_timeout and attempt == 0):
+                    if is_rate_limit:
+                        logger.warning("OSRM rate limited (429). Falling back to Haversine distance.")
+                    else:
+                        logger.warning(f"OSRM request failed: {e}. Falling back to Haversine distance.")
+                    break
+                
+                # Only retry for timeout errors (connection timeout, not response timeout)
+                if is_timeout and attempt < max_retries:
+                    delay = retry_delays[attempt] if attempt < len(retry_delays) else 1.0
+                    logger.warning(f"OSRM timeout (attempt {attempt + 1}/{max_retries + 1}). Retrying in {delay}s...")
                     time.sleep(delay)
                     continue
                 else:
-                    # All retries exhausted - fall through to fallback
-                    logger.error(f"OSRM Table Service failed after {max_retries + 1} attempts: {e}")
+                    # All retries exhausted or non-retryable error - fall through to fallback
+                    logger.warning(f"OSRM Table Service failed after {attempt + 1} attempt(s): {e}. Using Haversine fallback.")
                     break
             except Exception as e:
                 # Unexpected error - don't retry, fall through to fallback
@@ -918,7 +950,8 @@ class DistanceCalculator:
                 break
         
         # All retries exhausted or unexpected error - use haversine fallback
-        logger.warning(f"OSRM Table Service unavailable, using haversine fallback")
+        logger.warning("⚠️ OSRM Table Service unavailable (rate limited or timeout). Using Haversine fallback...")
+        logger.info("💡 Tip: Haversine provides good approximations for Hanoi coordinates and avoids API rate limits.")
         # Fallback to haversine
         with pipeline_profiler.profile(
             "distance.osrm_fallback",

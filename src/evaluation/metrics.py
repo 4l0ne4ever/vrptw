@@ -102,7 +102,7 @@ class KPICalculator:
             
             # Fitness
             'fitness': individual.fitness,
-            'penalty': individual.penalty
+            'penalty': getattr(individual, 'capped_penalty', individual.penalty) if hasattr(individual, 'capped_penalty') and individual.capped_penalty > 0 else individual.penalty
         }
         
         # Add shipping cost calculation
@@ -318,13 +318,19 @@ class KPICalculator:
             individual.routes, demands, self.problem.customers
         )
         
+        # Get actual violation count if available, otherwise use boolean
+        tw_violation_count = validation_results['violations'].get('time_window_violation_count', None)
+        if tw_violation_count is None:
+            # Fallback: use boolean (0 or 1)
+            tw_violation_count = 1 if validation_results['violations'].get('time_windows', False) else 0
+        
         return {
-            'total_violations': validation_results['total_penalty'],
+            'total_violations': validation_results['total_penalty'],  # Keep for backward compatibility
             'capacity_violations': validation_results['violations'].get('capacity', False),
             'vehicle_count_violations': validation_results['violations'].get('vehicle_count', False),
             'customer_visit_violations': validation_results['violations'].get('customer_visit', False),
             'depot_violations': validation_results['violations'].get('depot', False),
-            'time_window_violations': validation_results['violations'].get('time_windows', False)
+            'time_window_violations': tw_violation_count  # Actual count, not boolean
         }
     
     def _calculate_cost_metrics(self, total_distance: float, num_routes: int) -> Dict:

@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from app.services.database_service import DatabaseService
 from app.database.crud import get_all_best_results, get_optimization_runs, get_optimization_run
 from app.core.exceptions import DatabaseError
+from app.config.database import SessionLocal
 
 st.set_page_config(
     page_title="History - VRP-GA",
@@ -28,7 +29,7 @@ View your optimization history and best results for each dataset.
 Best results are automatically updated when you achieve better solutions.
 """)
 
-# Initialize database service
+# Initialize database service (for compatibility, but we'll use SessionLocal directly)
 try:
     db_service = DatabaseService()
 except Exception as e:
@@ -43,7 +44,7 @@ with tab1:
     st.markdown("The best optimization result achieved for each dataset.")
     
     try:
-        db = db_service.get_session()
+        db = SessionLocal()
         best_results = get_all_best_results(db, limit=100)
         db.close()
         
@@ -68,7 +69,7 @@ with tab1:
                 filtered_results = [r for r in filtered_results if search_term.lower() in r.dataset_name.lower()]
             if filter_type != "All":
                 # Need to check dataset type from dataset_id
-                db = db_service.get_session()
+                db = SessionLocal()
                 from app.database.crud import get_dataset
                 filtered_results = [
                     r for r in filtered_results
@@ -124,7 +125,7 @@ with tab2:
     st.markdown("Complete history of all optimization runs.")
     
     try:
-        db = db_service.get_session()
+        db = SessionLocal()
         all_runs = get_optimization_runs(db, limit=100)
         db.close()
         
@@ -216,17 +217,174 @@ with tab2:
 # Show run details if selected
 if 'selected_run_id' in st.session_state:
     st.markdown("---")
-    st.markdown("### Run Details")
+    st.markdown("### 📊 Run Details")
     
     try:
-        db = db_service.get_session()
+        db = SessionLocal()
         run = get_optimization_run(db, st.session_state['selected_run_id'])
         db.close()
         
         if run:
-            st.json(json.loads(run.results_json))
+            # Parse results
+            try:
+                results_data = json.loads(run.results_json)
+                parameters_data = json.loads(run.parameters_json) if run.parameters_json else {}
+            except:
+                results_data = {}
+                parameters_data = {}
             
-            if st.button("Close Details"):
+            # Main Results Section
+            st.markdown("#### 🎯 Optimization Results")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                distance = results_data.get('total_distance', 0)
+                st.metric("📏 Total Distance", f"{distance:.2f} km")
+            with col2:
+                routes = results_data.get('num_routes', 0)
+                st.metric("🚚 Number of Routes", routes)
+            with col3:
+                violations = results_data.get('time_window_violations', 0)
+                # Display violations count (not penalty)
+                if violations > 1000000:
+                    # Likely penalty value instead of count - show warning
+                    st.metric("⚠️ Violations", "N/A", 
+                             help="Violations data may be incorrect (showing penalty value)")
+                else:
+                    st.metric("⚠️ Violations", int(violations))
+            with col4:
+                compliance = results_data.get('compliance_rate', 0)
+                st.metric("✅ Compliance Rate", f"{compliance:.1f}%")
+            
+            # Additional Metrics
+            st.markdown("#### 📈 Additional Metrics")
+            col5, col6, col7, col8 = st.columns(4)
+            with col5:
+                fitness = results_data.get('fitness', 0)
+                st.metric("💪 Fitness", f"{fitness:.2f}")
+            with col6:
+                penalty = results_data.get('penalty', 0)
+                if penalty > 0:
+                    st.metric("💰 Penalty", f"{penalty:,.0f}")
+                else:
+                    st.metric("💰 Penalty", "0 (No violations)")
+            with col7:
+                if results_data.get('gap_vs_bks') is not None:
+                    gap = results_data.get('gap_vs_bks', 0)
+                    bks_dist = results_data.get('bks_distance', 0)
+                    st.metric("🎯 Gap vs BKS", f"{gap:+.2f}%", 
+                             help=f"Best Known Solution: {bks_dist:.2f} km")
+                else:
+                    st.metric("🎯 Gap vs BKS", "N/A")
+            with col8:
+                if run.started_at and run.completed_at:
+                    duration = (run.completed_at - run.started_at).total_seconds()
+                    minutes = int(duration // 60)
+                    seconds = int(duration % 60)
+                    st.metric("⏱️ Runtime", f"{minutes}m {seconds}s")
+                else:
+                    st.metric("⏱️ Runtime", "N/A")
+            
+            # Comparison with Nearest Neighbor Baseline
+            st.markdown("#### 📊 Comparison with Baseline")
+            try:
+                from app.database.crud import get_dataset
+                db = SessionLocal()
+                dataset = get_dataset(db, run.dataset_id)
+                db.close()
+                
+                if dataset:
+                    # Load problem from dataset
+                    try:
+                        dataset_data = json.loads(dataset.data_json)
+                        from app.services.data_service import DataService
+                        data_service = DataService()
+                        problem = data_service.create_vrp_problem(dataset_data, dataset.type)
+                        
+                        if problem:
+                            # Calculate NN baseline
+                            from src.algorithms.nearest_neighbor import NearestNeighborHeuristic
+                            nn_heuristic = NearestNeighborHeuristic(problem)
+                            nn_solution = nn_heuristic.solve()
+                            
+                            nn_distance = nn_solution.total_distance
+                            ga_distance = results_data.get('total_distance', 0)
+                            
+                            if nn_distance > 0 and ga_distance > 0:
+                                improvement = ((nn_distance - ga_distance) / nn_distance) * 100
+                                improvement_abs = nn_distance - ga_distance
+                                
+                                comp_col1, comp_col2, comp_col3 = st.columns(3)
+                                with comp_col1:
+                                    st.metric("🔵 NN Baseline", f"{nn_distance:.2f} km",
+                                             help="Nearest Neighbor baseline distance")
+                                with comp_col2:
+                                    st.metric("🟢 GA Solution", f"{ga_distance:.2f} km",
+                                             help="Genetic Algorithm solution distance")
+                                with comp_col3:
+                                    if improvement > 0:
+                                        st.metric("📈 Improvement", f"{improvement:+.2f}%",
+                                                 delta=f"{improvement_abs:.2f} km",
+                                                 help=f"GA improved by {improvement:.2f}% vs NN baseline")
+                                    else:
+                                        st.metric("📉 Improvement", f"{improvement:+.2f}%",
+                                                 delta=f"{improvement_abs:.2f} km",
+                                                 help="GA solution vs NN baseline")
+                    except Exception as e:
+                        st.warning(f"Could not calculate NN baseline: {str(e)}")
+            except Exception as e:
+                st.warning(f"Could not load dataset for comparison: {str(e)}")
+            
+            # Configuration Section
+            if parameters_data:
+                with st.expander("⚙️ Configuration Parameters", expanded=False):
+                    config_cols = st.columns(3)
+                    config_items = [
+                        ("Population Size", parameters_data.get('population_size')),
+                        ("Generations", parameters_data.get('generations')),
+                        ("Crossover", parameters_data.get('crossover_prob')),
+                        ("Mutation", parameters_data.get('mutation_prob')),
+                        ("Tournament", parameters_data.get('tournament_size')),
+                        ("Elitism", parameters_data.get('elitism_rate')),
+                        ("Split Algorithm", "On" if parameters_data.get('use_split_algorithm') else "Off"),
+                        ("Penalty Weight", parameters_data.get('penalty_weight')),
+                    ]
+                    
+                    for idx, (label, value) in enumerate(config_items):
+                        with config_cols[idx % 3]:
+                            if value is not None:
+                                if isinstance(value, float):
+                                    st.write(f"**{label}:** {value:.3f}")
+                                elif isinstance(value, bool):
+                                    st.write(f"**{label}:** {'Yes' if value else 'No'}")
+                                else:
+                                    st.write(f"**{label}:** {value}")
+            
+            # Statistics Section (if available)
+            if 'statistics' in results_data and results_data['statistics']:
+                with st.expander("📊 Detailed Statistics", expanded=False):
+                    stats = results_data['statistics']
+                    stats_cols = st.columns(2)
+                    with stats_cols[0]:
+                        st.write("**GA Statistics:**")
+                        st.write(f"- Generations: {stats.get('generations', 'N/A')}")
+                        st.write(f"- Total Evaluations: {stats.get('total_evaluations', 'N/A')}")
+                        if 'execution_time' in stats:
+                            st.write(f"- Execution Time: {stats['execution_time']:.2f}s")
+                        if 'convergence_generation' in stats:
+                            st.write(f"- Converged at: Generation {stats['convergence_generation']}")
+                    with stats_cols[1]:
+                        st.write("**Solution Quality:**")
+                        st.write(f"- Fitness: {results_data.get('fitness', 0):.6f}")
+                        if 'diversity' in stats:
+                            st.write(f"- Population Diversity: {stats['diversity']:.4f}")
+            
+            # Raw JSON (for technical users)
+            with st.expander("🔧 Raw JSON Data (Technical)", expanded=False):
+                st.json(results_data)
+            
+            # Close button
+            if st.button("❌ Close Details", use_container_width=True):
                 del st.session_state['selected_run_id']
                 st.rerun()
         else:
@@ -234,3 +392,6 @@ if 'selected_run_id' in st.session_state:
             del st.session_state['selected_run_id']
     except Exception as e:
         st.error(f"Error loading run details: {str(e)}")
+        import traceback
+        with st.expander("Error Details"):
+            st.code(traceback.format_exc())

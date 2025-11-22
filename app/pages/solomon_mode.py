@@ -28,7 +28,6 @@ from app.services.data_service import DataService
 from app.services.optimization_service import OptimizationService
 from app.services.visualization_service import VisualizationService
 from app.services.history_service import HistoryService
-from app.services.database_service import DatabaseService
 from app.core.exceptions import ValidationError, DatasetError, OptimizationError
 from app.core.logger import setup_app_logger
 from src.data_processing.solomon_cache_warmer import SolomonCacheWarmer
@@ -253,6 +252,23 @@ if st.session_state.solomon_dataset:
                             progress_callback=None
                         )
                     
+                    # Get BKS distance and add to statistics before saving
+                    bks_distance = None
+                    try:
+                        from src.evaluation.bks_validator import BKSValidator
+                        dataset_metadata = (st.session_state.solomon_dataset or {}).get('metadata', {})
+                        dataset_name = dataset_metadata.get('name', '')
+                        if dataset_name:
+                            bks_validator = BKSValidator()
+                            bks_data = bks_validator.get_bks(dataset_name)
+                            if bks_data:
+                                bks_distance = bks_data.get('distance')
+                                if bks_distance:
+                                    # Add BKS to statistics for history saving
+                                    statistics['bks_distance'] = bks_distance
+                    except Exception as e:
+                        logger.warning(f"Could not load BKS data for history: {str(e)}")
+                    
                     st.session_state.solomon_optimization_results = {
                         'solution': best_solution,
                         'statistics': statistics,
@@ -264,37 +280,38 @@ if st.session_state.solomon_dataset:
                     # Save to history
                     try:
                         history_service = HistoryService()
-                        db_service = DatabaseService()
                         
                         # Get dataset name from metadata or use default
                         dataset_metadata = (st.session_state.solomon_dataset or {}).get('metadata', {})
                         dataset_name = dataset_metadata.get('name', st.session_state.get('solomon_dataset_name', 'Solomon Dataset'))
                         
                         # Try to find existing dataset or create new one
-                        db = db_service.get_session()
+                        from app.config.database import SessionLocal
                         from app.database.crud import get_datasets, create_dataset
-                        datasets = get_datasets(db, type='solomon')
-                        dataset_id = None
-                        
-                        # Find dataset by name
-                        for ds in datasets:
-                            if ds.name == dataset_name:
-                                dataset_id = ds.id
-                                break
-                        
-                        if not dataset_id:
-                            # Create new dataset entry
-                            dataset_json = json.dumps(st.session_state.solomon_dataset)
-                            dataset = create_dataset(
-                                db,
-                                name=dataset_name,
-                                description=f"Solomon benchmark: {dataset_name}",
-                                type='solomon',
-                                data_json=dataset_json
-                            )
-                            dataset_id = dataset.id
-                        
-                        db.close()
+                        db = SessionLocal()
+                        try:
+                            datasets = get_datasets(db, type='solomon')
+                            dataset_id = None
+                            
+                            # Find dataset by name
+                            for ds in datasets:
+                                if ds.name == dataset_name:
+                                    dataset_id = ds.id
+                                    break
+                            
+                            if not dataset_id:
+                                # Create new dataset entry
+                                dataset_json = json.dumps(st.session_state.solomon_dataset)
+                                dataset = create_dataset(
+                                    db,
+                                    name=dataset_name,
+                                    description=f"Solomon benchmark: {dataset_name}",
+                                    type='solomon',
+                                    data_json=dataset_json
+                                )
+                                dataset_id = dataset.id
+                        finally:
+                            db.close()
                         
                         # Save result
                         run_id, is_new_best = history_service.save_result(

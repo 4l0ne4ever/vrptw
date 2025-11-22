@@ -695,7 +695,21 @@ class GeneticAlgorithm:
                             # Only repair if has violations but not catastrophic
                             if min_threshold < total_lateness < lateness_skip:
                                 with pipeline_profiler.profile("ga.post_generation_tw_repair"):
+                                    total_lateness_before = total_lateness
                                     repaired_routes = self._post_gen_tw_repair.repair_routes(ind.routes)
+                                    total_lateness_after = sum(
+                                        self._post_gen_tw_repair._route_lateness(route)
+                                        for route in repaired_routes
+                                    )
+                                    
+                                    # DEBUG: Log repair effectiveness
+                                    import logging
+                                    logger = logging.getLogger(__name__)
+                                    logger.info(f"TW_REPAIR_POST_GEN: before={total_lateness_before:.2f}, "
+                                               f"after={total_lateness_after:.2f}, "
+                                               f"improvement={total_lateness_before-total_lateness_after:.2f}, "
+                                               f"gen={self.generation}")
+                                    
                                     ind.routes = repaired_routes
                                     # Recalculate distance after repair
                                     ind.total_distance = sum(

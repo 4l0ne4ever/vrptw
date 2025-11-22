@@ -178,9 +178,12 @@ class ConstraintHandler:
                                       service_times: List[float],
                                       distance_matrix: np.ndarray,
                                       customers: Optional[List] = None,
-                                      id_to_index: Optional[Dict[int, int]] = None) -> Tuple[bool, float]:
+                                      id_to_index: Optional[Dict[int, int]] = None) -> Tuple[bool, float, int]:
         """
         Validate time window constraints.
+        
+        Returns:
+            Tuple of (is_valid, total_penalty, violation_count)
         
         Args:
             routes: List of routes (customer IDs)
@@ -190,10 +193,11 @@ class ConstraintHandler:
             customers: Optional list of customer objects to map IDs to indices
             
         Returns:
-            Tuple of (is_valid, penalty)
+            Tuple of (is_valid, total_penalty, violation_count)
         """
         with pipeline_profiler.profile("constraints.time_windows", metadata={'num_routes': len(routes)}):
             total_penalty = 0.0
+            violation_count = 0  # Count actual number of violations
             
             # Get time window start from config (default 8:00 = 480 minutes)
             from config import VRP_CONFIG
@@ -276,6 +280,7 @@ class ConstraintHandler:
                     )
                     
                     if violation_type != "ok":
+                        violation_count += 1  # Count actual violations
                         penalty = self._calculate_time_window_penalty(
                             violation_type, violation_amount
                         )
@@ -291,7 +296,7 @@ class ConstraintHandler:
                     current_time += service_time
             
             is_valid = total_penalty == 0.0
-            return is_valid, total_penalty
+            return is_valid, total_penalty, violation_count
     
     def _check_time_window_violation(self, arrival_time: float, 
                                      ready_time: float, due_date: float) -> Tuple[str, float]:
@@ -434,11 +439,19 @@ class ConstraintHandler:
             # Time window constraint (if data provided)
             if (time_windows is not None and service_times is not None and 
                 distance_matrix is not None):
-                tw_valid, tw_penalty = self.validate_time_window_constraint(
+                tw_result = self.validate_time_window_constraint(
                     routes, time_windows, service_times, distance_matrix, 
                     customers=customers, id_to_index=id_to_index
                 )
-                results['violations']['time_windows'] = not tw_valid
+                # Handle both old format (is_valid, penalty) and new format (is_valid, penalty, count)
+                if len(tw_result) == 3:
+                    tw_valid, tw_penalty, tw_violation_count = tw_result
+                    results['violations']['time_windows'] = not tw_valid
+                    results['violations']['time_window_violation_count'] = tw_violation_count
+                else:
+                    tw_valid, tw_penalty = tw_result
+                    results['violations']['time_windows'] = not tw_valid
+                    results['violations']['time_window_violation_count'] = 0 if tw_valid else 1
                 results['total_penalty'] += tw_penalty
             
             # Overall validity

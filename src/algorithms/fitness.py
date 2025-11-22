@@ -5,6 +5,8 @@ Implements multi-objective fitness function with penalty handling.
 
 import numpy as np
 from typing import List, Dict, Tuple, Optional
+import copy
+import logging
 from src.models.solution import Individual
 from src.models.vrp_model import VRPProblem
 from src.data_processing.constraints import ConstraintHandler
@@ -14,6 +16,8 @@ from config import GA_CONFIG, VRP_CONFIG
 import os
 import time
 import json
+
+logger = logging.getLogger(__name__)
 
 
 class FitnessEvaluator:
@@ -126,7 +130,7 @@ class FitnessEvaluator:
                     hasattr(self.decoder, 'tw_repair') and 
                     self.decoder.tw_repair is not None):
                     try:
-                        total_lateness = sum(
+                        total_lateness_before = sum(
                             self.decoder.tw_repair._route_lateness(route) for route in routes
                         )
                         lateness_soft = tw_repair_cfg.get('lateness_soft_threshold', 5000.0)
@@ -137,20 +141,46 @@ class FitnessEvaluator:
                         should_repair = False
                         if not mode_config.accept_near_feasible:
                             # Solomon: repair if any violations (below skip threshold)
-                            should_repair = total_lateness > 0 and total_lateness < lateness_skip
+                            should_repair = total_lateness_before > 0 and total_lateness_before < lateness_skip
                         else:
                             # Hanoi: repair only moderate violations
-                            should_repair = lateness_soft < total_lateness < lateness_skip
+                            should_repair = lateness_soft < total_lateness_before < lateness_skip
                         
                         if should_repair:
                             try:
                                 with pipeline_profiler.profile("fitness.selective_tw_repair"):
+                                    routes_before = copy.deepcopy(routes)
                                     routes = self.decoder.tw_repair.repair_routes(routes)
+                                    total_lateness_after = sum(
+                                        self.decoder.tw_repair._route_lateness(route) for route in routes
+                                    )
+                                    
+                                    # DEBUG: Log repair effectiveness
+                                    import logging
+                                    logger = logging.getLogger(__name__)
+                                    logger.info(f"TW_REPAIR_FITNESS: before={total_lateness_before:.2f}, "
+                                               f"after={total_lateness_after:.2f}, "
+                                               f"improvement={total_lateness_before-total_lateness_after:.2f}, "
+                                               f"num_routes={len(routes)}, mode={dataset_type}")
+                                    
                                     individual.routes = routes
                                     individual._tw_repaired = True
-                            except Exception:
+                            except Exception as e:
+                                import logging
+                                logger = logging.getLogger(__name__)
+                                logger.warning(f"TW repair failed in fitness: {e}")
                                 pass
-                    except Exception:
+                        else:
+                            # DEBUG: Log why repair was skipped
+                            if total_lateness_before > 0:
+                                import logging
+                                logger = logging.getLogger(__name__)
+                                logger.debug(f"TW_REPAIR_SKIP: lateness={total_lateness_before:.2f}, "
+                                           f"soft_threshold={lateness_soft:.2f}, "
+                                           f"skip_threshold={lateness_skip:.2f}, "
+                                           f"should_repair={should_repair}, mode={dataset_type}")
+                    except Exception as e:
+                        logger.warning(f"TW repair check failed: {e}")
                         pass
             else:
                 # Already repaired, skip duplicate work

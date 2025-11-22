@@ -62,12 +62,12 @@ ROUTE_COLORS = [
 
 # Routing settings
 OSRM_BASE_URL = os.getenv("OSRM_BASE_URL", "https://router.project-osrm.org")
-OSRM_TIMEOUT = float(os.getenv("OSRM_TIMEOUT", "5"))
+OSRM_TIMEOUT = float(os.getenv("OSRM_TIMEOUT", "10"))
 USE_REAL_ROUTES = os.getenv("USE_REAL_ROUTES", "true").lower() == "true"
-# OSRM batch size: max points per request (default 100, can be reduced to 50 if URL length issues occur)
-OSRM_MAX_BATCH_SIZE = int(os.getenv("OSRM_MAX_BATCH_SIZE", "100"))
-# OSRM parallel processing: max concurrent batch requests (default 3 to avoid rate limiting)
-OSRM_MAX_CONCURRENCY = int(os.getenv("OSRM_MAX_CONCURRENCY", "3"))
+# OSRM batch size: max points per request (15 for better reliability, 20 points takes ~10s)
+OSRM_MAX_BATCH_SIZE = int(os.getenv("OSRM_MAX_BATCH_SIZE", "15"))
+# OSRM parallel processing: max concurrent batch requests (reduced to 1 to avoid rate limiting)
+OSRM_MAX_CONCURRENCY = int(os.getenv("OSRM_MAX_CONCURRENCY", "1"))
 
 # Cache warming settings for Solomon datasets
 SOLOMON_WARM_CACHE_ENABLED = os.getenv("SOLOMON_WARM_CACHE_ENABLED", "true").lower() == "true"
