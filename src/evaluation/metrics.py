@@ -314,8 +314,21 @@ class KPICalculator:
         demands = self.problem.get_demands()
         num_customers = len(self.problem.customers)
         
+        # Get time windows and service times for validation (CRITICAL FIX)
+        # Without these, validate_all_constraints won't calculate time_window_violation_count
+        time_windows = self.problem.get_time_windows()
+        service_times = self.problem.get_service_times()
+        distance_matrix = self.problem.distance_matrix
+        id_to_index = self.problem.id_to_index if hasattr(self.problem, 'id_to_index') else None
+        
         validation_results = constraint_handler.validate_all_constraints(
-            individual.routes, demands, self.problem.customers
+            individual.routes, 
+            demands, 
+            self.problem.customers,
+            time_windows=time_windows if time_windows else None,
+            service_times=service_times if service_times else None,
+            distance_matrix=distance_matrix if distance_matrix is not None else None,
+            id_to_index=id_to_index
         )
         
         # Get actual violation count if available, otherwise use boolean

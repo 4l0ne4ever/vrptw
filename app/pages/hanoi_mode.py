@@ -248,14 +248,30 @@ if st.session_state.hanoi_dataset:
                                 from app.database.crud import get_datasets, create_dataset
                                 db = SessionLocal()
                                 try:
-                                    datasets = get_datasets(db, type='hanoi_mockup')
+                                    # Try to find dataset by name first (check all types to handle migration)
+                                    datasets_all = get_datasets(db, type=None)  # Get all datasets
                                     dataset_id = None
                                     
-                                    # Find dataset by name
-                                    for ds in datasets:
+                                    # Find dataset by name (prefer 'hanoi' type, but accept 'hanoi_mockup' for backward compatibility)
+                                    for ds in datasets_all:
                                         if ds.name == dataset_name:
-                                            dataset_id = ds.id
-                                            break
+                                            # Prefer 'hanoi' type, but accept 'hanoi_mockup' if exists
+                                            if ds.type == 'hanoi':
+                                                dataset_id = ds.id
+                                                logger.info(f"Found dataset {dataset_name} with type 'hanoi' (ID: {dataset_id})")
+                                                break
+                                            elif ds.type == 'hanoi_mockup' and dataset_id is None:
+                                                dataset_id = ds.id
+                                                logger.info(f"Found dataset {dataset_name} with type 'hanoi_mockup' (ID: {dataset_id}), will use this")
+                                    
+                                    # If not found, try searching only 'hanoi' type
+                                    if not dataset_id:
+                                        datasets = get_datasets(db, type='hanoi')
+                                        for ds in datasets:
+                                            if ds.name == dataset_name:
+                                                dataset_id = ds.id
+                                                logger.info(f"Found dataset {dataset_name} with type 'hanoi' (ID: {dataset_id})")
+                                                break
                                     
                                     if not dataset_id:
                                         # Create new dataset entry
@@ -264,7 +280,7 @@ if st.session_state.hanoi_dataset:
                                             db,
                                             name=dataset_name,
                                             description=f"Hanoi delivery: {dataset_name}",
-                                            type='hanoi_mockup',
+                                            type='hanoi',  # Use consistent type name
                                             data_json=dataset_json
                                         )
                                         dataset_id = dataset.id
@@ -277,7 +293,7 @@ if st.session_state.hanoi_dataset:
                                         solution=best_solution,
                                         statistics=statistics,
                                         config=ga_config,
-                                        dataset_type="hanoi_mockup"
+                                        dataset_type="hanoi"  # Use consistent type name
                                     )
                                     
                                     if run_id:

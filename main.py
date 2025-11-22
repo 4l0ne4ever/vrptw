@@ -210,6 +210,8 @@ Examples:
                        help='Skip generating report')
     parser.add_argument('--save-solution', action='store_true',
                        help='Save solution data to JSON')
+    # Note: Database saving is now MANDATORY (always enabled)
+    # Removed --save-to-db flag - all runs are automatically saved to database
     
     # Algorithm options
     parser.add_argument('--no-local-search', action='store_true',
@@ -886,6 +888,22 @@ def run_optimization(problem, args, mode_name):
         ga_statistics = ga.get_statistics()
         ga_statistics['execution_time'] = ga_execution_time
         
+        # Calculate violations using KPICalculator for accurate count (same as optimization_service)
+        # This ensures statistics has time_window_violations for database saving
+        try:
+            kpis = kpi_calculator.calculate_kpis(ga_solution, execution_time=ga_execution_time)
+            
+            # Add violations to statistics
+            if 'constraint_violations' in kpis:
+                violations = kpis['constraint_violations']
+                ga_statistics['time_window_violations'] = violations.get('time_window_violations', 0)
+                ga_statistics['constraint_violations'] = violations
+            else:
+                ga_statistics['time_window_violations'] = 0
+        except Exception as e:
+            logger.warning(f"Failed to calculate violations for statistics: {e}")
+            ga_statistics['time_window_violations'] = 0
+        
         # Get convergence data
         convergence_data = ga.get_convergence_data()
         
@@ -915,6 +933,114 @@ def run_optimization(problem, args, mode_name):
         if nn_solution:
             nn_file = report_generator.save_solution_data(nn_solution, "nn_solution", args.output)
             print(f"NN solution saved to: {nn_file}")
+    
+    # ALWAYS save to database (required, not optional)
+    # This ensures all CLI runs are saved to history for tracking
+    try:
+        logger.info("Saving optimization results to database...")
+        print("\nSaving optimization results to database...")
+        
+        from app.services.history_service import HistoryService
+        from app.config.database import SessionLocal
+        from app.database.crud import get_datasets, create_dataset
+        import json
+        
+        history_service = HistoryService()
+        
+        # Determine dataset name and type
+        if args.solomon_dataset:
+            dataset_name = args.solomon_dataset
+            dataset_type = "solomon"
+        elif args.mockup_dataset or args.generate:
+            dataset_name = getattr(problem, 'name', f"mockup_{args.customers}customers")
+            dataset_type = "hanoi"
+        else:
+            dataset_name = getattr(problem, 'name', 'Unknown Dataset')
+            # Try to infer from problem metadata
+            metadata = getattr(problem, 'metadata', {}) or {}
+            dataset_type = metadata.get('dataset_type', 'hanoi')
+        
+        # Find or create dataset
+        db = SessionLocal()
+        try:
+            datasets_all = get_datasets(db, type=None)  # Get all datasets
+            dataset_id = None
+            
+            # Find dataset by name
+            for ds in datasets_all:
+                if ds.name == dataset_name:
+                    if dataset_type == "solomon" and ds.type == "solomon":
+                        dataset_id = ds.id
+                        break
+                    elif dataset_type == "hanoi" and ds.type in ["hanoi", "hanoi_mockup"]:
+                        dataset_id = ds.id
+                        break
+            
+            if not dataset_id:
+                # Create new dataset entry
+                # Try to get dataset data from problem
+                dataset_data = {}
+                if hasattr(problem, 'customers'):
+                    dataset_data = {
+                        'customers': [{'id': c.id, 'x': c.x, 'y': c.y, 'demand': c.demand} 
+                                    for c in problem.customers],
+                        'depot': {'id': 0, 'x': problem.depot.x, 'y': problem.depot.y},
+                        'vehicle_capacity': problem.vehicle_capacity,
+                        'num_vehicles': problem.num_vehicles
+                    }
+                
+                dataset_json = json.dumps(dataset_data)
+                metadata_json = json.dumps({
+                    'name': dataset_name,
+                    'type': dataset_type,
+                    'num_customers': len(problem.customers) if hasattr(problem, 'customers') else 0
+                })
+                
+                dataset = create_dataset(
+                    db,
+                    name=dataset_name,
+                    description=f"{dataset_type.capitalize()} dataset: {dataset_name}",
+                    type=dataset_type,
+                    data_json=dataset_json,
+                    metadata_json=metadata_json
+                )
+                dataset_id = dataset.id
+                logger.info(f"Created new dataset entry: {dataset_name} (ID: {dataset_id})")
+                print(f"Created new dataset entry: {dataset_name} (ID: {dataset_id})")
+        finally:
+            db.close()
+        
+        # Prepare config from args
+        ga_config = {
+            'generations': args.generations,
+            'population_size': args.population,
+            'crossover_prob': args.crossover_prob,
+            'mutation_prob': args.mutation_prob,
+            'tournament_size': args.tournament_size,
+            'elitism_rate': args.elitism_rate
+        }
+        
+        # Save result
+        run_id, is_new_best = history_service.save_result(
+            dataset_id=dataset_id,
+            dataset_name=dataset_name,
+            solution=ga_solution,
+            statistics=ga_statistics,
+            config=ga_config,
+            dataset_type=dataset_type
+        )
+        
+        if run_id:
+            logger.info(f"Saved optimization run to database: {run_id}")
+            print(f"✅ Saved optimization run to database (Run ID: {run_id})")
+            if is_new_best:
+                print(f"   This is a new best result for this dataset!")
+        else:
+            logger.warning("Failed to save to database: run_id is None")
+            print("⚠️  Failed to save to database")
+    except Exception as e:
+        logger.error(f"Failed to save to database: {e}", exc_info=True)
+        print(f"⚠️  Failed to save to database: {e}")
     
     print(f"\nOptimization completed successfully!")
     print(f"Results saved in: {args.output}")

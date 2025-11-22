@@ -66,8 +66,17 @@ def delete_dataset(db: Session, dataset_id: int) -> bool:
 def create_optimization_run(db: Session, dataset_id: int, name: str,
                            parameters_json: str, results_json: str,
                            notes: Optional[str] = None,
-                           status: str = "completed") -> OptimizationRun:
+                           status: str = "completed",
+                           started_at: Optional[datetime] = None,
+                           completed_at: Optional[datetime] = None) -> OptimizationRun:
     """Create a new optimization run."""
+    now = datetime.utcnow()
+    # Set timestamps: if not provided, use defaults based on status
+    if started_at is None:
+        started_at = now if status in ["running", "completed"] else None
+    if completed_at is None:
+        completed_at = now if status == "completed" else None
+    
     run = OptimizationRun(
         dataset_id=dataset_id,
         name=name,
@@ -75,8 +84,8 @@ def create_optimization_run(db: Session, dataset_id: int, name: str,
         parameters_json=parameters_json,
         results_json=results_json,
         status=status,
-        started_at=datetime.utcnow() if status == "running" else None,
-        completed_at=datetime.utcnow() if status == "completed" else None
+        started_at=started_at,
+        completed_at=completed_at
     )
     db.add(run)
     db.commit()

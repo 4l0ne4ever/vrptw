@@ -20,4 +20,4 @@ __pycache__/
 venv/
 logs/
 docs/
-
+.claude/

@@ -58,7 +58,7 @@ with tab1:
             with col2:
                 filter_type = st.selectbox(
                     "Filter by type",
-                    options=["All", "solomon", "hanoi_mockup"],
+                    options=["All", "solomon", "hanoi", "hanoi_mockup"],
                     index=0,
                     key="best_filter"
                 )
@@ -73,7 +73,10 @@ with tab1:
                 from app.database.crud import get_dataset
                 filtered_results = [
                     r for r in filtered_results
-                    if get_dataset(db, r.dataset_id) and get_dataset(db, r.dataset_id).type == filter_type
+                    if get_dataset(db, r.dataset_id) and (
+                        get_dataset(db, r.dataset_id).type == filter_type or
+                        (filter_type == "hanoi" and get_dataset(db, r.dataset_id).type in ["hanoi", "hanoi_mockup"])
+                    )
                 ]
                 db.close()
             
@@ -245,11 +248,23 @@ if 'selected_run_id' in st.session_state:
                 st.metric("🚚 Number of Routes", routes)
             with col3:
                 violations = results_data.get('time_window_violations', 0)
+                # Try to get from statistics if main value looks wrong
+                if violations > 1000000 or violations < 0:
+                    # Likely penalty value instead of count - try to get from statistics
+                    stats = results_data.get('statistics', {})
+                    if isinstance(stats, dict):
+                        violations = stats.get('time_window_violations', 0)
+                        # Also try constraint_violations
+                        if violations > 1000000 or violations < 0:
+                            constraint_violations = stats.get('constraint_violations', {})
+                            if isinstance(constraint_violations, dict):
+                                violations = constraint_violations.get('time_window_violations', 0)
+                
                 # Display violations count (not penalty)
-                if violations > 1000000:
-                    # Likely penalty value instead of count - show warning
+                if violations > 1000000 or violations < 0:
+                    # Still looks wrong - show as N/A with warning
                     st.metric("⚠️ Violations", "N/A", 
-                             help="Violations data may be incorrect (showing penalty value)")
+                             help="Violations data may be incorrect (showing penalty value instead of count)")
                 else:
                     st.metric("⚠️ Violations", int(violations))
             with col4:
@@ -269,21 +284,51 @@ if 'selected_run_id' in st.session_state:
                 else:
                     st.metric("💰 Penalty", "0 (No violations)")
             with col7:
-                if results_data.get('gap_vs_bks') is not None:
-                    gap = results_data.get('gap_vs_bks', 0)
+                gap_vs_bks = results_data.get('gap_vs_bks')
+                # Try to get from statistics if not in main results
+                if gap_vs_bks is None:
+                    stats = results_data.get('statistics', {})
+                    if isinstance(stats, dict):
+                        gap_vs_bks = stats.get('gap_vs_bks') or stats.get('bks_gap_percent')
+                        bks_distance = stats.get('bks_distance')
+                        if gap_vs_bks is not None and bks_distance:
+                            results_data['bks_distance'] = bks_distance
+                
+                if gap_vs_bks is not None:
+                    gap = float(gap_vs_bks)
                     bks_dist = results_data.get('bks_distance', 0)
-                    st.metric("🎯 Gap vs BKS", f"{gap:+.2f}%", 
-                             help=f"Best Known Solution: {bks_dist:.2f} km")
+                    if bks_dist:
+                        st.metric("🎯 Gap vs BKS", f"{gap:+.2f}%", 
+                                 help=f"Best Known Solution: {bks_dist:.2f} km")
+                    else:
+                        st.metric("🎯 Gap vs BKS", f"{gap:+.2f}%")
                 else:
-                    st.metric("🎯 Gap vs BKS", "N/A")
+                    st.metric("🎯 Gap vs BKS", "N/A", 
+                             help="BKS data not available for this dataset")
             with col8:
+                # Try to get runtime from multiple sources
+                runtime_seconds = None
+                
+                # Priority 1: Calculate from started_at and completed_at
                 if run.started_at and run.completed_at:
-                    duration = (run.completed_at - run.started_at).total_seconds()
-                    minutes = int(duration // 60)
-                    seconds = int(duration % 60)
-                    st.metric("⏱️ Runtime", f"{minutes}m {seconds}s")
+                    runtime_seconds = (run.completed_at - run.started_at).total_seconds()
+                # Priority 2: Get from statistics
+                elif results_data.get('statistics', {}).get('execution_time'):
+                    runtime_seconds = results_data['statistics']['execution_time']
+                # Priority 3: Get from results_data directly
+                elif results_data.get('execution_time'):
+                    runtime_seconds = results_data['execution_time']
+                
+                if runtime_seconds is not None and runtime_seconds > 0:
+                    minutes = int(runtime_seconds // 60)
+                    seconds = int(runtime_seconds % 60)
+                    if minutes > 0:
+                        st.metric("⏱️ Runtime", f"{minutes}m {seconds}s")
+                    else:
+                        st.metric("⏱️ Runtime", f"{seconds}s")
                 else:
-                    st.metric("⏱️ Runtime", "N/A")
+                    st.metric("⏱️ Runtime", "N/A", 
+                             help="Runtime data not available")
             
             # Comparison with Nearest Neighbor Baseline
             st.markdown("#### 📊 Comparison with Baseline")

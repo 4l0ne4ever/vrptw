@@ -290,14 +290,25 @@ if st.session_state.solomon_dataset:
                         from app.database.crud import get_datasets, create_dataset
                         db = SessionLocal()
                         try:
-                            datasets = get_datasets(db, type='solomon')
+                            # Find dataset by name (check all types first, then filter by type)
+                            datasets_all = get_datasets(db, type=None)  # Get all datasets
                             dataset_id = None
                             
-                            # Find dataset by name
-                            for ds in datasets:
-                                if ds.name == dataset_name:
+                            # Find dataset by name (prefer exact match with 'solomon' type)
+                            for ds in datasets_all:
+                                if ds.name == dataset_name and ds.type == 'solomon':
                                     dataset_id = ds.id
+                                    logger.info(f"Found dataset {dataset_name} with type 'solomon' (ID: {dataset_id})")
                                     break
+                            
+                            # If not found, try searching only 'solomon' type
+                            if not dataset_id:
+                                datasets = get_datasets(db, type='solomon')
+                                for ds in datasets:
+                                    if ds.name == dataset_name:
+                                        dataset_id = ds.id
+                                        logger.info(f"Found dataset {dataset_name} with type 'solomon' (ID: {dataset_id})")
+                                        break
                             
                             if not dataset_id:
                                 # Create new dataset entry

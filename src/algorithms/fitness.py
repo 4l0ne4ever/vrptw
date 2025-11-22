@@ -322,10 +322,20 @@ class FitnessEvaluator:
                 debug_logger = logging.getLogger(__name__)
                 debug_logger.info(f"DISTANCE_START: num_routes={len(routes)}, "
                                  f"route_lengths={[len(r) for r in routes[:5]]}")
-            
-            # Get time window start (default 8:00 = 480 minutes)
-            time_window_start = VRP_CONFIG.get('time_window_start', 480)
-            
+
+            # Get time window start - MODE-SPECIFIC
+            # CRITICAL FIX: Solomon datasets start at 0, Hanoi starts at 480
+            dataset_type = getattr(self.problem, 'dataset_type', None)
+            if dataset_type is None:
+                metadata = getattr(self.problem, 'metadata', {}) or {}
+                dataset_type = metadata.get('dataset_type', 'hanoi')
+            dataset_type = str(dataset_type).strip().lower()
+
+            if dataset_type.startswith('solomon'):
+                time_window_start = 0.0  # Solomon starts at time 0
+            else:
+                time_window_start = VRP_CONFIG.get('time_window_start', 480)  # Hanoi starts at 8:00 AM
+
             for route in routes:
                 if len(route) < 2:
                     continue
@@ -671,8 +681,20 @@ class FitnessEvaluator:
         """
         violations = 0
         from config import VRP_CONFIG
-        time_window_start = VRP_CONFIG.get('time_window_start', 480)
-        
+
+        # MODE-SPECIFIC time window start
+        # CRITICAL FIX: Solomon datasets start at 0, Hanoi starts at 480
+        dataset_type = getattr(self.problem, 'dataset_type', None)
+        if dataset_type is None:
+            metadata = getattr(self.problem, 'metadata', {}) or {}
+            dataset_type = metadata.get('dataset_type', 'hanoi')
+        dataset_type = str(dataset_type).strip().lower()
+
+        if dataset_type.startswith('solomon'):
+            time_window_start = 0.0  # Solomon starts at time 0
+        else:
+            time_window_start = VRP_CONFIG.get('time_window_start', 480)  # Hanoi starts at 8:00 AM
+
         for route in routes:
             if len(route) < 2:
                 continue
@@ -736,9 +758,22 @@ class FitnessEvaluator:
         # Soft mode: count violations outside buffer
         hard_violations = 0
         from config import VRP_CONFIG
-        time_window_start = VRP_CONFIG.get('time_window_start', 480)
+
+        # MODE-SPECIFIC time window start
+        # CRITICAL FIX: Solomon datasets start at 0, Hanoi starts at 480
+        dataset_type = getattr(self.problem, 'dataset_type', None)
+        if dataset_type is None:
+            metadata = getattr(self.problem, 'metadata', {}) or {}
+            dataset_type = metadata.get('dataset_type', 'hanoi')
+        dataset_type = str(dataset_type).strip().lower()
+
+        if dataset_type.startswith('solomon'):
+            time_window_start = 0.0  # Solomon starts at time 0
+        else:
+            time_window_start = VRP_CONFIG.get('time_window_start', 480)  # Hanoi starts at 8:00 AM
+
         buffer = mode_config.time_window_buffer
-        
+
         for route in routes:
             if len(route) < 2:
                 continue

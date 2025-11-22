@@ -153,6 +153,24 @@ class OptimizationService:
             statistics['generations_run'] = actual_generations
             statistics['execution_time'] = execution_time
             
+            # Calculate violations using KPICalculator for accurate count
+            # This ensures statistics has time_window_violations for history saving
+            try:
+                from src.evaluation.metrics import KPICalculator
+                kpi_calculator = KPICalculator(problem)
+                kpis = kpi_calculator.calculate_kpis(best_solution, execution_time=execution_time)
+                
+                # Add violations to statistics
+                if 'constraint_violations' in kpis:
+                    violations = kpis['constraint_violations']
+                    statistics['time_window_violations'] = violations.get('time_window_violations', 0)
+                    statistics['constraint_violations'] = violations
+                else:
+                    statistics['time_window_violations'] = 0
+            except Exception as e:
+                logger.warning(f"Failed to calculate violations for statistics: {e}")
+                statistics['time_window_violations'] = 0
+            
             self.is_running = False
             self.current_ga = None
             

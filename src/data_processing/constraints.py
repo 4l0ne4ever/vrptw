@@ -199,21 +199,34 @@ class ConstraintHandler:
             total_penalty = 0.0
             violation_count = 0  # Count actual number of violations
             
-            # Get time window start from config (default 8:00 = 480 minutes)
+            # Get time window start from config
+            # CRITICAL FIX: Solomon datasets start at time 0, Hanoi starts at 480 (8:00 AM)
+            # Using wrong start time causes massive violations (480 minutes late on every route!)
             from config import VRP_CONFIG
-            time_window_start = VRP_CONFIG.get('time_window_start', 480)
-            
+            default_time_start = VRP_CONFIG.get('time_window_start', 480)
+
+            # Mode-specific time window start
+            # Solomon: time windows defined from 0 (use depot's ready_time)
+            # Hanoi: time windows start at 8:00 AM (480 minutes)
+            if self.dataset_type and self.dataset_type.startswith('solomon'):
+                # Solomon: use depot's ready_time (typically 0) from customers list
+                # Infer from first customer or depot if available
+                time_window_start = 0.0  # Solomon datasets always start at 0
+            else:
+                # Hanoi: use configured start time (480 = 8:00 AM)
+                time_window_start = default_time_start
+
             # Create customer ID to index mapping if customers provided
             customer_id_to_index = {}
             if customers:
                 for idx, customer in enumerate(customers):
                     customer_id_to_index[customer.id] = idx
-            
+
             for route in routes:
                 if len(route) < 2:  # Skip empty or single-point routes
                     continue
-                
-                current_time = float(time_window_start)  # Start from time window start, not 0
+
+                current_time = float(time_window_start)  # Start from mode-appropriate time
                 
                 for i in range(len(route) - 1):
                     from_customer_id = route[i]
@@ -347,40 +360,54 @@ class ConstraintHandler:
             # Perfect timing
             return ("ok", 0.0)
     
-    def _calculate_time_window_penalty(self, violation_type: str, 
+    def _calculate_time_window_penalty(self, violation_type: str,
                                       violation_amount: float) -> float:
         """
         Calculate penalty for time window violation with graduated system.
-        
+
         Args:
             violation_type: Type of violation ("soft_early", "soft_late", "hard_early", "hard_late")
             violation_amount: Amount of violation in time units
-            
+
         Returns:
             Penalty value
         """
         if violation_type == "ok":
             return 0.0
-        
+
         # Get base penalty based on violation type
         if violation_type in ["soft_early", "soft_late"]:
             # Soft violations: use soft penalty weight
             base_penalty = violation_amount * self.mode_config.time_window_penalty_soft
         else:
-            # Hard violations: use tiered system with hard penalty weight
+            # Hard violations: use tiered system with CAPPED growth to prevent explosion
+            # CRITICAL FIX: Previous Tier 3 had unlimited linear growth causing BILLION-dollar penalties
+            # New approach: sublinear growth for extreme violations to maintain gradient without explosion
             if violation_amount < 10:
-                # Tier 1: Minor violations
-                base_penalty = 100 * violation_amount
+                # Tier 1: Minor violations - linear penalty
+                base_penalty = 100 * violation_amount  # Max 1000
             elif violation_amount < 60:
-                # Tier 2: Medium violations
-                base_penalty = 1000 + 500 * (violation_amount - 10)
+                # Tier 2: Medium violations - linear penalty
+                base_penalty = 1000 + 500 * (violation_amount - 10)  # Max 26000
+            elif violation_amount < 200:
+                # Tier 3: Large violations - linear penalty with moderate slope
+                base_penalty = 26000 + 200 * (violation_amount - 60)  # Max 54000 at 200
             else:
-                # Tier 3: Major violations
-                base_penalty = 26000 + 1000 * (violation_amount - 60)
-            
+                # Tier 4: Extreme violations - CAPPED with logarithmic growth to prevent explosion
+                # Cap base at 54000 + log-based penalty for violations beyond 200
+                # This maintains gradient (GA can still differentiate) but prevents billion-dollar penalties
+                import math
+                excess = violation_amount - 200
+                # Logarithmic growth: log(1 + excess) scaled by 5000
+                # At excess=800 (violation=1000): log(801)*5000 ≈ 33600
+                # Total: 54000 + 33600 = 87600 (vs old system: 966000!)
+                log_penalty = math.log(1 + excess) * 5000
+                base_penalty = 54000 + log_penalty  # Capped growth
+
             # Apply hard penalty weight (normalize to base 1000)
+            # Solomon: time_window_penalty_hard = 10000, so multiplier = 10
             base_penalty *= (self.mode_config.time_window_penalty_hard / 1000.0)
-        
+
         # CRITICAL FIX: DO NOT multiply by penalty_weight again!
         # penalty_weight (5000) makes penalties TOO LARGE (trillions)
         # This creates flat gradient - GA can't fine-tune violations
