@@ -195,7 +195,12 @@ class FitnessEvaluator:
             
             # Calculate balance factor
             balance_factor = self._calculate_balance_factor(routes)
-            
+
+            # Calculate route count penalty - prefer fewer routes (closer to BKS)
+            # Each extra route adds fixed penalty to push toward compact solutions
+            num_routes = len(routes)
+            route_count_penalty = num_routes * 100.0
+
             # Mode-specific penalty handling
             dataset_type = getattr(self.problem, 'dataset_type', None)
             # Properly detect mode: check if it's solomon, otherwise default to hanoi
@@ -256,10 +261,10 @@ class FitnessEvaluator:
                              f"is_solomon={dataset_type.startswith('solomon') if dataset_type else False}, "
                              f"cap_ratio={max_penalty_cap/total_distance:.1f}x")
                 
-                fitness = -(capped_penalty + total_distance + balance_factor)
+                fitness = -(capped_penalty + total_distance + balance_factor + route_count_penalty)
             else:
-                # Feasible solutions: optimize distance only
-                fitness = -(total_distance + balance_factor)
+                # Feasible solutions: optimize distance + minimize routes
+                fitness = -(total_distance + balance_factor + route_count_penalty)
             
             individual.fitness = fitness
             

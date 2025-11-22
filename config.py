@@ -17,27 +17,27 @@ GA_CONFIG = {
     'local_search_iterations': 30,  # Max iterations for local search
     'force_full_generations': True,
     'tw_repair': {
-        'enabled': True,
-        'max_iterations': 20,  # Base iterations
+        'enabled': True,  # Enabled for final repair only
+        'max_iterations': 100,  # Increased for final repair to handle large violations
         'max_iterations_soft': 10,  # Soft mode iterations
         'violation_weight': 50.0,
-        'max_relocations_per_route': 2,
-        'max_routes_to_try': None,
-        'max_positions_to_try': None,
+        'max_relocations_per_route': 3,  # Allow more relocations for final repair
+        'max_routes_to_try': None,  # No limit for final repair
+        'max_positions_to_try': None,  # No limit for final repair
         'max_routes_soft_limit': 5,
         'max_positions_soft_limit': 6,
         'lateness_soft_threshold': 5000.0,  # Threshold for soft mode
-        'lateness_skip_threshold': 100000.0,  # Never skip repair
-        'apply_in_decoder': False,  # Disabled: expensive
+        'lateness_skip_threshold': float('inf'),  # Never skip - always attempt repair
+        'apply_in_decoder': False,  # Disabled during evolution
         'apply_in_decoder_solomon': False,
-        'apply_after_genetic_operators': False,  # DISABLED for speed: old version didn't have this
-        'apply_after_genetic_operators_prob': 0.0,  # Disabled
-        'apply_after_local_search': True,
-        'apply_post_generation': True,  # Apply to top individuals
-        'apply_post_generation_prob': 1.0,  # Always apply (but to fewer individuals)
-        'post_generation_top_k_ratio': 0.1,  # Top 10% only (reduced from 20% for speed)
-        'apply_after_local_search_solomon': True,
-        'apply_on_final_solution': True
+        'apply_after_genetic_operators': False,  # Disabled during evolution
+        'apply_after_genetic_operators_prob': 0.0,
+        'apply_after_local_search': False,  # Disabled during evolution
+        'apply_post_generation': False,  # Disabled during evolution
+        'apply_post_generation_prob': 0.0,
+        'post_generation_top_k_ratio': 0.0,
+        'apply_after_local_search_solomon': False,
+        'apply_on_final_solution': True  # ONLY repair final solution
     }
 }
 
@@ -57,31 +57,47 @@ GA_PRESETS = {
         # Estimated runtime: ~20 minutes for 1000 customers
     },
     'standard': {
-        # Same as GA_CONFIG defaults
+        # Balanced quality and speed
         'population_size': 100,
         'generations': 1000,
         'crossover_prob': 0.9,
         'mutation_prob': 0.15,
         'tournament_size': 5,
         'elitism_rate': 0.10,
-        'local_search_prob': 0.1,
-        'local_search_iterations': 10,
+        'local_search_prob': 0.2,   # Increased from 0.1 for better quality
+        'local_search_iterations': 20,  # Increased from 10 for better refinement
         'use_split_algorithm': True,
         'penalty_weight': None,  # Will use mode-specific default (1200 Hanoi, 5000 Solomon)
-        # Estimated runtime: ~79 minutes for 1000 customers
+        # Estimated runtime: ~90 minutes for 1000 customers
     },
     'benchmark': {
+        # High quality for Solomon benchmarks
         'population_size': 100,
         'generations': 1000,
         'crossover_prob': 0.9,
         'mutation_prob': 0.15,
         'tournament_size': 5,
         'elitism_rate': 0.10,
-        'local_search_prob': 0.15,  # More local search for quality
-        'local_search_iterations': 15,
+        'local_search_prob': 0.3,   # Increased from 0.15 for better quality
+        'local_search_iterations': 30,  # Increased from 15 for better refinement
         'use_split_algorithm': True,
         'penalty_weight': None,  # Will use mode-specific default (1200 Hanoi, 5000 Solomon)
-        # Estimated runtime: ~85 minutes for 1000 customers
+        # Estimated runtime: ~100 minutes for 1000 customers
+    },
+    'production': {
+        # Production-ready: Maximum quality for both modes
+        'population_size': 100,
+        'generations': 1000,
+        'crossover_prob': 0.9,
+        'mutation_prob': 0.15,
+        'tournament_size': 5,
+        'elitism_rate': 0.10,
+        'local_search_prob': 0.4,   # High exploitation for production quality
+        'local_search_iterations': 40,  # Deep local optimization
+        'use_split_algorithm': True,
+        'penalty_weight': None,  # Will use mode-specific default (1200 Hanoi, 5000 Solomon)
+        # Estimated runtime: ~120 minutes for 1000 customers
+        # Use for: Final production runs, customer deliverables, benchmark submissions
     }
 }
 

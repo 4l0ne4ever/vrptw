@@ -51,13 +51,11 @@ class TWRepairOperator:
         if total_lateness <= 1e-6:
             return best_routes
 
-        if self.lateness_skip_threshold and total_lateness >= self.lateness_skip_threshold:
-            logger.info(
-                "TW repair skipped (lateness %.1f >= skip threshold %.1f)",
-                total_lateness,
-                self.lateness_skip_threshold,
-            )
-            return best_routes
+        # CRITICAL: Never skip repair for final solution - must achieve 0 violations
+        # Skip threshold removed to ensure repair always attempts to fix violations
+        # if self.lateness_skip_threshold and total_lateness >= self.lateness_skip_threshold:
+        #     logger.info("TW repair skipped (lateness %.1f >= skip threshold %.1f)", ...)
+        #     return best_routes
 
         # Decide mode (full vs soft) based on lateness
         soft_mode = False
@@ -76,10 +74,12 @@ class TWRepairOperator:
         iterations = 0
         improved = True
         no_improvement_count = 0
-        max_no_improvement = 5  # Early termination: stop if no improvement for 5 iterations
+        # For large violations, disable early termination to ensure 0 violations achieved
+        max_no_improvement = 999 if total_lateness >= 10000 else 5
         relocation_time = 0.0
         swap_time = 0.0
-        while improved and iterations < effective_max_iterations and no_improvement_count < max_no_improvement:
+        # Continue until 0 violations OR max iterations OR stuck (for small violations only)
+        while iterations < effective_max_iterations and (self._total_lateness(best_routes) > 1.0 or improved) and no_improvement_count < max_no_improvement:
             improved = False
             iterations += 1
 
