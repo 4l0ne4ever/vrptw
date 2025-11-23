@@ -347,7 +347,37 @@ class HistoryService:
             
             # Add statistics for backward compatibility and detailed analysis
             results_data['statistics'] = statistics
-            
+
+            # Convert numpy/pandas types to Python native types for JSON serialization
+            def convert_to_native(obj):
+                """Recursively convert numpy/pandas types to Python native types."""
+                try:
+                    import numpy as np
+                except ImportError:
+                    np = None
+
+                if isinstance(obj, dict):
+                    return {k: convert_to_native(v) for k, v in obj.items()}
+                elif isinstance(obj, (list, tuple)):
+                    return [convert_to_native(item) for item in obj]
+                elif np and isinstance(obj, np.integer):
+                    return int(obj)
+                elif np and isinstance(obj, np.floating):
+                    return float(obj)
+                elif np and isinstance(obj, np.bool_):
+                    return bool(obj)
+                elif np and isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                elif isinstance(obj, (int, float, str, bool, type(None))):
+                    return obj
+                else:
+                    # Fallback: try to convert to string or return as-is
+                    try:
+                        return str(obj)
+                    except:
+                        return obj
+
+            results_data = convert_to_native(results_data)
             results_json = json.dumps(results_data)
             
             # Prepare parameters JSON

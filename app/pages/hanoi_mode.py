@@ -221,7 +221,71 @@ if st.session_state.hanoi_dataset:
                             ga_config,
                             progress_callback=progress_callback
                         )
-                        
+
+                        # CRITICAL: Apply post-GA 2-opt and TW repair (same as main.py)
+                        try:
+                            logger.info("Applying post-GA 2-opt and TW repair...")
+                            from src.algorithms.local_search import TwoOptOptimizer
+                            from src.algorithms.tw_repair import TWRepairOperator
+                            from src.algorithms.decoder import RouteDecoder
+
+                            problem = st.session_state.hanoi_problem
+                            tw_cfg = ga_config.get('tw_repair', {})
+
+                            # 2-opt optimization
+                            if not ga_config.get('no_local_search', False):
+                                logger.info("Applying 2-opt local search to final solution...")
+                                local_searcher = TwoOptOptimizer(problem)
+                                optimized_routes = local_searcher.optimize_routes(best_solution.routes)
+                                best_solution.routes = optimized_routes
+
+                                # Recalculate distance after 2-opt
+                                decoder = RouteDecoder(problem)
+                                best_solution.chromosome = decoder.encode_routes(optimized_routes)
+                                total_distance = 0.0
+                                for route in optimized_routes:
+                                    if not route:
+                                        continue
+                                    for i in range(len(route) - 1):
+                                        total_distance += problem.get_distance(route[i], route[i + 1])
+                                best_solution.total_distance = total_distance
+                                logger.info(f"2-opt completed: new distance = {best_solution.total_distance:.2f}")
+
+                            # Post-2opt TW repair with high violation_weight
+                            if tw_cfg.get('enabled', True):
+                                logger.info("Post-2opt TW repair: Checking for time window violations...")
+                                tw_repair = TWRepairOperator(
+                                    problem,
+                                    max_iterations=tw_cfg.get('max_iterations', 500),  # Increased for better results
+                                    violation_weight=10000.0,  # CRITICAL: High weight to ensure 0 violations
+                                    max_relocations_per_route=tw_cfg.get('max_relocations_per_route', 3),
+                                    max_routes_to_try=len(best_solution.routes),
+                                    max_positions_to_try=tw_cfg.get('max_positions_to_try', None),
+                                    max_iterations_soft=tw_cfg.get('max_iterations_soft'),
+                                    max_routes_soft_limit=tw_cfg.get('max_routes_soft_limit'),
+                                    max_positions_soft_limit=tw_cfg.get('max_positions_soft_limit'),
+                                    lateness_soft_threshold=tw_cfg.get('lateness_soft_threshold'),
+                                    lateness_skip_threshold=tw_cfg.get('lateness_skip_threshold'),
+                                    # Enhanced parameters for better violation resolution
+                                    enable_exhaustive_search=True,
+                                    enable_restart=True,
+                                    restart_after_no_improvement=50,
+                                    adaptive_weight_multiplier=10.0,
+                                )
+                                repaired_routes = tw_repair.repair_routes(best_solution.routes)
+                                best_solution.routes = repaired_routes
+                                best_solution.chromosome = decoder.encode_routes(repaired_routes)
+                                total_distance = 0.0
+                                for route in repaired_routes:
+                                    if not route:
+                                        continue
+                                    for i in range(len(route) - 1):
+                                        total_distance += problem.get_distance(route[i], route[i + 1])
+                                best_solution.total_distance = total_distance
+                                logger.info(f"Post-2opt TW repair completed: distance = {best_solution.total_distance:.2f}")
+                        except Exception as repair_err:
+                            logger.warning(f"Post-GA optimization/repair failed: {repair_err}", exc_info=True)
+
                         st.session_state.hanoi_optimization_results = {
                             'solution': best_solution,
                             'statistics': statistics,
