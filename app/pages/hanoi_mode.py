@@ -283,6 +283,25 @@ if st.session_state.hanoi_dataset:
                                         total_distance += problem.get_distance(route[i], route[i + 1])
                                 best_solution.total_distance = total_distance
                                 logger.info(f"Post-2opt TW repair completed: distance = {best_solution.total_distance:.2f}")
+
+                                # CRITICAL: Recalculate KPIs after TW repair to update statistics
+                                # Statistics must reflect the FINAL solution (after repair), not before!
+                                try:
+                                    from src.evaluation.metrics import KPICalculator
+                                    kpi_calc_post_repair = KPICalculator(problem)
+                                    kpis_post_repair = kpi_calc_post_repair.calculate_kpis(
+                                        best_solution,
+                                        execution_time=statistics.get('execution_time', 0)
+                                    )
+                                    # Update statistics with POST-REPAIR metrics
+                                    if 'constraint_violations' in kpis_post_repair:
+                                        violations_post = kpis_post_repair['constraint_violations']
+                                        statistics['time_window_violations'] = violations_post.get('time_window_violations', 0)
+                                        statistics['constraint_violations'] = violations_post
+                                        logger.info(f"✅ Statistics updated after TW repair: violations={statistics['time_window_violations']}")
+                                except Exception as kpi_err:
+                                    logger.warning(f"Failed to recalculate KPIs after repair: {kpi_err}")
+
                         except Exception as repair_err:
                             logger.warning(f"Post-GA optimization/repair failed: {repair_err}", exc_info=True)
 
@@ -383,9 +402,12 @@ if st.session_state.hanoi_dataset:
                         except Exception as e:
                             logger.error(f"Failed to save to history: {e}", exc_info=True)
                             st.error(f"❌ Lỗi khi lưu vào history: {str(e)}")
-                        
+
                         st.rerun()
-                        
+
+                except st.runtime.scriptrunner.RerunException:
+                    # Always let Streamlit rerun exceptions propagate
+                    raise
                 except OptimizationError as e:
                     st.error(f"Optimization failed: {str(e)}")
                     st.session_state.hanoi_optimization_running = False
