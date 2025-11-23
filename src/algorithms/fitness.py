@@ -125,9 +125,12 @@ class FitnessEvaluator:
                 
                 from src.data_processing.mode_configs import get_mode_config
                 mode_config = get_mode_config(dataset_type)
-                
-                if (tw_repair_cfg.get('enabled', False) and 
-                    hasattr(self.decoder, 'tw_repair') and 
+
+                # CRITICAL FIX: Only repair if apply_in_decoder is explicitly True
+                # Do NOT repair during evolution (causes massive slowdown)
+                if (tw_repair_cfg.get('enabled', False) and
+                    tw_repair_cfg.get('apply_in_decoder', False) and
+                    hasattr(self.decoder, 'tw_repair') and
                     self.decoder.tw_repair is not None):
                     try:
                         total_lateness_before = sum(
@@ -197,9 +200,15 @@ class FitnessEvaluator:
             balance_factor = self._calculate_balance_factor(routes)
 
             # Calculate route count penalty - prefer fewer routes (closer to BKS)
-            # Each extra route adds fixed penalty to push toward compact solutions
+            # Each extra route adds significant penalty to strongly prefer compact solutions
+            # MODE-AWARE: Different scales for Solomon vs Hanoi to avoid overfitting
             num_routes = len(routes)
-            route_count_penalty = num_routes * 100.0
+            dataset_type = getattr(self.problem, 'dataset_type', 'hanoi')
+            if dataset_type and str(dataset_type).strip().lower().startswith('solomon'):
+                base_penalty = 500.0  # Solomon scale (distances 600-1700km)
+            else:
+                base_penalty = 50.0   # Hanoi scale (distances 20-200km), 10x smaller
+            route_count_penalty = num_routes * base_penalty
 
             # Mode-specific penalty handling
             dataset_type = getattr(self.problem, 'dataset_type', None)

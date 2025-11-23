@@ -324,7 +324,10 @@ if st.session_state.solomon_dataset:
                         finally:
                             db.close()
                         
-                        # Save result
+                        # Save result - CRITICAL: Always save, even if best result update fails
+                        logger.info(f"🔵 Calling save_result: dataset_id={dataset_id}, dataset_name={dataset_name}")
+                        print(f"🔵 [SOLOMON] Calling save_result for dataset: {dataset_name}")
+                        
                         run_id, is_new_best = history_service.save_result(
                             dataset_id=dataset_id,
                             dataset_name=dataset_name,
@@ -334,10 +337,24 @@ if st.session_state.solomon_dataset:
                             dataset_type="solomon"
                         )
                         
-                        if is_new_best:
-                            st.session_state['new_best_result'] = True
+                        if run_id:
+                            logger.info(f"✅ Saved optimization run to history: run_id={run_id}")
+                            print(f"✅ [SOLOMON] Run saved: run_id={run_id}")
+                            if is_new_best:
+                                st.session_state['new_best_result'] = True
+                                st.success(f"✅ Đã lưu vào history và đây là kết quả tốt nhất! (Run ID: {run_id})")
+                            else:
+                                st.success(f"✅ Đã lưu vào history (Run ID: {run_id})")
+                        else:
+                            logger.error("❌ CRITICAL: Failed to save to history: run_id is None")
+                            print(f"❌ [SOLOMON] save_result returned None - check logs for errors")
+                            st.error(f"❌ Không thể lưu vào history - run_id is None. Kiểm tra logs để xem lỗi.")
                     except Exception as e:
-                        logger.warning(f"Failed to save to history: {e}")
+                        logger.error(f"❌ CRITICAL: Failed to save to history: {e}", exc_info=True)
+                        print(f"❌ [SOLOMON] Exception saving to history: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        st.error(f"❌ Lỗi khi lưu vào history: {str(e)}")
                     
                     # Clear progress
                     if 'optimization_progress' in st.session_state:

@@ -26,7 +26,7 @@ GA_CONFIG = {
         'max_positions_to_try': None,  # No limit for final repair
         'max_routes_soft_limit': 5,
         'max_positions_soft_limit': 6,
-        'lateness_soft_threshold': 5000.0,  # Threshold for soft mode
+        'lateness_soft_threshold': float('inf'),  # Disabled - never use soft mode for final repair
         'lateness_skip_threshold': float('inf'),  # Never skip - always attempt repair
         'apply_in_decoder': False,  # Disabled during evolution
         'apply_in_decoder_solomon': False,
@@ -64,11 +64,11 @@ GA_PRESETS = {
         'mutation_prob': 0.15,
         'tournament_size': 5,
         'elitism_rate': 0.10,
-        'local_search_prob': 0.2,   # Increased from 0.1 for better quality
-        'local_search_iterations': 20,  # Increased from 10 for better refinement
+        'local_search_prob': 0.05,   # Reduced from 0.2 to 0.05 for speed
+        'local_search_iterations': 10,  # Reduced from 20 to 10 for speed
         'use_split_algorithm': True,
         'penalty_weight': None,  # Will use mode-specific default (1200 Hanoi, 5000 Solomon)
-        # Estimated runtime: ~90 minutes for 1000 customers
+        # Estimated runtime: ~30-40 minutes for 100 customers
     },
     'benchmark': {
         # High quality for Solomon benchmarks
@@ -78,11 +78,11 @@ GA_PRESETS = {
         'mutation_prob': 0.15,
         'tournament_size': 5,
         'elitism_rate': 0.10,
-        'local_search_prob': 0.3,   # Increased from 0.15 for better quality
-        'local_search_iterations': 30,  # Increased from 15 for better refinement
+        'local_search_prob': 0.1,   # Reduced from 0.3 to 0.1 for speed (10% during evolution)
+        'local_search_iterations': 15,  # Reduced from 30 to 15 for speed
         'use_split_algorithm': True,
         'penalty_weight': None,  # Will use mode-specific default (1200 Hanoi, 5000 Solomon)
-        # Estimated runtime: ~100 minutes for 1000 customers
+        # Estimated runtime: ~40-50 minutes for 100 customers
     },
     'production': {
         # Production-ready: Maximum quality for both modes

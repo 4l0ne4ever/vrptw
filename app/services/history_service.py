@@ -149,9 +149,11 @@ class HistoryService:
         try:
             logger.info(f"🔵 save_result called: dataset_name={dataset_name}, dataset_id={dataset_id}, "
                       f"distance={solution.total_distance:.2f}, dataset_type={dataset_type}")
+            print(f"🔵 [HISTORY] Starting save_result: dataset={dataset_name}, id={dataset_id}")
             
             from app.config.database import SessionLocal
             db = SessionLocal()
+            logger.info(f"✅ Database connection established")
             
             # Extract metrics
             total_distance = solution.total_distance
@@ -242,7 +244,6 @@ class HistoryService:
                         try:
                             dataset = get_dataset(db_temp, dataset_id)
                             if dataset and dataset.metadata_json:
-                                import json
                                 metadata = json.loads(dataset.metadata_json)
                                 dataset_name = metadata.get('name', '')
                                 if dataset_name:
@@ -261,8 +262,41 @@ class HistoryService:
             # Get execution_time from statistics for runtime display
             execution_time = statistics.get('execution_time', 0.0)
             
-            # Prepare results JSON - include all metrics for display
-            results_json = json.dumps({
+            # Calculate comprehensive KPIs using KPICalculator for complete metrics
+            # This ensures all metrics are accurate and complete in results_json
+            kpis = {}
+            try:
+                from src.evaluation.metrics import KPICalculator
+                # Reconstruct problem from dataset to calculate comprehensive KPIs
+                try:
+                    from app.database.crud import get_dataset
+                    dataset = get_dataset(db, dataset_id)
+                    if dataset and dataset.data_json:
+                        dataset_data = json.loads(dataset.data_json)
+                        from app.services.data_service import DataService
+                        data_service = DataService()
+                        problem = data_service.create_vrp_problem(dataset_data, calculate_distance=True, dataset_type=dataset_type)
+                        
+                        if problem:
+                            kpi_calculator = KPICalculator(problem)
+                            kpis = kpi_calculator.calculate_kpis(solution, execution_time=execution_time)
+                            logger.info(f"✅ Calculated comprehensive KPIs: {len(kpis)} metrics")
+                        else:
+                            logger.warning("⚠️  Problem reconstruction returned None, using basic metrics only")
+                    else:
+                        logger.warning("⚠️  Dataset data not available, using basic metrics only")
+                except Exception as e:
+                    logger.warning(f"⚠️  Could not reconstruct problem from dataset: {e}, using basic metrics only")
+                    import traceback
+                    traceback.print_exc()
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to calculate KPIs: {e}, using basic metrics only")
+                import traceback
+                traceback.print_exc()
+            
+            # Prepare results JSON - include ALL metrics for complete record
+            # Basic metrics (always included)
+            results_data = {
                 'total_distance': total_distance,
                 'num_routes': num_routes,
                 'time_window_violations': time_window_violations,
@@ -271,58 +305,131 @@ class HistoryService:
                 'penalty': penalty,
                 'gap_vs_bks': gap_vs_bks,
                 'bks_distance': bks_distance,
-                'execution_time': execution_time,  # Add for runtime display
-                'statistics': statistics
-            })
+                'execution_time': execution_time,
+            }
+            
+            # Add comprehensive KPIs if available
+            if kpis:
+                # Add all KPI metrics
+                results_data.update({
+                    'num_customers': kpis.get('num_customers', len(solution.chromosome) if hasattr(solution, 'chromosome') else 0),
+                    'num_vehicles_used': kpis.get('num_vehicles_used', num_routes),
+                    'avg_route_length': kpis.get('avg_route_length', 0.0),
+                    'max_route_length': kpis.get('max_route_length', 0.0),
+                    'min_route_length': kpis.get('min_route_length', 0.0),
+                    'route_length_std': kpis.get('route_length_std', 0.0),
+                    'avg_utilization': kpis.get('avg_utilization', 0.0),
+                    'max_utilization': kpis.get('max_utilization', 0.0),
+                    'min_utilization': kpis.get('min_utilization', 0.0),
+                    'utilization_std': kpis.get('utilization_std', 0.0),
+                    'load_balance_index': kpis.get('load_balance_index', 0.0),
+                    'total_cost': kpis.get('total_cost', 0.0),
+                    'cost_per_km': kpis.get('cost_per_km', 0.0),
+                    'cost_per_customer': kpis.get('cost_per_customer', 0.0),
+                    'cost_per_route': kpis.get('cost_per_route', 0.0),
+                    'solution_quality': kpis.get('solution_quality', 0.0),
+                    'efficiency_score': kpis.get('efficiency_score', 0.0),
+                    'feasibility_score': kpis.get('feasibility_score', 0.0),
+                    'is_feasible': kpis.get('is_feasible', time_window_violations == 0),
+                })
+                
+                # Add constraint violations details
+                if 'constraint_violations' in kpis:
+                    results_data['constraint_violations'] = kpis['constraint_violations']
+                
+                # Add shipping cost if available
+                if 'shipping_cost' in kpis:
+                    results_data['shipping_cost'] = kpis['shipping_cost']
+                if 'total_cost_with_operational' in kpis:
+                    results_data['total_cost_with_operational'] = kpis['total_cost_with_operational']
+                if 'cost_breakdown' in kpis:
+                    results_data['cost_breakdown'] = kpis['cost_breakdown']
+            
+            # Add statistics for backward compatibility and detailed analysis
+            results_data['statistics'] = statistics
+            
+            results_json = json.dumps(results_data)
             
             # Prepare parameters JSON
             parameters_json = json.dumps(config)
             
-            # Create optimization run
+            # CRITICAL: Create optimization run FIRST and commit immediately
+            # This ensures run is ALWAYS saved, even if best result update fails
+            # User requirement: "lưu toàn bộ kết quả luôn chứ không cần kết quả tốt nhất nữa"
             run_name = f"{dataset_name} - {statistics.get('generations', 0)} generations"
-            run = create_optimization_run(
-                db,
-                dataset_id=dataset_id,
-                name=run_name,
-                parameters_json=parameters_json,
-                results_json=results_json,
-                status="completed"
-            )
-            run_id = run.id
-            
-            # ALWAYS update best result (replace old result with new one)
-            # User requirement: save new result and replace old result, regardless of quality
-            best_result = get_best_result(db, dataset_id)
-            is_new_best = False
-            
-            if best_result:
-                # Log old values for comparison
-                logger.info(f"Found existing best result for dataset {dataset_name} (ID: {dataset_id}): "
-                          f"distance={best_result.total_distance:.2f}, violations={best_result.time_window_violations}, "
-                          f"fitness={best_result.fitness:.2f}, run_id={best_result.run_id}")
-                
-                # Check if new result is better (for logging/info purposes only)
-                is_new_best = self.is_better_result(
-                    current_distance=total_distance,
-                    current_violations=time_window_violations,
-                    current_fitness=fitness,
-                    best_distance=best_result.total_distance,
-                    best_violations=best_result.time_window_violations,
-                    best_fitness=best_result.fitness
-                )
-            else:
-                is_new_best = True
-                logger.info(f"No existing best result for dataset {dataset_name} (ID: {dataset_id}), creating new one")
-            
-            # ALWAYS update best result (replace old with new)
-            # This ensures history always has the latest result, even if it's worse
-            # User explicitly requested: "lưu kết quả mới chạy được vào trong history thay thế kết quả cũ"
-            logger.info(f"🔵 Updating best result for dataset {dataset_name} (ID: {dataset_id}): "
-                      f"distance={total_distance:.2f}, violations={time_window_violations}, "
-                      f"fitness={fitness:.2f}, run_id={run_id}")
-            print(f"🔵 Updating best result: distance={total_distance:.2f}km, violations={time_window_violations}, run_id={run_id}")
+            logger.info(f"🔵 Creating optimization run: name={run_name}, dataset_id={dataset_id}")
+            print(f"🔵 [HISTORY] Creating run: {run_name}")
             
             try:
+                run = create_optimization_run(
+                    db,
+                    dataset_id=dataset_id,
+                    name=run_name,
+                    parameters_json=parameters_json,
+                    results_json=results_json,
+                    status="completed"
+                )
+                run_id = run.id
+                
+                # Commit run immediately to ensure it's saved (CRITICAL)
+                db.commit()
+                logger.info(f"✅ Optimization run created and committed: run_id={run_id}, dataset={dataset_name}")
+                print(f"✅ [HISTORY] Run saved successfully: run_id={run_id}, distance={total_distance:.2f}km, violations={time_window_violations}")
+                
+                # Verify run was saved
+                db_verify = SessionLocal()
+                try:
+                    from app.database.crud import get_optimization_run
+                    verified_run = get_optimization_run(db_verify, run_id)
+                    if verified_run:
+                        logger.info(f"✅ Run verification successful: run_id={run_id} exists in database")
+                        print(f"✅ [HISTORY] Run verified in database: run_id={run_id}")
+                    else:
+                        logger.error(f"❌ Run verification failed: run_id={run_id} not found in database!")
+                        print(f"❌ [HISTORY] Run NOT found in database after save!")
+                finally:
+                    db_verify.close()
+                    
+            except Exception as run_error:
+                logger.error(f"❌ CRITICAL: Failed to create optimization run: {run_error}", exc_info=True)
+                print(f"❌ [HISTORY] Failed to create run: {run_error}")
+                import traceback
+                traceback.print_exc()
+                db.rollback()
+                db.close()
+                return None, False
+            
+            # OPTIONAL: Update best result (separate from run saving)
+            # User requirement: "không cần kết quả tốt nhất nữa" - but we keep it for backward compatibility
+            # Best result update is now optional and won't prevent run from being saved
+            is_new_best = False
+            try:
+                best_result = get_best_result(db, dataset_id)
+                
+                if best_result:
+                    # Log old values for comparison
+                    logger.info(f"Found existing best result for dataset {dataset_name} (ID: {dataset_id}): "
+                              f"distance={best_result.total_distance:.2f}, violations={best_result.time_window_violations}, "
+                              f"fitness={best_result.fitness:.2f}, run_id={best_result.run_id}")
+                    
+                    # Check if new result is better (for logging/info purposes only)
+                    is_new_best = self.is_better_result(
+                        current_distance=total_distance,
+                        current_violations=time_window_violations,
+                        current_fitness=fitness,
+                        best_distance=best_result.total_distance,
+                        best_violations=best_result.time_window_violations,
+                        best_fitness=best_result.fitness
+                    )
+                else:
+                    is_new_best = True
+                    logger.info(f"No existing best result for dataset {dataset_name} (ID: {dataset_id}), creating new one")
+                
+                # Update best result (optional - won't fail if this errors)
+                logger.info(f"🔵 Updating best result for dataset {dataset_name} (ID: {dataset_id}): "
+                          f"distance={total_distance:.2f}, violations={time_window_violations}, "
+                          f"fitness={fitness:.2f}, run_id={run_id}")
+                
                 updated_best_result = create_or_update_best_result(
                     db,
                     dataset_id=dataset_id,
@@ -339,26 +446,27 @@ class HistoryService:
                     bks_distance=bks_distance
                 )
                 
-                # Verify update was successful by querying again
-                db.commit()  # Ensure commit happens
+                # Verify update was successful
+                db.commit()
                 verified_result = get_best_result(db, dataset_id)
                 
                 if verified_result and verified_result.run_id == run_id:
-                    logger.info(f"✅ Best result successfully updated and verified for dataset {dataset_name} (ID: {dataset_id}): "
-                              f"distance={verified_result.total_distance:.2f}, "
-                              f"violations={verified_result.time_window_violations}, "
-                              f"run_id={verified_result.run_id}, "
-                              f"updated_at={verified_result.updated_at}")
+                    logger.info(f"✅ Best result updated: distance={verified_result.total_distance:.2f}, "
+                              f"violations={verified_result.time_window_violations}, run_id={verified_result.run_id}")
                 else:
-                    logger.error(f"❌ Best result update verification failed for dataset {dataset_name} (ID: {dataset_id}): "
-                               f"expected run_id={run_id}, got={verified_result.run_id if verified_result else None}")
-            except Exception as update_error:
-                logger.error(f"❌ Exception while updating best result for dataset {dataset_name} (ID: {dataset_id}): {update_error}", 
-                           exc_info=True)
-                db.rollback()  # Rollback on error
-                raise  # Re-raise to be caught by outer try-except
+                    logger.warning(f"⚠️  Best result update verification failed (but run is saved): "
+                                 f"expected run_id={run_id}, got={verified_result.run_id if verified_result else None}")
+            except Exception as best_result_error:
+                # Best result update failed, but run is already saved - just log warning
+                logger.warning(f"⚠️  Best result update failed (but run {run_id} is saved): {best_result_error}")
+                # Don't rollback - run is already committed
+                # Don't re-raise - run saving is more important
             
             db.close()
+            
+            logger.info(f"✅ save_result completed: run_id={run_id}, is_new_best={is_new_best}")
+            print(f"✅ Result saved successfully: run_id={run_id}, distance={total_distance:.2f}km, violations={time_window_violations}")
+            
             return run_id, is_new_best
             
         except Exception as e:

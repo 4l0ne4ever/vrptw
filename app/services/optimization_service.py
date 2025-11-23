@@ -167,6 +167,15 @@ class OptimizationService:
                     statistics['constraint_violations'] = violations
                 else:
                     statistics['time_window_violations'] = 0
+                
+                # Store problem metadata for history service to reconstruct problem if needed
+                # Problem instance cannot be serialized, so we store metadata instead
+                statistics['_problem_metadata'] = {
+                    'dataset_type': getattr(problem, 'dataset_type', None),
+                    'num_customers': len(problem.customers) if hasattr(problem, 'customers') else 0,
+                    'vehicle_capacity': getattr(problem, 'vehicle_capacity', None),
+                    'num_vehicles': getattr(problem, 'num_vehicles', None)
+                }
             except Exception as e:
                 logger.warning(f"Failed to calculate violations for statistics: {e}")
                 statistics['time_window_violations'] = 0

@@ -286,7 +286,10 @@ if st.session_state.hanoi_dataset:
                                         dataset_id = dataset.id
                                         logger.info(f"Created new dataset entry: {dataset_name} (ID: {dataset_id})")
                                     
-                                    # Save result
+                                    # Save result - CRITICAL: Always save, even if best result update fails
+                                    logger.info(f"🔵 Calling save_result: dataset_id={dataset_id}, dataset_name={dataset_name}")
+                                    print(f"🔵 [HANOI] Calling save_result for dataset: {dataset_name}")
+                                    
                                     run_id, is_new_best = history_service.save_result(
                                         dataset_id=dataset_id,
                                         dataset_name=dataset_name,
@@ -297,15 +300,17 @@ if st.session_state.hanoi_dataset:
                                     )
                                     
                                     if run_id:
-                                        logger.info(f"Saved optimization run to history: {run_id}")
+                                        logger.info(f"✅ Saved optimization run to history: run_id={run_id}")
+                                        print(f"✅ [HANOI] Run saved: run_id={run_id}")
                                         if is_new_best:
                                             st.session_state['new_best_result'] = True
-                                            st.success(f"✅ Đã lưu vào history và đây là kết quả tốt nhất!")
+                                            st.success(f"✅ Đã lưu vào history và đây là kết quả tốt nhất! (Run ID: {run_id})")
                                         else:
-                                            st.info(f"✅ Đã lưu vào history (Run ID: {run_id})")
+                                            st.success(f"✅ Đã lưu vào history (Run ID: {run_id})")
                                     else:
-                                        logger.warning("Failed to save to history: run_id is None")
-                                        st.warning("⚠️ Không thể lưu vào history")
+                                        logger.error("❌ CRITICAL: Failed to save to history: run_id is None")
+                                        print(f"❌ [HANOI] save_result returned None - check logs for errors")
+                                        st.error(f"❌ Không thể lưu vào history - run_id is None. Kiểm tra logs để xem lỗi.")
                                 except Exception as db_error:
                                     logger.error(f"Database error saving to history: {db_error}", exc_info=True)
                                     st.error(f"❌ Lỗi khi lưu vào history: {str(db_error)}")

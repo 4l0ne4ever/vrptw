@@ -42,7 +42,10 @@ class RouteDecoder:
         if self.use_split:
             try:
                 from src.algorithms.split import SplitAlgorithm
-                self.splitter = SplitAlgorithm(problem)
+                # Pass route_count_penalty to split algorithm
+                # Use None to auto-detect based on dataset_type (mode-aware)
+                # This ensures consistency with fitness.py's penalty calculation
+                self.splitter = SplitAlgorithm(problem, route_count_penalty=None)
             except ImportError:
                 self.use_split = False
                 self.splitter = None

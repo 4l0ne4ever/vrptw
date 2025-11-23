@@ -11,19 +11,33 @@ from src.core.pipeline_profiler import pipeline_profiler
 class SplitAlgorithm:
     """
     Optimal split algorithm for giant tour (Prins 2004).
-    
+
     Uses dynamic programming to find optimal way to split a giant tour
     into routes while respecting capacity constraints and soft time-window constraints.
     """
-    
-    def __init__(self, problem: VRPProblem):
+
+    def __init__(self, problem: VRPProblem, route_count_penalty: float = None):
         """
         Initialize split algorithm.
-        
+
         Args:
             problem: VRP problem instance
+            route_count_penalty: Penalty per route to prefer fewer routes.
+                                If None, auto-detects based on dataset_type:
+                                - Solomon: 500.0 (for distances 600-1700km)
+                                - Hanoi: 50.0 (for distances 20-200km)
         """
         self.problem = problem
+
+        # Auto-detect penalty based on mode if not provided
+        if route_count_penalty is None:
+            dataset_type = getattr(problem, 'dataset_type', 'hanoi')
+            if dataset_type and str(dataset_type).strip().lower().startswith('solomon'):
+                self.route_count_penalty = 500.0  # Solomon scale
+            else:
+                self.route_count_penalty = 50.0   # Hanoi scale (10x smaller)
+        else:
+            self.route_count_penalty = route_count_penalty
     
     def split(self, giant_tour: List[int]) -> Tuple[List[List[int]], float]:
         """
@@ -142,16 +156,19 @@ class SplitAlgorithm:
                         pred[key] = (i, num_routes)
         
         # Find best solution that uses <= max_vehicles routes
+        # CRITICAL FIX: Include route_count_penalty to prefer fewer routes
         best_cost = float('inf')
         best_key = None
         available_solutions = []
         for num_routes in range(1, max_vehicles + 1):  # At least 1 route needed
             key = (n, num_routes)
             if key in V:
-                cost = V[key]
-                available_solutions.append((num_routes, cost))
-                if cost < best_cost:
-                    best_cost = cost
+                distance_cost = V[key]
+                # Add route count penalty to total cost (same as fitness calculation)
+                total_cost = distance_cost + (num_routes * self.route_count_penalty)
+                available_solutions.append((num_routes, distance_cost))
+                if total_cost < best_cost:
+                    best_cost = total_cost
                     best_key = key
         
         # DEBUG: Log available solutions
