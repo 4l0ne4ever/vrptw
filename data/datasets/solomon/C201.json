@@ -5,8 +5,8 @@
     "format": "solomon_csv",
     "description": "Solomon VRP dataset converted from C201.csv",
     "num_customers": 100,
-    "vehicle_capacity": 200,
-    "num_vehicles": 12
+    "vehicle_capacity": 700,
+    "num_vehicles": 4
   },
   "depot": {
     "id": 0,
@@ -921,7 +921,8 @@
   ],
   "problem_config": {
     "vehicle_capacity": 700,
-    "num_vehicles": 5,
-    "traffic_factor": 1.0
+    "num_vehicles": 4,
+    "traffic_factor": 1.0,
+    "penalty_weight": 1000
   }
 }

@@ -202,9 +202,19 @@ class StrongRepair:
                 logger.error(f"      This suggests a bug in the insertion logic or capacity constraints too tight")
                 break
 
+        # --- PHASE 2: VIOLATION REPAIR (Incremental Swap/Relocate) ---
+        # Now that all 100 customers are routed, use Swap/Relocate to fix violations
+        logger.info("   🔧 PHASE 2: Starting Violation Repair (Swap/Relocate)...")
+        
+        violations_after_construction = self._count_violations(current_routes)
+        logger.info(f"      Violations after construction: {violations_after_construction}")
+        
+        if violations_after_construction > 0:
+            current_routes = self._repair_violations_incremental(current_routes)
+        
         # --- PHASE 3: FINAL CHECK ---
         final_violations = self._count_violations(current_routes)
-        logger.info(f"   ✅ Reconstructive Repair complete: {initial_violations} → {final_violations} violations")
+        logger.info(f"   ✅ Repair Pipeline complete: {initial_violations} → {final_violations} violations")
         logger.info(f"      Successfully re-inserted: {insertions_made}/{len(violated_ids)} customers")
 
         if len(unassigned) > 0:
@@ -311,6 +321,94 @@ class StrongRepair:
     def _count_violations(self, routes: List[List[int]]) -> int:
         """Count total number of violated customers."""
         return len(self._get_violated_customers(routes))
+
+    def _repair_violations_incremental(self, routes: List[List[int]]) -> List[List[int]]:
+        """
+        Phase 2: Incremental Violation Repair using Swap/Relocate.
+        
+        Strategy:
+        1. All 100 customers are already routed (from Phase 1)
+        2. Use Swap/Relocate to fix violations incrementally
+        3. Hierarchical: Violation reduction > Distance improvement
+        4. Greedy mode (temperature=0.0): Only accept improving moves
+        
+        Args:
+            routes: Routes with all customers routed but some violations
+            
+        Returns:
+            Repaired routes with reduced violations (ideally 0)
+        """
+        current_routes = copy.deepcopy(routes)
+        iterations = 0
+        max_iterations = self.max_iterations
+        no_improvement_count = 0
+        max_no_improvement = 50  # Stop if no improvement for 50 iterations
+        
+        initial_violations = self._count_violations(current_routes)
+        logger.info(f"      Starting incremental repair: {initial_violations} violations")
+        
+        while iterations < max_iterations and no_improvement_count < max_no_improvement:
+            current_violations = self._count_violations(current_routes)
+            
+            if current_violations == 0:
+                logger.info(f"      ✅ All violations fixed after {iterations} iterations!")
+                break
+            
+            # Get violated customers sorted by worst lateness first
+            violated_info = self._get_violated_customers(current_routes)
+            violated_info.sort(key=lambda x: x['lateness'], reverse=True)  # Worst first
+            
+            improved = False
+            
+            # Try to repair each violated customer
+            for viol_info in violated_info:
+                customer_id = viol_info['customer_id']
+                route_idx = viol_info['route_idx']
+                
+                # Try relocate first (usually faster)
+                relocated, new_routes = self._try_relocate_customer(
+                    current_routes,
+                    customer_id,
+                    route_idx,
+                    temperature=0.0  # Greedy: only accept improving moves
+                )
+                
+                if relocated:
+                    current_routes = new_routes
+                    improved = True
+                    break  # One move per iteration
+                
+                # If relocate failed, try swap
+                if self.enable_swap:
+                    swapped, new_routes = self._try_swap_customer(
+                        current_routes,
+                        customer_id,
+                        route_idx,
+                        temperature=0.0  # Greedy: only accept improving moves
+                    )
+                    
+                    if swapped:
+                        current_routes = new_routes
+                        improved = True
+                        break  # One move per iteration
+            
+            iterations += 1
+            
+            if improved:
+                no_improvement_count = 0
+                new_violations = self._count_violations(current_routes)
+                if iterations % 10 == 0 or new_violations == 0:
+                    logger.debug(f"      Iteration {iterations}: {current_violations} → {new_violations} violations")
+            else:
+                no_improvement_count += 1
+                if no_improvement_count >= max_no_improvement:
+                    logger.warning(f"      ⚠️  No improvement for {max_no_improvement} iterations, stopping")
+                    break
+        
+        final_violations = self._count_violations(current_routes)
+        logger.info(f"      Incremental repair complete: {initial_violations} → {final_violations} violations ({iterations} iterations)")
+        
+        return current_routes
 
     def _try_relocate_customer(self,
                                 routes: List[List[int]],

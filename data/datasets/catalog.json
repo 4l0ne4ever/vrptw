@@ -31,7 +31,7 @@
       "name": "C202",
       "description": "Solomon VRP dataset converted from C202.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 700,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -71,7 +71,7 @@
       "name": "RC201",
       "description": "Solomon VRP dataset converted from RC201.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -101,7 +101,7 @@
       "name": "C203",
       "description": "Solomon VRP dataset converted from C203.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 700,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -111,7 +111,7 @@
       "name": "R201",
       "description": "Solomon VRP dataset converted from R201.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -161,7 +161,7 @@
       "name": "R210",
       "description": "Solomon VRP dataset converted from R210.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -171,7 +171,7 @@
       "name": "R206",
       "description": "Solomon VRP dataset converted from R206.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -181,7 +181,7 @@
       "name": "C204",
       "description": "Solomon VRP dataset converted from C204.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 700,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -211,7 +211,7 @@
       "name": "RC206",
       "description": "Solomon VRP dataset converted from RC206.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -221,7 +221,7 @@
       "name": "C208",
       "description": "Solomon VRP dataset converted from C208.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 700,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -231,7 +231,7 @@
       "name": "RC207",
       "description": "Solomon VRP dataset converted from RC207.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -251,7 +251,7 @@
       "name": "C205",
       "description": "Solomon VRP dataset converted from C205.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 700,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -261,7 +261,7 @@
       "name": "R207",
       "description": "Solomon VRP dataset converted from R207.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -271,7 +271,7 @@
       "name": "R211",
       "description": "Solomon VRP dataset converted from R211.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -291,7 +291,7 @@
       "name": "RC204",
       "description": "Solomon VRP dataset converted from RC204.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -321,7 +321,7 @@
       "name": "C206",
       "description": "Solomon VRP dataset converted from C206.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 700,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -331,7 +331,7 @@
       "name": "R204",
       "description": "Solomon VRP dataset converted from R204.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -351,7 +351,7 @@
       "name": "RC208",
       "description": "Solomon VRP dataset converted from RC208.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -361,7 +361,7 @@
       "name": "R208",
       "description": "Solomon VRP dataset converted from R208.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -371,7 +371,7 @@
       "name": "R209",
       "description": "Solomon VRP dataset converted from R209.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -381,7 +381,7 @@
       "name": "R205",
       "description": "Solomon VRP dataset converted from R205.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -391,7 +391,7 @@
       "name": "C207",
       "description": "Solomon VRP dataset converted from C207.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 700,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -411,7 +411,7 @@
       "name": "RC205",
       "description": "Solomon VRP dataset converted from RC205.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -441,7 +441,7 @@
       "name": "RC202",
       "description": "Solomon VRP dataset converted from RC202.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -471,7 +471,7 @@
       "name": "R202",
       "description": "Solomon VRP dataset converted from R202.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -501,7 +501,7 @@
       "name": "R203",
       "description": "Solomon VRP dataset converted from R203.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -511,7 +511,7 @@
       "name": "C201",
       "description": "Solomon VRP dataset converted from C201.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 700,
       "format": "solomon_csv",
       "type": "solomon"
     },
@@ -531,7 +531,7 @@
       "name": "RC203",
       "description": "Solomon VRP dataset converted from RC203.csv",
       "num_customers": 100,
-      "vehicle_capacity": 200,
+      "vehicle_capacity": 1000,
       "format": "solomon_csv",
       "type": "solomon"
     },
