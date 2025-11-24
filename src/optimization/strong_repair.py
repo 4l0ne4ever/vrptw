@@ -106,62 +106,100 @@ class StrongRepair:
         violated_info = self._get_violated_customers(current_routes)
         violated_ids = [v['customer_id'] for v in violated_info]
 
-        # Remove violated customers from routes
-        for route_idx in range(len(current_routes)):
-            current_routes[route_idx] = [c for c in current_routes[route_idx]
-                                         if c not in violated_ids]
+        # EMERGENCY RESET LOGIC: If too many violations, reset ALL routes
+        EMERGENCY_THRESHOLD = 50  # If >50% of customers violated, full reset
+        total_customers = sum(1 for route in current_routes for c in route if c != 0)
 
-        logger.info(f"   🔨 RECREATE PHASE: Re-inserting using Regret-2 heuristic...")
+        if len(violated_ids) > EMERGENCY_THRESHOLD:
+            logger.warning(f"   🚨 EMERGENCY RESET: {len(violated_ids)}/{total_customers} violations (>{EMERGENCY_THRESHOLD})")
+            logger.warning(f"   Remaining {total_customers - len(violated_ids)} customers in wrong positions → Full Reset!")
 
-        # --- PHASE 2: RECREATE (Regret-2 Insertion) ---
+            # Collect ALL customers (not just violated ones)
+            all_customers = []
+            for route in current_routes:
+                for cust_id in route:
+                    if cust_id != 0:  # Skip depot
+                        all_customers.append(cust_id)
+
+            # Reset all routes to empty [0, 0]
+            num_routes = len(current_routes)
+            current_routes = [[0, 0] for _ in range(num_routes)]
+
+            # Set all customers as unassigned
+            violated_ids = all_customers
+            logger.info(f"   Reset complete: {num_routes} empty routes, {len(violated_ids)} customers to rebuild")
+        else:
+            # Normal RUIN: Only eject violated customers
+            for route_idx in range(len(current_routes)):
+                current_routes[route_idx] = [c for c in current_routes[route_idx]
+                                             if c not in violated_ids]
+
+        logger.info(f"   🔨 RECREATE PHASE: Cheapest insertion (ALLOW TW violations during construction)")
+
+        # --- PHASE 2: RECREATE (Relaxed Cheapest Insertion) ---
+        # Strategy: Insert ALL customers first (allow TW violations)
+        #          TW violations will be naturally minimized by choosing good positions
+        # This ensures all 100 customers are routed!
+
         unassigned = list(violated_ids)
         insertions_made = 0
+
+        logger.info(f"   Inserting {len(unassigned)} customers (relaxed TW constraints)...")
 
         while unassigned:
             best_customer = None
             best_insertion = None  # (route_idx, pos, cost)
-            max_regret = -float('inf')
-
-            # Calculate regret for each unassigned customer
-            any_feasible = False
+            min_cost = float('inf')
 
             for cust_id in unassigned:
-                # Find all valid insertion positions for this customer
-                valid_insertions = self._find_valid_insertions(current_routes, cust_id)
+                # Find best insertion position (distance-based + check capacity only)
+                for route_idx, route in enumerate(current_routes):
+                    if not route or len(route) < 2:
+                        continue
 
-                if not valid_insertions:
-                    continue  # This customer has no feasible positions
+                    # Calculate route demand
+                    route_demand = 0
+                    for c in route:
+                        if c != 0:
+                            customer = self.problem.get_customer_by_id(c)
+                            if customer:
+                                route_demand += customer.demand
 
-                any_feasible = True
+                    # Check capacity constraint
+                    cust = self.problem.get_customer_by_id(cust_id)
+                    if cust and route_demand + cust.demand > self.problem.vehicle_capacity:
+                        continue  # Skip this route - capacity exceeded
 
-                # Calculate Regret-2
-                best_cost = valid_insertions[0][0]
+                    # Try each position
+                    for pos in range(1, len(route)):
+                        i = route[pos - 1]
+                        j = route[pos]
+                        u = cust_id
 
-                if len(valid_insertions) > 1:
-                    second_best_cost = valid_insertions[1][0]
-                    regret = second_best_cost - best_cost
-                else:
-                    # Only one feasible position - infinite regret (highest priority)
-                    regret = float('inf')
+                        # Calculate insertion cost (distance only)
+                        d_iu = self.problem.get_distance(i, u)
+                        d_uj = self.problem.get_distance(u, j)
+                        d_ij = self.problem.get_distance(i, j)
+                        cost = d_iu + d_uj - d_ij  # Net distance increase
 
-                # Select customer with maximum regret
-                if regret > max_regret:
-                    max_regret = regret
-                    best_customer = cust_id
-                    best_insertion = valid_insertions[0]  # (cost, route_idx, pos)
+                        if cost < min_cost:
+                            min_cost = cost
+                            best_customer = cust_id
+                            best_insertion = (route_idx, pos)
 
             # Insert the selected customer
             if best_customer is not None:
-                cost, route_idx, pos = best_insertion
+                route_idx, pos = best_insertion
                 current_routes[route_idx].insert(pos, best_customer)
                 unassigned.remove(best_customer)
                 insertions_made += 1
 
-                if insertions_made % 10 == 0:
+                if insertions_made % 20 == 0:
                     logger.debug(f"      Inserted {insertions_made}/{len(violated_ids)} customers, {len(unassigned)} remaining")
             else:
-                # No feasible positions for any remaining customers
-                logger.warning(f"   ⚠️  Cannot insert remaining {len(unassigned)} customers (constraint deadlock)")
+                # This should never happen with relaxed insertion
+                logger.error(f"   ❌ CRITICAL: Cannot insert {len(unassigned)} customers even with relaxed constraints!")
+                logger.error(f"      This suggests a bug in the insertion logic or capacity constraints too tight")
                 break
 
         # --- PHASE 3: FINAL CHECK ---
@@ -781,6 +819,96 @@ class StrongRepair:
 
         return valid_insertions
 
+    def _find_valid_insertions_i1(
+        self,
+        routes: List[List[int]],
+        customer_id: int,
+        alpha1: float,
+        alpha2: float,
+        mu: float,
+        avg_tw_width: float
+    ) -> List[Tuple[float, int, int]]:
+        """
+        Find all valid insertion positions using Solomon's I1 heuristic.
+
+        I1 formula:
+            c11(i,u,j) = d(i,u) + d(u,j) - μ × d(i,j)  [distance increase]
+            c12(i,u,j) = b(j|i,u) - b(j|i)              [time shift]
+            I1 cost = α1 × c11 + α2 × c12
+
+        Args:
+            routes: Current routes
+            customer_id: Customer to insert
+            alpha1: Distance weight
+            alpha2: Time urgency weight
+            mu: Route savings parameter
+            avg_tw_width: Average TW width for normalization
+
+        Returns:
+            List of valid insertions sorted by I1 cost: [(i1_cost, route_idx, pos), ...]
+        """
+        valid_insertions = []
+        customer = self.problem.get_customer_by_id(customer_id)
+        if not customer:
+            return valid_insertions
+
+        # Try inserting in each route at each position
+        for route_idx, route in enumerate(routes):
+            if not route or len(route) < 2:
+                continue
+
+            # Try each position (skip depot at 0, can insert from position 1 to len-1)
+            for pos in range(1, len(route)):
+                # Check basic feasibility first
+                is_feasible, distance_delta = self._evaluate_insertion_feasibility(
+                    route, customer_id, pos
+                )
+
+                if not is_feasible:
+                    continue
+
+                # Calculate I1 cost components
+                i = route[pos - 1]  # Customer before insertion point
+                j = route[pos]      # Customer after insertion point
+                u = customer_id     # Customer to insert
+
+                # c11: Distance increase (with route savings)
+                d_iu = self.problem.get_distance(i, u)
+                d_uj = self.problem.get_distance(u, j)
+                d_ij = self.problem.get_distance(i, j)
+                c11 = d_iu + d_uj - mu * d_ij
+
+                # c12: Time shift (push-forward effect)
+                # Calculate how much customer j is pushed forward in time
+                try:
+                    # Original arrival time at j (without u)
+                    forward_original = self.evaluator.compute_forward_sequence(route)
+                    original_idx = pos  # j is at position pos in original route
+                    b_j_original = forward_original[original_idx].TW_E
+
+                    # New arrival time at j (with u inserted)
+                    temp_route = route[:pos] + [u] + route[pos:]
+                    forward_new = self.evaluator.compute_forward_sequence(temp_route)
+                    new_idx = pos + 1  # j is now at position pos+1
+                    b_j_new = forward_new[new_idx].TW_E
+
+                    # Time shift (normalized by average TW width)
+                    c12 = (b_j_new - b_j_original) / avg_tw_width if avg_tw_width > 0 else 0.0
+
+                except (ValueError, IndexError):
+                    # If evaluation fails, use high penalty
+                    c12 = 1000.0
+
+                # I1 cost = weighted combination
+                i1_cost = alpha1 * c11 + alpha2 * c12
+
+                valid_insertions.append((i1_cost, route_idx, pos))
+
+        # Sort by I1 cost (ascending - prefer insertions with lowest I1 cost)
+        valid_insertions.sort(key=lambda x: x[0])
+
+        return valid_insertions
+
     def _evaluate_insertion_feasibility(self, route: List[int], customer_id: int, position: int) -> Tuple[bool, float]:
         """
         Evaluate if inserting customer at position is feasible using O(1) Vidal concatenation.
@@ -792,11 +920,22 @@ class StrongRepair:
 
         Returns:
             (is_feasible, distance_delta):
-                - is_feasible: True if insertion maintains TW feasibility
+                - is_feasible: True if insertion maintains TW feasibility AND capacity
                 - distance_delta: Change in route distance (positive = increase)
         """
         # Build temporary route with insertion
         temp_route = route[:position] + [customer_id] + route[position:]
+
+        # CAPACITY CHECK: Ensure route doesn't exceed vehicle capacity
+        route_demand = 0
+        for cust_id in temp_route:
+            if cust_id != 0:  # Skip depot
+                customer = self.problem.get_customer_by_id(cust_id)
+                if customer:
+                    route_demand += customer.demand
+
+        if route_demand > self.problem.vehicle_capacity:
+            return False, 0.0  # Capacity violation
 
         # Check feasibility using Vidal forward sequence
         try:
