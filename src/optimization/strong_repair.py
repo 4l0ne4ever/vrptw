@@ -13,6 +13,8 @@ Expected: Reduce distance from ~1066km → ~650km while maintaining 0 violations
 import numpy as np
 import logging
 import copy
+import math
+import random
 from typing import List, Tuple, Optional, Dict, Set
 from ..models.vrp_model import VRPProblem
 from .vidal_evaluator import VidalEvaluator
@@ -95,71 +97,136 @@ class StrongRepair:
             logger.info("   ✅ No violations! Returning original routes")
             return current_routes
 
-        # Repair loop
-        best_routes = current_routes
-        best_violations = initial_violations
-        no_improvement_count = 0
+        # =============================================================================
+        # RECONSTRUCTIVE REPAIR (Ruin & Recreate with Regret-2)
+        # =============================================================================
+        logger.info(f"   💣 RUIN PHASE: Ejecting {initial_violations} violated customers...")
 
-        for iteration in range(self.max_iterations):
-            # 1. Identify violated customers
-            violated = self._get_violated_customers(current_routes)
+        # --- PHASE 1: RUIN (Eject all violated customers) ---
+        violated_info = self._get_violated_customers(current_routes)
+        violated_ids = [v['customer_id'] for v in violated_info]
 
-            if not violated:
-                logger.info(f"   ✅ Iteration {iteration}: 0 violations achieved!")
-                return current_routes
+        # Remove violated customers from routes
+        for route_idx in range(len(current_routes)):
+            current_routes[route_idx] = [c for c in current_routes[route_idx]
+                                         if c not in violated_ids]
 
-            # 2. Sort by lateness (worst first)
-            violated.sort(key=lambda v: v['lateness'], reverse=True)
+        logger.info(f"   🔨 RECREATE PHASE: Re-inserting using Regret-2 heuristic...")
 
-            # 3. Try to fix worst violated customer
-            worst = violated[0]
-            logger.debug(f"   Iteration {iteration}: {len(violated)} violations, "
-                        f"worst customer {worst['customer_id']} late by {worst['lateness']:.1f}")
+        # --- PHASE 2: RECREATE (Regret-2 Insertion) ---
+        unassigned = list(violated_ids)
+        insertions_made = 0
 
-            # Try relocate
-            improved, new_routes = self._try_relocate_customer(
-                current_routes,
-                worst['customer_id'],
-                worst['route_idx']
-            )
+        while unassigned:
+            best_customer = None
+            best_insertion = None  # (route_idx, pos, cost)
+            max_regret = -float('inf')
 
-            if not improved and self.enable_swap:
-                # Relocate failed, try swap
-                improved, new_routes = self._try_swap_customer(
-                    current_routes,
-                    worst['customer_id'],
-                    worst['route_idx']
-                )
+            # Calculate regret for each unassigned customer
+            any_feasible = False
 
-            if improved:
-                current_routes = new_routes
-                new_violations = self._count_violations(current_routes)
+            for cust_id in unassigned:
+                # Find all valid insertion positions for this customer
+                valid_insertions = self._find_valid_insertions(current_routes, cust_id)
 
-                if new_violations < best_violations:
-                    best_routes = copy.deepcopy(current_routes)
-                    best_violations = new_violations
-                    no_improvement_count = 0
+                if not valid_insertions:
+                    continue  # This customer has no feasible positions
+
+                any_feasible = True
+
+                # Calculate Regret-2
+                best_cost = valid_insertions[0][0]
+
+                if len(valid_insertions) > 1:
+                    second_best_cost = valid_insertions[1][0]
+                    regret = second_best_cost - best_cost
                 else:
-                    no_improvement_count += 1
+                    # Only one feasible position - infinite regret (highest priority)
+                    regret = float('inf')
+
+                # Select customer with maximum regret
+                if regret > max_regret:
+                    max_regret = regret
+                    best_customer = cust_id
+                    best_insertion = valid_insertions[0]  # (cost, route_idx, pos)
+
+            # Insert the selected customer
+            if best_customer is not None:
+                cost, route_idx, pos = best_insertion
+                current_routes[route_idx].insert(pos, best_customer)
+                unassigned.remove(best_customer)
+                insertions_made += 1
+
+                if insertions_made % 10 == 0:
+                    logger.debug(f"      Inserted {insertions_made}/{len(violated_ids)} customers, {len(unassigned)} remaining")
             else:
-                no_improvement_count += 1
+                # No feasible positions for any remaining customers
+                logger.warning(f"   ⚠️  Cannot insert remaining {len(unassigned)} customers (constraint deadlock)")
+                break
 
-            # Restart mechanism
-            if self.enable_restart and no_improvement_count >= 50:
-                logger.info(f"   🔄 Iteration {iteration}: No improvement for 50 iterations, using best found")
-                current_routes = copy.deepcopy(best_routes)
-                no_improvement_count = 0
+        # --- PHASE 3: FINAL CHECK ---
+        final_violations = self._count_violations(current_routes)
+        logger.info(f"   ✅ Reconstructive Repair complete: {initial_violations} → {final_violations} violations")
+        logger.info(f"      Successfully re-inserted: {insertions_made}/{len(violated_ids)} customers")
 
-        # Return best found
-        final_violations = self._count_violations(best_routes)
-        logger.info(f"   Strong Repair completed: {initial_violations} → {final_violations} violations")
+        if len(unassigned) > 0:
+            logger.warning(f"      ⚠️  {len(unassigned)} customers remain unassigned: {unassigned[:10]}")
 
-        if final_violations > 0:
-            logger.warning(f"   ⚠️  {final_violations} violations remain after {self.max_iterations} iterations")
-        else:
-            logger.info(f"   ✅ Achieved 0 violations!")
+        if final_violations == 0:
+            logger.info(f"   🎉 SUCCESS: Achieved 0 violations!")
 
-        return best_routes
+        return current_routes
+
+    def _accept_move_sa(self,
+                        violation_reduction: int,
+                        distance_delta: float,
+                        temperature: float) -> bool:
+        """
+        Simulated Annealing acceptance criterion (Metropolis).
+
+        Decides whether to accept a move based on energy change and temperature.
+
+        Args:
+            violation_reduction: Positive = fewer violations (good)
+            distance_delta: Negative = shorter distance (good)
+            temperature: Current temperature (high = more exploratory)
+
+        Returns:
+            True if move should be accepted, False otherwise
+
+        Energy Function:
+            ΔE = -(violation_reduction × WEIGHT) + distance_delta
+            Goal: Minimize energy (more violations = higher energy = bad)
+
+        Acceptance:
+            - ΔE < 0 (energy decreases): Always accept
+            - ΔE > 0 (energy increases): Accept with probability e^(-ΔE/T)
+        """
+        # WEIGHT: How many km equals 1 violation?
+        # 1000.0 means we heavily prioritize feasibility, but still allow tradeoffs at high T
+        VIOLATION_WEIGHT = 1000.0
+
+        # Calculate energy change
+        # Note: violation_reduction is positive when GOOD (fewer violations)
+        # We want energy to DECREASE, so negate it
+        delta_energy = -(violation_reduction * VIOLATION_WEIGHT) + distance_delta
+
+        # 1. Good move (Energy decreases) → Always Accept
+        if delta_energy < 0:
+            return True
+
+        # 2. Bad move (Energy increases) → Probabilistic Accept based on temperature
+        if temperature < 0.001:  # Too cold, reject bad moves
+            return False
+
+        # Metropolis criterion: P = e^(-ΔE/T)
+        probability = math.exp(-delta_energy / temperature)
+        accept = random.random() < probability
+
+        if accept:
+            logger.debug(f"   🔥 SA Accept: ΔE={delta_energy:.1f}, T={temperature:.1f}, P={probability:.3f}")
+
+        return accept
 
     def _get_violated_customers(self, routes: List[List[int]]) -> List[Dict]:
         """
@@ -210,7 +277,8 @@ class StrongRepair:
     def _try_relocate_customer(self,
                                 routes: List[List[int]],
                                 customer_id: int,
-                                current_route_idx: int) -> Tuple[bool, List[List[int]]]:
+                                current_route_idx: int,
+                                temperature: float = 0.0) -> Tuple[bool, List[List[int]]]:
         """
         Try to relocate customer to a better position using neighbor-based search.
 
@@ -218,6 +286,7 @@ class StrongRepair:
             routes: Current routes
             customer_id: Customer to relocate
             current_route_idx: Index of route containing customer
+            temperature: Current SA temperature (0 = greedy, >0 = allow bad moves)
 
         Returns:
             (improved, new_routes): Whether improvement found and new routes
@@ -333,7 +402,7 @@ class StrongRepair:
                     target_pos
                 )
 
-                # Hierarchical comparison (same as above)
+                # Hierarchical comparison
                 is_better = False
 
                 # Skip NO-OP moves (no change at all)
@@ -359,17 +428,24 @@ class StrongRepair:
                 logger.debug(f"   ✅ PANIC MODE found solution: viol_reduction={best_violation_reduction}, dist_delta={best_distance_delta:.1f}")
 
         # Apply best move if any candidate found
-        # CRITICAL: Accept ANY move (even if violations increase slightly)
-        # because we're trying to escape local minimum
+        # Use Simulated Annealing to decide acceptance
         if best_position is not None:
-            new_routes = self._apply_relocate(
-                routes,
-                customer_id,
-                current_route_idx,
-                best_position[0],
-                best_position[1]
+            # SA Decision: Should we accept this move?
+            accept = self._accept_move_sa(
+                best_violation_reduction,
+                best_distance_delta,
+                temperature
             )
-            return True, new_routes
+
+            if accept:
+                new_routes = self._apply_relocate(
+                    routes,
+                    customer_id,
+                    current_route_idx,
+                    best_position[0],
+                    best_position[1]
+                )
+                return True, new_routes
 
         return False, routes
 
@@ -447,7 +523,8 @@ class StrongRepair:
     def _try_swap_customer(self,
                            routes: List[List[int]],
                            customer_id: int,
-                           current_route_idx: int) -> Tuple[bool, List[List[int]]]:
+                           current_route_idx: int,
+                           temperature: float = 0.0) -> Tuple[bool, List[List[int]]]:
         """
         Try to swap customer with a neighbor (for capacity deadlocks).
 
@@ -455,6 +532,7 @@ class StrongRepair:
             routes: Current routes
             customer_id: Customer to swap
             current_route_idx: Index of route containing customer
+            temperature: Current SA temperature (0 = greedy, >0 = allow bad moves)
 
         Returns:
             (improved, new_routes): Whether improvement found and new routes
@@ -468,7 +546,7 @@ class StrongRepair:
 
         neighbors = self.neighbor_lists[customer_id]
 
-        # Find neighbors in other routes
+        # PHASE 1: Try neighbor-based swap first (fast)
         candidate_swaps = []
 
         for neighbor_id in neighbors:
@@ -477,10 +555,7 @@ class StrongRepair:
                     candidate_swaps.append((route_idx, neighbor_id))
                     break
 
-        if not candidate_swaps:
-            return False, routes
-
-        # Evaluate all swaps (HIERARCHICAL: violations > distance)
+        # Evaluate neighbor swaps (HIERARCHICAL: violations > distance)
         best_violation_reduction = None
         best_distance_delta = None
         best_swap = None
@@ -497,8 +572,12 @@ class StrongRepair:
             # Hierarchical comparison
             is_better = False
 
-            if best_swap is None:
-                is_better = True
+            # Skip NO-OP swaps
+            if violation_reduction == 0 and abs(distance_delta) < 0.01:
+                is_better = False
+            elif best_swap is None:
+                if violation_reduction >= 0:  # Accept neutral or improving
+                    is_better = True
             elif violation_reduction > best_violation_reduction:
                 is_better = True
             elif violation_reduction == best_violation_reduction and distance_delta < best_distance_delta:
@@ -509,16 +588,91 @@ class StrongRepair:
                 best_distance_delta = distance_delta
                 best_swap = (target_route_idx, target_customer_id)
 
-        # Apply best swap if any candidate found
+        # If neighbor swap found candidate, use SA to decide acceptance
         if best_swap is not None:
-            new_routes = self._apply_swap(
+            accept = self._accept_move_sa(
+                best_violation_reduction,
+                best_distance_delta,
+                temperature
+            )
+
+            if accept:
+                new_routes = self._apply_swap(
+                    routes,
+                    customer_id,
+                    current_route_idx,
+                    best_swap[1],
+                    best_swap[0]
+                )
+                return True, new_routes
+
+        # PHASE 2: PANIC SWAP - Try ALL possible swaps (brute-force)
+        logger.debug(f"   🚨 PANIC SWAP: Neighbor swaps failed, trying ALL swaps for customer {customer_id}")
+
+        # Collect ALL customers from other routes
+        all_swap_candidates = []
+        for route_idx, route in enumerate(routes):
+            if route_idx != current_route_idx:
+                # Try swapping with each customer in this route (skip depots)
+                for pos in range(1, len(route) - 1):
+                    target_customer_id = route[pos]
+                    all_swap_candidates.append((route_idx, target_customer_id))
+
+        if not all_swap_candidates:
+            return False, routes
+
+        # Evaluate ALL swaps
+        best_violation_reduction = None
+        best_distance_delta = None
+        best_swap = None
+
+        for target_route_idx, target_customer_id in all_swap_candidates:
+            violation_reduction, distance_delta = self._evaluate_swap(
                 routes,
                 customer_id,
                 current_route_idx,
-                best_swap[1],
-                best_swap[0]
+                target_customer_id,
+                target_route_idx
             )
-            return True, new_routes
+
+            # Hierarchical comparison (same as neighbor search)
+            is_better = False
+
+            # Skip NO-OP swaps
+            if violation_reduction == 0 and abs(distance_delta) < 0.01:
+                is_better = False
+            elif best_swap is None:
+                if violation_reduction >= 0:  # Accept neutral or improving
+                    is_better = True
+            elif violation_reduction > best_violation_reduction:
+                is_better = True
+            elif violation_reduction == best_violation_reduction and distance_delta < best_distance_delta:
+                is_better = True
+
+            if is_better:
+                best_violation_reduction = violation_reduction
+                best_distance_delta = distance_delta
+                best_swap = (target_route_idx, target_customer_id)
+
+        # Apply best swap if found (with SA acceptance)
+        if best_swap is not None:
+            logger.debug(f"   ✅ PANIC SWAP found solution: viol_red={best_violation_reduction}, dist_delta={best_distance_delta:.1f}")
+
+            accept = self._accept_move_sa(
+                best_violation_reduction,
+                best_distance_delta,
+                temperature
+            )
+
+            if accept:
+                new_routes = self._apply_swap(
+                    routes,
+                    customer_id,
+                    current_route_idx,
+                    best_swap[1],
+                    best_swap[0]
+                )
+                return True, new_routes
 
         return False, routes
 
@@ -591,6 +745,87 @@ class StrongRepair:
         new_routes[route2_idx][pos2] = customer1_id
 
         return new_routes
+
+    def _find_valid_insertions(self, routes: List[List[int]], customer_id: int) -> List[Tuple[float, int, int]]:
+        """
+        Find all valid insertion positions for a customer using O(1) Vidal evaluator.
+
+        Args:
+            routes: Current routes
+            customer_id: Customer to insert
+
+        Returns:
+            List of valid insertions sorted by cost: [(cost, route_idx, pos), ...]
+            where cost = distance_delta (increase in route distance)
+        """
+        valid_insertions = []
+
+        # Try inserting in each route at each position
+        for route_idx, route in enumerate(routes):
+            if not route or len(route) < 2:
+                continue
+
+            # Try each position (skip depot at 0, can insert from position 1 to len-1)
+            for pos in range(1, len(route)):
+                # Check feasibility using O(1) Vidal concatenation
+                is_feasible, distance_delta = self._evaluate_insertion_feasibility(
+                    route, customer_id, pos
+                )
+
+                if is_feasible:
+                    # Use distance_delta as cost
+                    valid_insertions.append((distance_delta, route_idx, pos))
+
+        # Sort by cost (ascending - prefer insertions with least distance increase)
+        valid_insertions.sort(key=lambda x: x[0])
+
+        return valid_insertions
+
+    def _evaluate_insertion_feasibility(self, route: List[int], customer_id: int, position: int) -> Tuple[bool, float]:
+        """
+        Evaluate if inserting customer at position is feasible using O(1) Vidal concatenation.
+
+        Args:
+            route: The route to insert into [0, c1, c2, ..., cn, 0]
+            customer_id: Customer to insert
+            position: Position to insert at (1 <= position <= len(route)-1)
+
+        Returns:
+            (is_feasible, distance_delta):
+                - is_feasible: True if insertion maintains TW feasibility
+                - distance_delta: Change in route distance (positive = increase)
+        """
+        # Build temporary route with insertion
+        temp_route = route[:position] + [customer_id] + route[position:]
+
+        # Check feasibility using Vidal forward sequence
+        try:
+            forward = self.evaluator.compute_forward_sequence(temp_route)
+
+            # Check if any customer violates time windows
+            for i in range(1, len(temp_route) - 1):  # Skip depots
+                node = forward[i]
+                if node.TW_E > node.TW_L:  # Late arrival
+                    return False, 0.0
+
+            # Feasible! Calculate distance delta
+            distance_before = sum(
+                self.problem.get_distance(route[i], route[i+1])
+                for i in range(len(route)-1)
+            )
+
+            distance_after = sum(
+                self.problem.get_distance(temp_route[i], temp_route[i+1])
+                for i in range(len(temp_route)-1)
+            )
+
+            distance_delta = distance_after - distance_before
+
+            return True, distance_delta
+
+        except (ValueError, IndexError) as e:
+            # Evaluation failed (e.g., invalid route structure)
+            return False, 0.0
 
     def get_statistics(self, routes: List[List[int]]) -> Dict[str, any]:
         """Get repair statistics."""
