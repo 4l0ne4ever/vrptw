@@ -284,23 +284,71 @@ if st.session_state.hanoi_dataset:
                                 best_solution.total_distance = total_distance
                                 logger.info(f"Post-2opt TW repair completed: distance = {best_solution.total_distance:.2f}")
 
-                                # CRITICAL: Recalculate KPIs after TW repair to update statistics
-                                # Statistics must reflect the FINAL solution (after repair), not before!
-                                try:
-                                    from src.evaluation.metrics import KPICalculator
-                                    kpi_calc_post_repair = KPICalculator(problem)
-                                    kpis_post_repair = kpi_calc_post_repair.calculate_kpis(
-                                        best_solution,
-                                        execution_time=statistics.get('execution_time', 0)
-                                    )
-                                    # Update statistics with POST-REPAIR metrics
-                                    if 'constraint_violations' in kpis_post_repair:
-                                        violations_post = kpis_post_repair['constraint_violations']
-                                        statistics['time_window_violations'] = violations_post.get('time_window_violations', 0)
-                                        statistics['constraint_violations'] = violations_post
-                                        logger.info(f"✅ Statistics updated after TW repair: violations={statistics['time_window_violations']}")
-                                except Exception as kpi_err:
-                                    logger.warning(f"Failed to recalculate KPIs after repair: {kpi_err}")
+                            # =============================================================================
+                            # PHASE 3: STRONG REPAIR PIPELINE (Post-Process)
+                            # =============================================================================
+                            try:
+                                logger.info("🔧 Starting Strong Repair Pipeline (Post-Process)...")
+                                from src.optimization.matrix_preprocessor import MatrixPreprocessor
+                                from src.optimization.neighbor_lists import NeighborListBuilder
+                                from src.optimization.vidal_evaluator import VidalEvaluator
+                                from src.optimization.strong_repair import StrongRepair
+                                
+                                # Initialize preprocessing components
+                                preprocessor = MatrixPreprocessor(problem)
+                                distance_matrix, time_matrix = preprocessor.normalize_matrices()
+                                
+                                neighbor_builder = NeighborListBuilder(time_matrix, problem, k=40)
+                                neighbor_lists = neighbor_builder.build_neighbor_lists()
+                                
+                                evaluator = VidalEvaluator(problem, distance_matrix, time_matrix)
+                                
+                                # Initialize Strong Repair
+                                strong_repair = StrongRepair(
+                                    problem=problem,
+                                    neighbor_lists=neighbor_lists,
+                                    evaluator=evaluator,
+                                    max_iterations=2000,
+                                    enable_swap=True,
+                                    enable_restart=True
+                                )
+                                
+                                # Apply Strong Repair
+                                if best_solution.routes:
+                                    repaired_routes = strong_repair.repair_routes(best_solution.routes)
+                                    best_solution.routes = repaired_routes
+                                    best_solution.chromosome = decoder.encode_routes(repaired_routes)
+                                    
+                                    # Recalculate total distance
+                                    total_distance = 0.0
+                                    for route in repaired_routes:
+                                        if not route:
+                                            continue
+                                        for i in range(len(route) - 1):
+                                            total_distance += problem.get_distance(route[i], route[i + 1])
+                                    best_solution.total_distance = total_distance
+                                    
+                                    logger.info(f"Strong Repair Pipeline completed: distance = {best_solution.total_distance:.2f} km")
+                            except Exception as sr_err:
+                                logger.warning(f"Strong Repair Pipeline failed: {sr_err}", exc_info=True)
+
+                            # CRITICAL: Recalculate KPIs after all repairs to update statistics
+                            # Statistics must reflect the FINAL solution (after repair), not before!
+                            try:
+                                from src.evaluation.metrics import KPICalculator
+                                kpi_calc_post_repair = KPICalculator(problem)
+                                kpis_post_repair = kpi_calc_post_repair.calculate_kpis(
+                                    best_solution,
+                                    execution_time=statistics.get('execution_time', 0)
+                                )
+                                # Update statistics with POST-REPAIR metrics
+                                if 'constraint_violations' in kpis_post_repair:
+                                    violations_post = kpis_post_repair['constraint_violations']
+                                    statistics['time_window_violations'] = violations_post.get('time_window_violations', 0)
+                                    statistics['constraint_violations'] = violations_post
+                                    logger.info(f"✅ Statistics updated after all repairs: violations={statistics['time_window_violations']}")
+                            except Exception as kpi_err:
+                                logger.warning(f"Failed to recalculate KPIs after repair: {kpi_err}")
 
                         except Exception as repair_err:
                             logger.warning(f"Post-GA optimization/repair failed: {repair_err}", exc_info=True)

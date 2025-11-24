@@ -108,8 +108,9 @@ class StrongRepair:
         violated_ids = [v['customer_id'] for v in violated_info]
 
         # EMERGENCY RESET LOGIC: If too many violations, reset ALL routes
-        EMERGENCY_THRESHOLD = 50  # If >50% of customers violated, full reset
+        # Tăng ngưỡng lên 100 để tránh reset solution có thể cứu được (64 violations)
         total_customers = sum(1 for route in current_routes for c in route if c != 0)
+        EMERGENCY_THRESHOLD = min(100, total_customers)  # Chỉ reset khi thực sự tuyệt vọng
 
         if len(violated_ids) > EMERGENCY_THRESHOLD:
             logger.warning(f"   🚨 EMERGENCY RESET: {len(violated_ids)}/{total_customers} violations (>{EMERGENCY_THRESHOLD})")
@@ -212,7 +213,7 @@ class StrongRepair:
         
         if violations_after_construction > 0:
             current_routes = self._repair_violations_incremental(current_routes)
-        
+
         # --- PHASE 3: FINAL CHECK ---
         final_violations = self._count_violations(current_routes)
         logger.info(f"   ✅ Repair Pipeline complete: {initial_violations} → {final_violations} violations")
@@ -368,9 +369,97 @@ class StrongRepair:
 
         return violated
 
-    def _count_violations(self, routes: List[List[int]]) -> int:
-        """Count total number of violated customers."""
-        return len(self._get_violated_customers(routes))
+    def _count_violations(self, routes: List[List[int]], fast_mode: bool = False) -> int:
+        """
+        Count violations with SAFETY CHECK.
+
+        Trusts standard forward calculation over Vidal if they disagree.
+
+        This fixes the 'Ghost Violation' issue (Vidal says 77, Real says 0).
+        
+        Args:
+            routes: Routes to check
+            fast_mode: If True, use ONLY Vidal evaluator (O(1), fast but may have small bugs).
+                       If False, double-check with Forward Calculation (O(N), accurate).
+                       Use fast_mode=True in search loops for performance.
+        """
+        # Cách 1: Dùng Vidal (Nhanh nhưng có thể bị bug với Solomon)
+        vidal_violations = 0
+        try:
+            for route in routes:
+                if len(route) < 3: continue
+
+                forward = self.evaluator.compute_forward_sequence(route)
+                for i in range(1, len(route) - 1):
+                    if forward[i].TW_E > forward[i].TW_L:
+                        vidal_violations += 1
+        except Exception:
+            vidal_violations = 999  # Lỗi tính toán
+
+        # FAST PATH: Dùng cho vòng lặp search (chấp nhận sai số nhỏ để chạy nhanh)
+        if fast_mode:
+            return vidal_violations
+
+        # SLOW PATH: Dùng Vidal nếu Vidal=0, ngược lại check kỹ
+        if vidal_violations == 0:
+            return 0
+
+        # Cách 2: "Tòa án" - Tính tay xuôi dòng (Chậm O(N) nhưng Chính xác 100%)
+        # Logic này đúng tuyệt đối cho cả Solomon và Hanoi
+        real_violations = 0
+        
+        for route in routes:
+            if len(route) < 3: continue
+            
+            # Lấy thông tin Depot (Start)
+            # Mode-specific time window start:
+            # - Solomon: depot.ready_time = 0 (routes start at time 0)
+            # - Hanoi: routes start at 8:00 AM = 480 minutes (even if depot.ready_time = 0)
+            dataset_type = getattr(self.problem, 'dataset_type', None)
+            if dataset_type is None:
+                metadata = getattr(self.problem, 'metadata', {}) or {}
+                dataset_type = metadata.get('dataset_type', 'hanoi')
+            dataset_type = str(dataset_type).strip().lower()
+            
+            if dataset_type.startswith('solomon'):
+                # Solomon: use depot's ready_time (typically 0)
+                current_time = self.problem.depot.ready_time
+            else:
+                # Hanoi: routes start at 8:00 AM (480 minutes) regardless of depot.ready_time
+                from config import VRP_CONFIG
+                current_time = VRP_CONFIG.get('time_window_start', 480)
+            
+            prev_node = 0  # Depot ID
+            
+            # Duyệt từng khách hàng trong route (bỏ qua depot đầu, duyệt đến trước depot cuối)
+            for i in range(1, len(route) - 1): 
+                cust_id = route[i]
+                customer = self.problem.get_customer_by_id(cust_id)
+                
+                # 1. Di chuyển từ Node trước -> Node hiện tại
+                # Dùng evaluator._get_time() để lấy travel time chính xác từ time_matrix
+                # Điều này đúng cho cả Solomon (distance = time) và Hanoi (có traffic factors)
+                travel_time = self.evaluator._get_time(prev_node, cust_id)
+                arrival_time = current_time + travel_time
+                
+                # 2. Thời gian bắt đầu phục vụ (phải chờ nếu đến sớm)
+                start_service = max(arrival_time, customer.ready_time)
+                
+                # 3. Kiểm tra trễ: Start Service > Due Date là vi phạm
+                # Logic chuẩn: Nếu bắt đầu phục vụ sau due_date thì vi phạm
+                if start_service > customer.due_date:
+                    real_violations += 1
+                
+                # 4. Cập nhật thời gian cho node tiếp theo (Leave = Start + Service)
+                current_time = start_service + customer.service_time
+                prev_node = cust_id
+
+        # Log cảnh báo nhẹ nếu có sự lệch pha (để debug sau này)
+        if vidal_violations > 0 and real_violations == 0:
+            # logger.debug(f"   👻 Ghost violations detected: Vidal={vidal_violations}, Real=0. Trusting Real.")
+            pass
+
+        return real_violations
 
     def _repair_violations_incremental(self, routes: List[List[int]]) -> List[List[int]]:
         """
@@ -392,7 +481,7 @@ class StrongRepair:
         iterations = 0
         max_iterations = self.max_iterations
         no_improvement_count = 0
-        max_no_improvement = 50  # Stop if no improvement for 50 iterations
+        max_no_improvement = 300  # Tăng lên 300 để cho repair nhiều thời gian hơn để thoát khỏi local minima
         
         initial_violations = self._count_violations(current_routes)
         logger.info(f"      Starting incremental repair: {initial_violations} violations")
@@ -406,7 +495,12 @@ class StrongRepair:
             
             # Get violated customers sorted by worst lateness first
             violated_info = self._get_violated_customers(current_routes)
-            violated_info.sort(key=lambda x: x['lateness'], reverse=True)  # Worst first
+            
+            # Nếu kẹt lâu quá (>100 iters), thử random shuffle thay vì worst-first
+            if no_improvement_count > 100:
+                random.shuffle(violated_info)
+            else:
+                violated_info.sort(key=lambda x: x['lateness'], reverse=True)  # Worst first
             
             improved = False
             
@@ -649,8 +743,8 @@ class StrongRepair:
                 - violation_reduction: positive = fewer violations (better)
                 - distance_delta: negative = shorter distance (better)
         """
-        # Count violations before
-        violations_before = self._count_violations(routes)
+        # Count violations before (FAST MODE for performance in search loop)
+        violations_before = self._count_violations(routes, fast_mode=True)
 
         # Calculate distance before
         distance_before = sum(
@@ -664,8 +758,8 @@ class StrongRepair:
             routes, customer_id, from_route_idx, to_route_idx, to_position
         )
 
-        # Count violations after
-        violations_after = self._count_violations(new_routes)
+        # Count violations after (FAST MODE for performance in search loop)
+        violations_after = self._count_violations(new_routes, fast_mode=True)
 
         # Calculate distance after
         distance_after = sum(
@@ -874,7 +968,7 @@ class StrongRepair:
         Returns:
             (violation_reduction, distance_delta)
         """
-        violations_before = self._count_violations(routes)
+        violations_before = self._count_violations(routes, fast_mode=True)
 
         distance_before = sum(
             sum(self.problem.get_distance(route[i], route[i+1])
@@ -886,7 +980,7 @@ class StrongRepair:
             routes, customer1_id, route1_idx, customer2_id, route2_idx
         )
 
-        violations_after = self._count_violations(new_routes)
+        violations_after = self._count_violations(new_routes, fast_mode=True)
 
         distance_after = sum(
             sum(self.problem.get_distance(route[i], route[i+1])

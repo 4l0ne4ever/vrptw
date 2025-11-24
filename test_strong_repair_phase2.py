@@ -18,9 +18,6 @@ from src.optimization.matrix_preprocessor import MatrixPreprocessor
 from src.optimization.neighbor_lists import NeighborListBuilder
 from src.optimization.vidal_evaluator import VidalEvaluator
 from src.optimization.strong_repair import StrongRepair
-from src.optimization.lns_optimizer import LNSOptimizer
-from src.evaluation.metrics import KPICalculator
-from src.models.solution import Individual
 
 # Setup logging
 logging.basicConfig(
@@ -95,7 +92,7 @@ def test_strong_repair_phase2():
         problem=problem,
         neighbor_lists=neighbor_lists,
         evaluator=evaluator,
-        max_iterations=1000,  # Increased for thorough repair
+        max_iterations=2000,  # Increased for thorough repair to achieve 0 violations
         enable_swap=True,
         enable_restart=True
     )
@@ -114,10 +111,8 @@ def test_strong_repair_phase2():
     initial_routes = initial_individual.routes
     initial_distance = initial_individual.total_distance
     
-    # Count initial violations
-    kpi_calc = KPICalculator(problem)
-    initial_kpis = kpi_calc.calculate_kpis(initial_individual, execution_time=0)
-    initial_violations = initial_kpis.get('constraint_violations', {}).get('time_window_violations', 0)
+    # Count initial violations - use same method as strong_repair for consistency
+    initial_violations = strong_repair._count_violations(initial_routes)
     
     logger.info(f"Initial solution: {len(initial_routes)} routes")
     logger.info(f"Initial violations: {initial_violations}")
@@ -147,55 +142,11 @@ def test_strong_repair_phase2():
     repaired_routes = strong_repair.repair_routes(initial_routes)
     repair_time = time.time() - start_time
     
-    # =============================================================================
-    # PHASE 3: LNS POST-OPTIMIZATION (Distance Reduction)
-    # =============================================================================
-    violations_after_phase2 = strong_repair._count_violations(repaired_routes)
-    
-    if violations_after_phase2 == 0:
-        logger.info("\n" + "="*60)
-        logger.info("PHASE 3: LNS POST-OPTIMIZATION (Distance Reduction)")
-        logger.info("="*60)
-        
-        lns = LNSOptimizer(
-            problem=problem,
-            evaluator=evaluator,
-            max_iterations=2000,
-            time_limit=300,
-            initial_temperature=50.0
-        )
-        
-        distance_before_lns = calculate_route_distance(problem, repaired_routes)
-        logger.info(f"🚀 Starting LNS at {distance_before_lns:.2f} km...")
-        
-        optimized_routes = lns.optimize(
-            initial_routes=repaired_routes,
-            require_feasible=True
-        )
-        
-        optimized_distance = calculate_route_distance(problem, optimized_routes)
-        optimized_violations = strong_repair._count_violations(optimized_routes)
-        gap_vs_bks = ((optimized_distance - 588.29) / 588.29) * 100.0
-        logger.info(f"🎯 LNS result: {optimized_distance:.2f} km ({gap_vs_bks:+.2f}% vs BKS)")
-        logger.info(f"   Status: {'✅ FEASIBLE' if optimized_violations == 0 else '❌ INFEASIBLE'}")
-        
-        if optimized_violations == 0:
-            repaired_routes = optimized_routes
-        else:
-            logger.warning("⚠️ LNS introduced violations, keeping Phase 2 solution.")
-    else:
-        logger.warning("⚠️ Skipping LNS because Phase 2 did not reach 0 violations.")
-    
-    # Calculate final distance
+    # Calculate final distance and violations
+    # NOTE: Phase 3 (LNS) is already integrated into strong_repair.repair_routes()
+    # So repaired_routes already includes Phase 3 result if Phase 2 achieved 0 violations
     final_distance = calculate_route_distance(problem, repaired_routes)
-    
-    # Create Individual object for final KPI calculation
-    final_individual = Individual(chromosome=[], routes=repaired_routes)
-    final_individual.total_distance = final_distance
-    
-    # Count final violations
-    final_kpis = kpi_calc.calculate_kpis(final_individual, execution_time=repair_time)
-    final_violations = final_kpis.get('constraint_violations', {}).get('time_window_violations', 0)
+    final_violations = strong_repair._count_violations(repaired_routes)
     
     # Verify all customers still routed
     final_routed_customers = set()

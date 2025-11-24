@@ -700,6 +700,66 @@ def run_optimization(problem, args, mode_name):
             except Exception as tw_err:
                 logger.warning(f"Post-2opt TW repair failed: {tw_err}")
         
+        # =============================================================================
+        # PHASE 3: STRONG REPAIR PIPELINE (Relaxed Construction + Violation Repair + LNS)
+        # =============================================================================
+        # Apply Strong Repair as final post-processing step to achieve 0 violations
+        # This is the "Super Weapon" that transforms duck into swan
+        try:
+            logger.info("🔧 Starting Strong Repair Pipeline (Post-Process)...")
+            print("Applying Strong Repair Pipeline (Relaxed Construction + Violation Repair + LNS)...")
+            
+            from src.optimization.matrix_preprocessor import MatrixPreprocessor
+            from src.optimization.neighbor_lists import NeighborListBuilder
+            from src.optimization.vidal_evaluator import VidalEvaluator
+            from src.optimization.strong_repair import StrongRepair
+            
+            # Initialize preprocessing components (needed for Strong Repair)
+            preprocessor = MatrixPreprocessor(problem)
+            distance_matrix, time_matrix = preprocessor.normalize_matrices()
+            
+            neighbor_builder = NeighborListBuilder(time_matrix, problem, k=40)
+            neighbor_lists = neighbor_builder.build_neighbor_lists()
+            
+            evaluator = VidalEvaluator(problem, distance_matrix, time_matrix)
+            
+            # Initialize Strong Repair with heavy config for thorough repair
+            strong_repair = StrongRepair(
+                problem=problem,
+                neighbor_lists=neighbor_lists,
+                evaluator=evaluator,
+                max_iterations=2000,  # Heavy config for post-processing
+                enable_swap=True,
+                enable_restart=True
+            )
+            
+            # Apply Strong Repair to final solution
+            # This includes: Relaxed Construction → Violation Repair → LNS (if 0 violations)
+            if ga_solution.routes:
+                repaired_routes = strong_repair.repair_routes(ga_solution.routes)
+                ga_solution.routes = repaired_routes
+                ga_solution.chromosome = decoder.encode_routes(repaired_routes)
+                
+                # Recalculate total distance after repair
+                total_distance = 0.0
+                for route in repaired_routes:
+                    if not route:
+                        continue
+                    for i in range(len(route) - 1):
+                        total_distance += problem.get_distance(route[i], route[i + 1])
+                ga_solution.total_distance = total_distance
+                
+                logger.info(f"Strong Repair Pipeline completed: distance = {ga_solution.total_distance:.2f} km")
+                print(f"Strong Repair Pipeline completed: distance = {ga_solution.total_distance:.2f} km")
+            else:
+                logger.warning("Strong Repair skipped: no routes in solution")
+                print("Strong Repair skipped: no routes in solution")
+                
+        except Exception as sr_err:
+            logger.warning(f"Strong Repair Pipeline failed: {sr_err}", exc_info=True)
+            print(f"Strong Repair Pipeline failed: {sr_err}")
+            # Continue with original solution if Strong Repair fails
+        
         print("2-opt optimization completed")
 
     # Capacity repair is handled early in FitnessEvaluator; skip here to avoid double-repair
