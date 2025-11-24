@@ -17,27 +17,27 @@ GA_CONFIG = {
     'local_search_iterations': 30,  # Max iterations for local search
     'force_full_generations': True,
     'tw_repair': {
-        'enabled': True,  # Enabled for final repair only
-        'max_iterations': 100,  # Increased for final repair to handle large violations
-        'max_iterations_soft': 10,  # Soft mode iterations
+        'enabled': False,  # ❌ DISABLED: Let Strong Repair (Phase 3) handle violations!
+        'max_iterations': 100,  # Not used (GA doesn't repair)
+        'max_iterations_soft': 10,  # Not used
         'violation_weight': 50.0,
-        'max_relocations_per_route': 3,  # Allow more relocations for final repair
-        'max_routes_to_try': None,  # No limit for final repair
-        'max_positions_to_try': None,  # No limit for final repair
-        'max_routes_soft_limit': 5,
+        'max_relocations_per_route': 3,
+        'max_routes_to_try': None,
+        'max_positions_to_try': None,
         'max_positions_soft_limit': 6,
-        'lateness_soft_threshold': float('inf'),  # Disabled - never use soft mode for final repair
-        'lateness_skip_threshold': float('inf'),  # Never skip - always attempt repair
-        'apply_in_decoder': False,  # Disabled during evolution
-        'apply_in_decoder_solomon': False,
-        'apply_after_genetic_operators': False,  # Disabled during evolution
-        'apply_after_genetic_operators_prob': 0.0,
-        'apply_after_local_search': False,  # Disabled during evolution
-        'apply_post_generation': False,  # Disabled during evolution
+        'max_routes_soft_limit': 5,
+        'lateness_soft_threshold': float('inf'),
+        'lateness_skip_threshold': float('inf'),
+        'apply_in_decoder': False,  # ❌ DISABLED: GA evolves freely
+        'apply_in_decoder_solomon': False,  # ❌ DISABLED: Penalty guides, not repair
+        'apply_after_genetic_operators': False,  # ❌ DISABLED: No repair during evolution
+        'apply_after_genetic_operators_prob': 0.0,  # ❌ DISABLED: Pure GA
+        'apply_after_local_search': False,  # ❌ DISABLED
+        'apply_post_generation': False,  # ❌ DISABLED
         'apply_post_generation_prob': 0.0,
         'post_generation_top_k_ratio': 0.0,
         'apply_after_local_search_solomon': False,
-        'apply_on_final_solution': True  # ONLY repair final solution
+        'apply_on_final_solution': False  # ❌ DISABLED: Strong Repair will fix everything!
     }
 }
 
