@@ -116,7 +116,8 @@ class LNSOptimizer:
             temperature = self.initial_temperature * (1 - iteration / self.max_iterations)
 
             # 1. Choose destroy operator randomly
-            destroy_op = np.random.choice(['random', 'worst', 'route'], p=[0.3, 0.3, 0.4])
+            # Increased route removal probability (0.5) for better distance reduction
+            destroy_op = np.random.choice(['random', 'worst', 'route'], p=[0.2, 0.3, 0.5])
             destroy_counts[destroy_op] += 1
 
             # 2. Destroy

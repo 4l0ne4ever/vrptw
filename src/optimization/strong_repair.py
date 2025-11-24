@@ -18,6 +18,7 @@ import random
 from typing import List, Tuple, Optional, Dict, Set
 from ..models.vrp_model import VRPProblem
 from .vidal_evaluator import VidalEvaluator
+from .lns_optimizer import LNSOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +223,55 @@ class StrongRepair:
 
         if final_violations == 0:
             logger.info(f"   🎉 SUCCESS: Achieved 0 violations!")
+            
+            # --- PHASE 3: LNS POST-OPTIMIZATION (Distance Reduction) ---
+            # Only run LNS if Phase 2 succeeded (0 violations)
+            logger.info("   🚀 PHASE 3: Starting LNS Post-Optimization (Distance Reduction)...")
+            
+            try:
+                # Initialize LNS with exploitation-focused settings
+                lns = LNSOptimizer(
+                    problem=self.problem,
+                    evaluator=self.evaluator,
+                    max_iterations=2000,        # Sufficient for deep search
+                    time_limit=300,             # 5 minutes (or increase to 600 for deeper optimization)
+                    initial_temperature=50.0    # Lower T (default 100) to avoid breaking good structure
+                )
+                
+                # Get current cost for logging
+                current_cost = sum(
+                    sum(self.problem.get_distance(route[i], route[i+1])
+                        for i in range(len(route)-1))
+                    for route in current_routes if len(route) > 1
+                )
+                logger.info(f"      Starting distance: {current_cost:.2f} km")
+                
+                # Run LNS with "absolute safety" mode
+                optimized_routes = lns.optimize(
+                    initial_routes=current_routes,
+                    require_feasible=True  # 🔒 CRITICAL: Auto-reject if creates violations
+                )
+                
+                # Verify feasibility after LNS
+                lns_violations = self._count_violations(optimized_routes)
+                lns_cost = sum(
+                    sum(self.problem.get_distance(route[i], route[i+1])
+                        for i in range(len(route)-1))
+                    for route in optimized_routes if len(route) > 1
+                )
+                
+                if lns_violations == 0:
+                    improvement = current_cost - lns_cost
+                    logger.info(f"      ✅ LNS completed: {current_cost:.2f} → {lns_cost:.2f} km "
+                              f"(improvement: {improvement:+.2f} km)")
+                    current_routes = optimized_routes
+                else:
+                    logger.warning(f"      ⚠️  LNS created {lns_violations} violations, keeping Phase 2 solution")
+                    logger.info(f"      Keeping Phase 2 solution: {current_cost:.2f} km")
+                    
+            except Exception as e:
+                logger.warning(f"      ⚠️  LNS optimization failed: {e}, keeping Phase 2 solution")
+                # Continue with Phase 2 solution if LNS fails
 
         return current_routes
 

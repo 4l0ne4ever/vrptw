@@ -18,6 +18,7 @@ from src.optimization.matrix_preprocessor import MatrixPreprocessor
 from src.optimization.neighbor_lists import NeighborListBuilder
 from src.optimization.vidal_evaluator import VidalEvaluator
 from src.optimization.strong_repair import StrongRepair
+from src.optimization.lns_optimizer import LNSOptimizer
 from src.evaluation.metrics import KPICalculator
 from src.models.solution import Individual
 
@@ -27,6 +28,19 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def calculate_route_distance(problem, routes):
+    """Calculate total distance for given routes."""
+    total = 0.0
+    for route in routes:
+        if len(route) <= 1:
+            continue
+        total += sum(
+            problem.get_distance(route[i], route[i + 1])
+            for i in range(len(route) - 1)
+        )
+    return total
 
 
 def test_strong_repair_phase2():
@@ -133,12 +147,47 @@ def test_strong_repair_phase2():
     repaired_routes = strong_repair.repair_routes(initial_routes)
     repair_time = time.time() - start_time
     
+    # =============================================================================
+    # PHASE 3: LNS POST-OPTIMIZATION (Distance Reduction)
+    # =============================================================================
+    violations_after_phase2 = strong_repair._count_violations(repaired_routes)
+    
+    if violations_after_phase2 == 0:
+        logger.info("\n" + "="*60)
+        logger.info("PHASE 3: LNS POST-OPTIMIZATION (Distance Reduction)")
+        logger.info("="*60)
+        
+        lns = LNSOptimizer(
+            problem=problem,
+            evaluator=evaluator,
+            max_iterations=2000,
+            time_limit=300,
+            initial_temperature=50.0
+        )
+        
+        distance_before_lns = calculate_route_distance(problem, repaired_routes)
+        logger.info(f"🚀 Starting LNS at {distance_before_lns:.2f} km...")
+        
+        optimized_routes = lns.optimize(
+            initial_routes=repaired_routes,
+            require_feasible=True
+        )
+        
+        optimized_distance = calculate_route_distance(problem, optimized_routes)
+        optimized_violations = strong_repair._count_violations(optimized_routes)
+        gap_vs_bks = ((optimized_distance - 588.29) / 588.29) * 100.0
+        logger.info(f"🎯 LNS result: {optimized_distance:.2f} km ({gap_vs_bks:+.2f}% vs BKS)")
+        logger.info(f"   Status: {'✅ FEASIBLE' if optimized_violations == 0 else '❌ INFEASIBLE'}")
+        
+        if optimized_violations == 0:
+            repaired_routes = optimized_routes
+        else:
+            logger.warning("⚠️ LNS introduced violations, keeping Phase 2 solution.")
+    else:
+        logger.warning("⚠️ Skipping LNS because Phase 2 did not reach 0 violations.")
+    
     # Calculate final distance
-    final_distance = sum(
-        sum(problem.get_distance(route[i], route[i+1])
-            for i in range(len(route)-1))
-        for route in repaired_routes if len(route) > 1
-    )
+    final_distance = calculate_route_distance(problem, repaired_routes)
     
     # Create Individual object for final KPI calculation
     final_individual = Individual(chromosome=[], routes=repaired_routes)
