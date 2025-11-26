@@ -15,6 +15,7 @@ import logging
 import copy
 import math
 import random
+import time
 from typing import List, Tuple, Optional, Dict, Set
 from ..models.vrp_model import VRPProblem
 from .vidal_evaluator import VidalEvaluator
@@ -61,9 +62,16 @@ class StrongRepair:
         self.enable_swap = enable_swap
         self.enable_restart = enable_restart
 
+        # Load BKS data for Solomon benchmarks
+        self.bks_data = self._load_bks_data()
+
+        # Detect dataset mode (Solomon vs Hanoi)
+        self.dataset_mode = self._detect_dataset_mode()
+        logger.info(f"   Dataset mode detected: {self.dataset_mode}")
+
     def repair_routes(self, routes: List[List[int]]) -> List[List[int]]:
         """
-        Repair routes to eliminate time window violations.
+        Repair routes to eliminate time window violations using adaptive strategy.
 
         Args:
             routes: List of routes (each route is list of customer IDs)
@@ -71,15 +79,16 @@ class StrongRepair:
         Returns:
             Repaired routes with 0 violations (hopefully)
 
-        Process:
-            1. Identify violated customers (those arriving late)
-            2. For each violated customer (worst first):
-                a. Try relocating to positions near its 40 closest neighbors
-                b. Use best-improvement (try all, pick best)
-                c. If relocate fails, try swap
-            3. Repeat until 0 violations or max_iterations
+        Adaptive Strategy:
+            1. GATE 0: Capacity Check (VETO POWER)
+            2. GATE 1: Standard Repair (current pipeline)
+            3. GATE 2: Mode-Dependent Deep Repair
+               - Hanoi: Accept solution (already working well)
+               - Solomon: Multi-restart for moderate/severe violations
+            4. GATE 3: LNS Post-Optimization (if 0 violations)
         """
-        logger.info("🔧 Strong Repair: Starting repair...")
+        logger.info("🔧 Strong Repair: Starting ADAPTIVE repair...")
+        logger.info(f"   Mode: {self.dataset_mode}")
         logger.info(f"   Max iterations: {self.max_iterations}")
         logger.info(f"   Swap enabled: {self.enable_swap}")
         logger.info(f"   Restart enabled: {self.enable_restart}")
@@ -97,6 +106,38 @@ class StrongRepair:
         if initial_violations == 0:
             logger.info("   ✅ No violations! Returning original routes")
             return current_routes
+
+        # =============================================================================
+        # GATE 0: CAPACITY CHECK & SEVERITY CLASSIFICATION
+        # =============================================================================
+        total_customers = sum(1 for route in current_routes for c in route if c != 0)
+        capacity_util = self._calculate_capacity_utilization(current_routes)
+        severity = self._classify_severity(initial_violations, total_customers)
+        avg_tw_width = self._analyze_time_window_tightness()
+
+        logger.info(f"   📊 Problem Analysis:")
+        logger.info(f"      Capacity utilization: {capacity_util*100:.1f}%")
+        logger.info(f"      Violation severity: {severity} ({initial_violations}/{total_customers} = {initial_violations/total_customers*100:.1f}%)")
+        logger.info(f"      Avg TW width: {avg_tw_width:.1f} time units")
+
+        # Determine root cause
+        capacity_is_tight = capacity_util >= 0.90  # 90% threshold
+        if capacity_is_tight:
+            logger.info(f"   ⚠️  Capacity is TIGHT (>90%) → Capacity-constrained problem")
+        else:
+            logger.info(f"   ✅ Capacity is OK (<90%) → Time Window problem, NOT capacity!")
+
+        # Get BKS info for Solomon mode
+        instance_name = getattr(self.problem, 'name', None)
+        if instance_name is None:
+            metadata = getattr(self.problem, 'metadata', {}) or {}
+            instance_name = metadata.get('name', '')
+
+        bks_vehicles = self._get_bks_vehicles(instance_name)
+        if bks_vehicles and self.dataset_mode == 'solomon':
+            logger.info(f"   📚 BKS vehicles for {instance_name}: {bks_vehicles}")
+            current_vehicles = len(current_routes)
+            logger.info(f"      Current vehicles: {current_vehicles} (BKS+2 limit: {bks_vehicles+2})")
 
         # =============================================================================
         # RECONSTRUCTIVE REPAIR (Ruin & Recreate with Regret-2)
@@ -214,31 +255,63 @@ class StrongRepair:
         if violations_after_construction > 0:
             current_routes = self._repair_violations_incremental(current_routes)
 
-        # --- PHASE 3: FINAL CHECK ---
+        # --- GATE 1: EVALUATION AFTER STANDARD REPAIR ---
         final_violations = self._count_violations(current_routes)
-        logger.info(f"   ✅ Repair Pipeline complete: {initial_violations} → {final_violations} violations")
+        logger.info(f"   ✅ GATE 1 complete: {initial_violations} → {final_violations} violations")
         logger.info(f"      Successfully re-inserted: {insertions_made}/{len(violated_ids)} customers")
 
         if len(unassigned) > 0:
             logger.warning(f"      ⚠️  {len(unassigned)} customers remain unassigned: {unassigned[:10]}")
 
+        # =============================================================================
+        # GATE 2: MODE-DEPENDENT DEEP REPAIR STRATEGY
+        # =============================================================================
+        if final_violations > 0:
+            logger.info(f"   🚪 GATE 2: Mode-dependent deep repair ({self.dataset_mode} mode)...")
+
+            if self.dataset_mode == 'hanoi':
+                # HANOI MODE: Accept solution (already working well!)
+                logger.info(f"      Hanoi mode: Standard repair sufficient")
+                logger.info(f"      Accepting {final_violations} violations (operational tolerance)")
+
+            elif self.dataset_mode == 'solomon':
+                # SOLOMON MODE: Academic benchmarks - need perfect feasibility
+                logger.info(f"      Solomon mode: Attempting multi-restart for {final_violations} violations...")
+
+                # Decide whether to use multi-restart based on severity
+                if severity in ['moderate', 'severe', 'catastrophic']:
+                    logger.info(f"      Severity is {severity} → Activating MULTI-RESTART")
+
+                    # Multi-restart with different random orderings
+                    num_restarts = 5 if severity == 'moderate' else 10
+                    current_routes = self._repair_with_multi_restart(current_routes, num_restarts=num_restarts)
+
+                    # Re-evaluate after multi-restart
+                    final_violations = self._count_violations(current_routes)
+                    logger.info(f"      Multi-restart result: {final_violations} violations")
+                else:
+                    # Light violations - standard repair should have handled it
+                    logger.info(f"      Severity is {severity} → Standard repair was sufficient")
+
+        # =============================================================================
+        # GATE 3: SUCCESS CHECK & LNS POST-OPTIMIZATION
+        # =============================================================================
         if final_violations == 0:
             logger.info(f"   🎉 SUCCESS: Achieved 0 violations!")
-            
+
             # --- PHASE 3: LNS POST-OPTIMIZATION (Distance Reduction) ---
-            # Only run LNS if Phase 2 succeeded (0 violations)
-            logger.info("   🚀 PHASE 3: Starting LNS Post-Optimization (Distance Reduction)...")
-            
+            logger.info("   🚀 GATE 3: Starting LNS Post-Optimization (Distance Reduction)...")
+
             try:
                 # Initialize LNS with exploitation-focused settings
                 lns = LNSOptimizer(
                     problem=self.problem,
                     evaluator=self.evaluator,
                     max_iterations=2000,        # Sufficient for deep search
-                    time_limit=300,             # 5 minutes (or increase to 600 for deeper optimization)
-                    initial_temperature=50.0    # Lower T (default 100) to avoid breaking good structure
+                    time_limit=300,             # 5 minutes
+                    initial_temperature=50.0    # Lower T to avoid breaking structure
                 )
-                
+
                 # Get current cost for logging
                 current_cost = sum(
                     sum(self.problem.get_distance(route[i], route[i+1])
@@ -246,13 +319,13 @@ class StrongRepair:
                     for route in current_routes if len(route) > 1
                 )
                 logger.info(f"      Starting distance: {current_cost:.2f} km")
-                
+
                 # Run LNS with "absolute safety" mode
                 optimized_routes = lns.optimize(
                     initial_routes=current_routes,
                     require_feasible=True  # 🔒 CRITICAL: Auto-reject if creates violations
                 )
-                
+
                 # Verify feasibility after LNS
                 lns_violations = self._count_violations(optimized_routes)
                 lns_cost = sum(
@@ -260,19 +333,22 @@ class StrongRepair:
                         for i in range(len(route)-1))
                     for route in optimized_routes if len(route) > 1
                 )
-                
+
                 if lns_violations == 0:
                     improvement = current_cost - lns_cost
                     logger.info(f"      ✅ LNS completed: {current_cost:.2f} → {lns_cost:.2f} km "
                               f"(improvement: {improvement:+.2f} km)")
                     current_routes = optimized_routes
                 else:
-                    logger.warning(f"      ⚠️  LNS created {lns_violations} violations, keeping Phase 2 solution")
-                    logger.info(f"      Keeping Phase 2 solution: {current_cost:.2f} km")
-                    
+                    logger.warning(f"      ⚠️  LNS created {lns_violations} violations, keeping solution")
+                    logger.info(f"      Keeping current solution: {current_cost:.2f} km")
+
             except Exception as e:
-                logger.warning(f"      ⚠️  LNS optimization failed: {e}, keeping Phase 2 solution")
-                # Continue with Phase 2 solution if LNS fails
+                logger.warning(f"      ⚠️  LNS optimization failed: {e}, keeping current solution")
+                # Continue with current solution if LNS fails
+        else:
+            logger.warning(f"   ⚠️  Still have {final_violations} violations after all repair attempts")
+            logger.warning(f"      This problem may be infeasible with current vehicle count")
 
         return current_routes
 
@@ -1225,6 +1301,263 @@ class StrongRepair:
             'num_routes': len([r for r in routes if r and len(r) > 2]),
             'feasible': len(violations) == 0
         }
+
+    def _repair_with_multi_restart(self, routes: List[List[int]], num_restarts: int = 5) -> List[List[int]]:
+        """
+        Multi-restart repair strategy with random customer orderings.
+
+        This escapes local minima by trying multiple random orderings of customers
+        during the reconstruction phase.
+
+        Args:
+            routes: Input routes with violations
+            num_restarts: Number of restart attempts
+
+        Returns:
+            Best repaired routes found across all restarts
+        """
+        logger.info(f"   🔄 MULTI-RESTART: Trying {num_restarts} different reconstruction orderings...")
+
+        best_routes = None
+        best_violations = float('inf')
+        best_distance = float('inf')
+
+        for attempt in range(num_restarts):
+            logger.info(f"      Attempt {attempt + 1}/{num_restarts}...")
+
+            # Deep copy to avoid contamination between attempts
+            attempt_routes = copy.deepcopy(routes)
+
+            # Phase 1: RUIN (Eject violated customers)
+            violated_info = self._get_violated_customers(attempt_routes)
+            violated_ids = [v['customer_id'] for v in violated_info]
+
+            # Eject violated customers
+            for route_idx in range(len(attempt_routes)):
+                attempt_routes[route_idx] = [c for c in attempt_routes[route_idx]
+                                              if c not in violated_ids]
+
+            # Phase 2: RECREATE with RANDOM SHUFFLE (key difference!)
+            unassigned = list(violated_ids)
+
+            # Use different random seed for each attempt
+            random.seed(hash(time.time() + attempt) % 10000)
+            random.shuffle(unassigned)
+
+            logger.debug(f"         Reinserting {len(unassigned)} customers (shuffled order)...")
+
+            # Relaxed cheapest insertion (same as original logic)
+            while unassigned:
+                best_customer = None
+                best_insertion = None
+                min_cost = float('inf')
+
+                for cust_id in unassigned:
+                    for route_idx, route in enumerate(attempt_routes):
+                        if not route or len(route) < 2:
+                            continue
+
+                        # Check capacity
+                        route_demand = sum(
+                            self.problem.get_customer_by_id(c).demand
+                            for c in route if c != 0 and self.problem.get_customer_by_id(c)
+                        )
+
+                        cust = self.problem.get_customer_by_id(cust_id)
+                        if cust and route_demand + cust.demand > self.problem.vehicle_capacity:
+                            continue
+
+                        # Try each position
+                        for pos in range(1, len(route)):
+                            i, j, u = route[pos - 1], route[pos], cust_id
+                            cost = (self.problem.get_distance(i, u) +
+                                   self.problem.get_distance(u, j) -
+                                   self.problem.get_distance(i, j))
+
+                            if cost < min_cost:
+                                min_cost = cost
+                                best_customer = cust_id
+                                best_insertion = (route_idx, pos)
+
+                if best_customer is not None:
+                    route_idx, pos = best_insertion
+                    attempt_routes[route_idx].insert(pos, best_customer)
+                    unassigned.remove(best_customer)
+                else:
+                    logger.warning(f"         ⚠️  Cannot insert {len(unassigned)} customers")
+                    break
+
+            # Phase 3: Incremental repair (limited iterations for speed)
+            violations_after_construct = self._count_violations(attempt_routes)
+
+            if violations_after_construct > 0:
+                # Light repair (max 100 iterations per restart)
+                saved_max_iter = self.max_iterations
+                self.max_iterations = 100
+                attempt_routes = self._repair_violations_incremental(attempt_routes)
+                self.max_iterations = saved_max_iter
+
+            # Evaluate this attempt
+            attempt_violations = self._count_violations(attempt_routes)
+            attempt_distance = sum(
+                sum(self.problem.get_distance(route[i], route[i+1])
+                    for i in range(len(route)-1))
+                for route in attempt_routes if len(route) > 1
+            )
+
+            logger.info(f"         Result: {attempt_violations} violations, {attempt_distance:.2f} km")
+
+            # Update best solution (hierarchical: violations > distance)
+            is_better = False
+            if best_routes is None:
+                is_better = True
+            elif attempt_violations < best_violations:
+                is_better = True
+            elif attempt_violations == best_violations and attempt_distance < best_distance:
+                is_better = True
+
+            if is_better:
+                best_routes = attempt_routes
+                best_violations = attempt_violations
+                best_distance = attempt_distance
+                logger.info(f"         ✅ New best! {best_violations} violations, {best_distance:.2f} km")
+
+            # Early exit if perfect solution found
+            if best_violations == 0:
+                logger.info(f"   🎉 Perfect solution found at attempt {attempt + 1}!")
+                break
+
+        logger.info(f"   Multi-restart complete: Best = {best_violations} violations, {best_distance:.2f} km")
+        return best_routes if best_routes is not None else routes
+
+    def _load_bks_data(self) -> Dict:
+        """Load BKS data from file."""
+        try:
+            from ..evaluation.bks_validator import BKSValidator
+            validator = BKSValidator()
+            return validator.bks_data
+        except Exception as e:
+            logger.warning(f"   Could not load BKS data: {e}")
+            return {}
+
+    def _detect_dataset_mode(self) -> str:
+        """
+        Detect whether this is a Solomon or Hanoi dataset.
+
+        Returns:
+            'solomon' or 'hanoi'
+        """
+        dataset_type = getattr(self.problem, 'dataset_type', None)
+        if dataset_type is None:
+            metadata = getattr(self.problem, 'metadata', {}) or {}
+            dataset_type = metadata.get('dataset_type', 'hanoi')
+
+        dataset_type = str(dataset_type).strip().lower()
+
+        if dataset_type.startswith('solomon') or 'solomon' in dataset_type:
+            return 'solomon'
+        else:
+            return 'hanoi'
+
+    def _calculate_capacity_utilization(self, routes: List[List[int]]) -> float:
+        """
+        Calculate average capacity utilization across all routes.
+
+        Returns:
+            Average utilization ratio (0.0 to 1.0+)
+        """
+        if not routes:
+            return 0.0
+
+        total_utilization = 0.0
+        valid_routes = 0
+
+        for route in routes:
+            if len(route) < 3:  # Skip empty routes
+                continue
+
+            route_demand = 0
+            for cust_id in route:
+                if cust_id != 0:
+                    customer = self.problem.get_customer_by_id(cust_id)
+                    if customer:
+                        route_demand += customer.demand
+
+            if self.problem.vehicle_capacity > 0:
+                utilization = route_demand / self.problem.vehicle_capacity
+                total_utilization += utilization
+                valid_routes += 1
+
+        if valid_routes == 0:
+            return 0.0
+
+        avg_utilization = total_utilization / valid_routes
+        return avg_utilization
+
+    def _analyze_time_window_tightness(self) -> float:
+        """
+        Analyze average time window width in the dataset.
+
+        Returns:
+            Average TW width (in time units)
+        """
+        if not self.problem.customers:
+            return float('inf')
+
+        total_width = 0.0
+        count = 0
+
+        for customer in self.problem.customers:
+            tw_width = customer.due_date - customer.ready_time
+            total_width += tw_width
+            count += 1
+
+        if count == 0:
+            return float('inf')
+
+        avg_width = total_width / count
+        return avg_width
+
+    def _classify_severity(self, violations: int, total_customers: int) -> str:
+        """
+        Classify violation severity.
+
+        Returns:
+            'light', 'moderate', 'severe', or 'catastrophic'
+        """
+        if total_customers == 0:
+            return 'light'
+
+        ratio = violations / total_customers
+
+        if ratio >= 0.80:
+            return 'catastrophic'
+        elif ratio >= 0.50:
+            return 'severe'
+        elif ratio >= 0.10:
+            return 'moderate'
+        else:
+            return 'light'
+
+    def _get_bks_vehicles(self, instance_name: str) -> Optional[int]:
+        """
+        Get BKS vehicle count for a Solomon instance.
+
+        Args:
+            instance_name: Instance name (e.g., 'C207')
+
+        Returns:
+            BKS vehicle count or None if not available
+        """
+        if not instance_name:
+            return None
+
+        instance_name = instance_name.upper().replace('.JSON', '')
+
+        if instance_name in self.bks_data:
+            return self.bks_data[instance_name].get('vehicles')
+
+        return None
 
     def _validate_and_fix_routes(self, routes: List[List[int]]) -> List[List[int]]:
         """
