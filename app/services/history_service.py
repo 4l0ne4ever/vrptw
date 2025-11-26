@@ -130,7 +130,8 @@ class HistoryService:
         solution: any,
         statistics: Dict,
         config: Dict,
-        dataset_type: str = "solomon"
+        dataset_type: str = "solomon",
+        problem: Optional[any] = None  # VRPProblem object from runtime (preferred over DB rebuild)
     ) -> Tuple[Optional[int], bool]:
         """
         Save optimization result and update best result if better.
@@ -267,28 +268,39 @@ class HistoryService:
             kpis = {}
             try:
                 from src.evaluation.metrics import KPICalculator
-                # Reconstruct problem from dataset to calculate comprehensive KPIs
-                try:
-                    from app.database.crud import get_dataset
-                    dataset = get_dataset(db, dataset_id)
-                    if dataset and dataset.data_json:
-                        dataset_data = json.loads(dataset.data_json)
-                        from app.services.data_service import DataService
-                        data_service = DataService()
-                        problem = data_service.create_vrp_problem(dataset_data, calculate_distance=True, dataset_type=dataset_type)
-                        
-                        if problem:
-                            kpi_calculator = KPICalculator(problem)
-                            kpis = kpi_calculator.calculate_kpis(solution, execution_time=execution_time)
-                            logger.info(f"✅ Calculated comprehensive KPIs: {len(kpis)} metrics")
+                
+                # PREFERRED: Use problem object passed from runtime (avoids data sync issues)
+                # FALLBACK: Reconstruct problem from dataset in DB (may be outdated)
+                problem_for_kpis = problem
+                
+                if problem_for_kpis is None:
+                    logger.info("🔵 No problem object provided, reconstructing from database...")
+                    try:
+                        from app.database.crud import get_dataset
+                        dataset = get_dataset(db, dataset_id)
+                        if dataset and dataset.data_json:
+                            dataset_data = json.loads(dataset.data_json)
+                            from app.services.data_service import DataService
+                            data_service = DataService()
+                            problem_for_kpis = data_service.create_vrp_problem(dataset_data, calculate_distance=True, dataset_type=dataset_type)
+                            
+                            if problem_for_kpis:
+                                logger.info("✅ Problem reconstructed from database")
+                            else:
+                                logger.warning("⚠️  Problem reconstruction returned None, using basic metrics only")
                         else:
-                            logger.warning("⚠️  Problem reconstruction returned None, using basic metrics only")
-                    else:
-                        logger.warning("⚠️  Dataset data not available, using basic metrics only")
-                except Exception as e:
-                    logger.warning(f"⚠️  Could not reconstruct problem from dataset: {e}, using basic metrics only")
-                    import traceback
-                    traceback.print_exc()
+                            logger.warning("⚠️  Dataset data not available, using basic metrics only")
+                    except Exception as e:
+                        logger.warning(f"⚠️  Could not reconstruct problem from dataset: {e}, using basic metrics only")
+                        import traceback
+                        traceback.print_exc()
+                else:
+                    logger.info("✅ Using problem object from runtime (avoids data sync issues)")
+                
+                if problem_for_kpis:
+                    kpi_calculator = KPICalculator(problem_for_kpis)
+                    kpis = kpi_calculator.calculate_kpis(solution, execution_time=execution_time)
+                    logger.info(f"✅ Calculated comprehensive KPIs: {len(kpis)} metrics")
             except Exception as e:
                 logger.warning(f"⚠️  Failed to calculate KPIs: {e}, using basic metrics only")
                 import traceback

@@ -1098,7 +1098,8 @@ def run_optimization(problem, args, mode_name):
             solution=ga_solution,
             statistics=ga_statistics,
             config=ga_config,
-            dataset_type=dataset_type
+            dataset_type=dataset_type,
+            problem=problem  # Pass runtime problem to avoid data sync issues
         )
         
         if run_id:

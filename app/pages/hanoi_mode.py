@@ -427,7 +427,8 @@ if st.session_state.hanoi_dataset:
                                         solution=best_solution,
                                         statistics=statistics,
                                         config=ga_config,
-                                        dataset_type="hanoi"  # Use consistent type name
+                                        dataset_type="hanoi",  # Use consistent type name
+                                        problem=st.session_state.hanoi_problem  # Pass runtime problem to avoid data sync issues
                                     )
                                     
                                     if run_id:

@@ -465,7 +465,8 @@ if st.session_state.solomon_dataset:
                             solution=best_solution,
                             statistics=statistics,
                             config=ga_config,
-                            dataset_type="solomon"
+                            dataset_type="solomon",
+                            problem=st.session_state.solomon_problem  # Pass runtime problem to avoid data sync issues
                         )
                         
                         if run_id:
