@@ -29,12 +29,8 @@ class DataService:
     
     def __init__(self):
         """Initialize data service."""
-        use_adaptive = VRP_CONFIG.get('use_adaptive_traffic', False)
-        traffic_factor = VRP_CONFIG.get('traffic_factor', 1.0)
-        # Will set dataset_type when creating problem
-        self.distance_calculator = None  # Will be created per dataset type
-        self.use_adaptive = use_adaptive
-        self.traffic_factor = traffic_factor
+        # Distance calculator will be created per dataset with dataset-specific parameters
+        self.distance_calculator = None
     
     def parse_uploaded_file(self, uploaded_file, dataset_type: str = "hanoi_mockup") -> Tuple[bool, Optional[str], Optional[Dict]]:
         """
@@ -268,12 +264,12 @@ class DataService:
     def create_vrp_problem(self, data_dict: Dict, calculate_distance: bool = True, dataset_type: str = "hanoi") -> VRPProblem:
         """
         Create VRPProblem object from data dictionary.
-        
+
         Args:
             data_dict: Validated data dictionary
             calculate_distance: Whether to calculate distance matrix
             dataset_type: Type of dataset ("hanoi" or "solomon") - affects routing method
-            
+
         Returns:
             VRPProblem instance
         """
@@ -286,7 +282,6 @@ class DataService:
                 # They might be in problem_config
                 # For hanoi mode, always use 200 as specified
                 if dataset_type and 'hanoi' in dataset_type.lower():
-                    from config import VRP_CONFIG
                     data_dict['vehicle_capacity'] = VRP_CONFIG.get('vehicle_capacity', 200)
                 elif 'vehicle_capacity' not in data_dict:
                     if 'problem_config' in data_dict and 'vehicle_capacity' in data_dict['problem_config']:
@@ -298,15 +293,22 @@ class DataService:
                     if 'problem_config' in data_dict and 'num_vehicles' in data_dict['problem_config']:
                         data_dict['num_vehicles'] = data_dict['problem_config']['num_vehicles']
                     else:
-                        # Calculate using formula: ⌈n/8⌉ where n = number of customers
+                        # Calculate num_vehicles based on dataset type
                         num_customers = len(data_dict.get('customers', []))
-                        num_vehicles_formula = VRP_CONFIG.get('num_vehicles_formula', 'ceil(n/8)')
-                        if num_vehicles_formula == 'ceil(n/8)':
-                            data_dict['num_vehicles'] = max(1, int(np.ceil(num_customers / 8)))
+
+                        if dataset_type and 'hanoi' in dataset_type.lower():
+                            # Hanoi mode: Use VRP_CONFIG formula
+                            num_vehicles_formula = VRP_CONFIG.get('num_vehicles_formula', 'ceil(n/8)')
+                            if num_vehicles_formula == 'ceil(n/8)':
+                                data_dict['num_vehicles'] = max(1, int(np.ceil(num_customers / 8)))
+                            else:
+                                # Fallback to old formula
+                                total_demand = sum(c.get('demand', 0) for c in data_dict.get('customers', []))
+                                data_dict['num_vehicles'] = max(1, int(np.ceil(total_demand / data_dict['vehicle_capacity'])) + 2)
                         else:
-                            # Fallback to old formula
+                            # Solomon mode: Use dataset parameters only, fallback to demand-based calculation
                             total_demand = sum(c.get('demand', 0) for c in data_dict.get('customers', []))
-                            data_dict['num_vehicles'] = max(1, int(np.ceil(total_demand / data_dict['vehicle_capacity'])) + 2)
+                            data_dict['num_vehicles'] = max(1, int(np.ceil(total_demand / data_dict['vehicle_capacity'])))
                 
                 distance_matrix = None
                 
@@ -322,11 +324,20 @@ class DataService:
                         actual_dataset_type = "solomon"
                     dataset_name = metadata.get('name')
                     pipeline_profiler.set_context(dataset_type=actual_dataset_type)
-                    
-                    # Create distance calculator with real routes for Hanoi
+
+                    # Create distance calculator with dataset-specific parameters
+                    if actual_dataset_type.lower() == "solomon":
+                        # Solomon: Pure Euclidean distance, no traffic
+                        traffic_factor = 1.0
+                        use_adaptive = False
+                    else:
+                        # Hanoi: Use VRP_CONFIG for traffic parameters
+                        traffic_factor = VRP_CONFIG.get('traffic_factor', 1.0)
+                        use_adaptive = VRP_CONFIG.get('use_adaptive_traffic', False)
+
                     self.distance_calculator = DistanceCalculator(
-                        traffic_factor=self.traffic_factor,
-                        use_adaptive=self.use_adaptive,
+                        traffic_factor=traffic_factor,
+                        use_adaptive=use_adaptive,
                         dataset_type=actual_dataset_type,  # This enables real routes for Hanoi
                         dataset_name=dataset_name
                     )
@@ -347,9 +358,10 @@ class DataService:
                 
                 # CORRECTNESS FIX: For Solomon datasets, disable adaptive traffic
                 # Solomon should use pure Euclidean distance without traffic factors
-                use_adaptive = VRP_CONFIG.get('use_adaptive_traffic', False)
                 if actual_dataset_type.lower() == "solomon":
-                    use_adaptive = False  # Force disable for Solomon
+                    use_adaptive = False  # Solomon: always disable adaptive traffic
+                else:
+                    use_adaptive = VRP_CONFIG.get('use_adaptive_traffic', False)  # Hanoi: use config
                 
                 with pipeline_profiler.profile("data.create_vrp_problem.model_build"):
                     problem = create_vrp_problem_from_dict(
