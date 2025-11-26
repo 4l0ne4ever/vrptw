@@ -284,7 +284,11 @@ class DataService:
             ):
                 # Ensure vehicle_capacity and num_vehicles are in data_dict
                 # They might be in problem_config
-                if 'vehicle_capacity' not in data_dict:
+                # For hanoi mode, always use 200 as specified
+                if dataset_type and 'hanoi' in dataset_type.lower():
+                    from config import VRP_CONFIG
+                    data_dict['vehicle_capacity'] = VRP_CONFIG.get('vehicle_capacity', 200)
+                elif 'vehicle_capacity' not in data_dict:
                     if 'problem_config' in data_dict and 'vehicle_capacity' in data_dict['problem_config']:
                         data_dict['vehicle_capacity'] = data_dict['problem_config']['vehicle_capacity']
                     else:
