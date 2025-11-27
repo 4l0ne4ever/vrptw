@@ -415,41 +415,83 @@ class StrongRepair:
         """
         Identify customers that violate time windows.
 
+        CRITICAL: Must use SAME logic as _count_violations() to ensure consistency!
+        - Solomon: Strict - count both EARLY and LATE arrivals
+        - Hanoi: Lenient - only count LATE service
+
         Returns:
             List of dicts: [{'customer_id': X, 'route_idx': Y, 'position': Z, 'lateness': W}, ...]
         """
         violated = []
 
+        # Detect dataset mode
+        dataset_type = getattr(self.problem, 'dataset_type', None)
+        if dataset_type is None:
+            metadata = getattr(self.problem, 'metadata', {}) or {}
+            dataset_type = metadata.get('dataset_type', 'hanoi')
+        dataset_type = str(dataset_type).strip().lower()
+
+        is_solomon = dataset_type.startswith('solomon')
+
         for route_idx, route in enumerate(routes):
             if not route or len(route) < 3:  # Skip empty or trivial routes
                 continue
 
-            # Validate route structure (must start and end with depot)
+            # Validate route structure
             if route[0] != 0 or route[-1] != 0:
-                logger.warning(f"⚠️  Route {route_idx} doesn't start/end with depot: {route[:3]}...{route[-3:]}")
+                logger.warning(f"⚠️  Route {route_idx} doesn't start/end with depot")
                 continue
 
-            # Compute forward sequence
-            try:
-                forward = self.evaluator.compute_forward_sequence(route)
-            except ValueError as e:
-                logger.warning(f"⚠️  Route {route_idx} validation failed: {e}")
-                continue
+            # Manual forward calculation (SAME as _count_violations)
+            if is_solomon:
+                current_time = self.problem.depot.ready_time  # Solomon: start at 0
+            else:
+                from config import VRP_CONFIG
+                current_time = VRP_CONFIG.get('time_window_start', 480)  # Hanoi: 8AM
 
-            # Check each customer (skip depots)
+            prev_node = 0  # Depot
+
             for pos in range(1, len(route) - 1):
-                node = forward[pos]
-                customer_id = route[pos]
+                cust_id = route[pos]
+                customer = self.problem.get_customer_by_id(cust_id)
+                if not customer:
+                    continue
 
-                # Check if late (TW_E > TW_L means infeasible)
-                if node.TW_E > node.TW_L:
-                    lateness = node.TW_E - node.TW_L
+                # Calculate arrival time
+                travel_time = self.evaluator._get_time(prev_node, cust_id)
+                arrival_time = current_time + travel_time
+
+                # Check violation (MODE-SPECIFIC - SAME as _count_violations)
+                is_violated = False
+                lateness = 0.0
+
+                if is_solomon:
+                    # SOLOMON: Strict - both early and late are violations
+                    if arrival_time < customer.ready_time:
+                        is_violated = True
+                        lateness = customer.ready_time - arrival_time  # Early
+                    elif arrival_time > customer.due_date:
+                        is_violated = True
+                        lateness = arrival_time - customer.due_date  # Late
+                else:
+                    # HANOI: Lenient - only late service is violation
+                    start_service = max(arrival_time, customer.ready_time)
+                    if start_service > customer.due_date:
+                        is_violated = True
+                        lateness = start_service - customer.due_date
+
+                if is_violated:
                     violated.append({
-                        'customer_id': customer_id,
+                        'customer_id': cust_id,
                         'route_idx': route_idx,
                         'position': pos,
                         'lateness': lateness
                     })
+
+                # Update time for next customer
+                start_service = max(arrival_time, customer.ready_time)
+                current_time = start_service + customer.service_time
+                prev_node = cust_id
 
         return violated
 
