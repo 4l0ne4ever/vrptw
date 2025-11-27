@@ -107,6 +107,9 @@ class StrongRepair:
             logger.info("   ✅ No violations! Returning original routes")
             return current_routes
 
+        # NOTE: Fix 1 (mode-specific counting) đã align Strong Repair với ConstraintHandler
+        # Không cần safety check nữa vì cả 2 giờ đếm violations giống nhau
+
         # =============================================================================
         # GATE 0: CAPACITY CHECK & SEVERITY CLASSIFICATION
         # =============================================================================
@@ -276,22 +279,27 @@ class StrongRepair:
 
             elif self.dataset_mode == 'solomon':
                 # SOLOMON MODE: Academic benchmarks - need perfect feasibility
+                # ALWAYS try multi-restart if ANY violations remain (even 1!)
+                # FIX: Don't skip light violations - C208 had only 1 violation and failed before
                 logger.info(f"      Solomon mode: Attempting multi-restart for {final_violations} violations...")
+                logger.info(f"      Severity classification: {severity}")
 
-                # Decide whether to use multi-restart based on severity
-                if severity in ['moderate', 'severe', 'catastrophic']:
-                    logger.info(f"      Severity is {severity} → Activating MULTI-RESTART")
+                # Adaptive restart count based on severity
+                if severity == 'light':
+                    num_restarts = 3  # Light: quick attempt (1-9%)
+                elif severity == 'moderate':
+                    num_restarts = 10  # Moderate: more attempts (10-49%)
+                elif severity == 'severe':
+                    num_restarts = 15  # Severe: intensive (50-79%)
+                else:  # catastrophic
+                    num_restarts = 20  # Catastrophic: maximum effort (80%+)
 
-                    # Multi-restart with different random orderings
-                    num_restarts = 5 if severity == 'moderate' else 10
-                    current_routes = self._repair_with_multi_restart(current_routes, num_restarts=num_restarts)
+                logger.info(f"      Activating MULTI-RESTART: {num_restarts} attempts")
+                current_routes = self._repair_with_multi_restart(current_routes, num_restarts=num_restarts)
 
-                    # Re-evaluate after multi-restart
-                    final_violations = self._count_violations(current_routes)
-                    logger.info(f"      Multi-restart result: {final_violations} violations")
-                else:
-                    # Light violations - standard repair should have handled it
-                    logger.info(f"      Severity is {severity} → Standard repair was sufficient")
+                # Re-evaluate after multi-restart
+                final_violations = self._count_violations(current_routes)
+                logger.info(f"      Multi-restart result: {final_violations} violations")
 
         # =============================================================================
         # GATE 3: SUCCESS CHECK & LNS POST-OPTIMIZATION
@@ -518,13 +526,36 @@ class StrongRepair:
                 travel_time = self.evaluator._get_time(prev_node, cust_id)
                 arrival_time = current_time + travel_time
                 
-                # 2. Thời gian bắt đầu phục vụ (phải chờ nếu đến sớm)
+                # 2. Kiểm tra vi phạm time window - MODE-SPECIFIC LOGIC
+                # TÁCH BIỆT 2 CÁCH ĐẾM:
+                # - SOLOMON (Academic): Strict - đếm CẢ early và late arrivals
+                # - HANOI (Operational): Lenient - CHỈ đếm late, cho phép đợi nếu đến sớm
+
+                if dataset_type.startswith('solomon'):
+                    # ============================================================
+                    # SOLOMON MODE: STRICT VIOLATION COUNTING
+                    # ============================================================
+                    # Academic benchmarks yêu cầu arrival ĐÚNG trong time window
+                    # Không được đến sớm (< ready_time) HOẶC trễ (> due_date)
+                    if arrival_time < customer.ready_time:
+                        real_violations += 1  # VI PHẠM: Đến SỚM
+                    elif arrival_time > customer.due_date:
+                        real_violations += 1  # VI PHẠM: Đến TRỄ
+                    # Chỉ OK nếu: ready_time <= arrival_time <= due_date
+
+                else:
+                    # ============================================================
+                    # HANOI MODE: LENIENT VIOLATION COUNTING (GIỮ NGUYÊN LOGIC CŨ)
+                    # ============================================================
+                    # Real-world operational: Cho phép tài xế ĐỢI nếu đến sớm
+                    # Chỉ đếm vi phạm nếu BẮT ĐẦU PHỤC VỤ sau due_date
+                    start_service = max(arrival_time, customer.ready_time)  # Đợi nếu đến sớm
+                    if start_service > customer.due_date:
+                        real_violations += 1  # VI PHẠM: Phục vụ TRỄ (sau due_date)
+                    # OK nếu đến sớm và đợi, miễn là phục vụ trước due_date
+
+                # 3. Thời gian bắt đầu phục vụ (cho bước tiếp theo)
                 start_service = max(arrival_time, customer.ready_time)
-                
-                # 3. Kiểm tra trễ: Start Service > Due Date là vi phạm
-                # Logic chuẩn: Nếu bắt đầu phục vụ sau due_date thì vi phạm
-                if start_service > customer.due_date:
-                    real_violations += 1
                 
                 # 4. Cập nhật thời gian cho node tiếp theo (Leave = Start + Service)
                 current_time = start_service + customer.service_time
