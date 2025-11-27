@@ -145,60 +145,102 @@ class StrongRepair:
         # =============================================================================
         # RECONSTRUCTIVE REPAIR (Ruin & Recreate with Regret-2)
         # =============================================================================
-        logger.info(f"   💣 RUIN PHASE: Ejecting {initial_violations} violated customers...")
 
-        # --- PHASE 1: RUIN (Eject all violated customers) ---
+        # --- PHASE 1: RUIN (Smart Ejection: Violated + Related Neighbors) ---
+        # Based on Shaw's removal operator (Shaw 1998)
         violated_info = self._get_violated_customers(current_routes)
         violated_ids = [v['customer_id'] for v in violated_info]
 
+        # SMART EJECTION: Eject violated customers + their related neighbors
+        # Rationale: Neighbors might be blocking good positions for violated customers
+        # Reference: Shaw, P. (1998). "Using Constraint Programming and Local Search"
+        customers_to_eject = set(violated_ids)
+
+        # For Solomon mode, add related neighbors (more aggressive repair)
+        # For Hanoi mode, only eject violated customers (conservative, already working)
+        if self.dataset_mode == 'solomon' and len(violated_ids) > 0 and len(violated_ids) <= 30:
+            # Only use smart ejection if violations are moderate (not catastrophic)
+            # If too many violations, fall back to simple ejection
+            num_neighbors_to_add = min(2, len(violated_ids))  # Add up to 2 neighbors per violated
+
+            neighbors_added_ids = []  # Track which neighbors were added
+            for viol_id in violated_ids:
+                # Get k-nearest neighbors for this violated customer
+                if viol_id in self.neighbor_lists:
+                    neighbors = self.neighbor_lists[viol_id][:5]  # Top 5 nearest
+
+                    # Add first num_neighbors_to_add neighbors that are currently routed
+                    added = 0
+                    for neighbor_id in neighbors:
+                        if neighbor_id not in customers_to_eject and added < num_neighbors_to_add:
+                            # Check if this neighbor is currently in routes
+                            for route in current_routes:
+                                if neighbor_id in route and neighbor_id != 0:
+                                    customers_to_eject.add(neighbor_id)
+                                    neighbors_added_ids.append(neighbor_id)
+                                    added += 1
+                                    break
+
+            logger.info(f"   💣 RUIN PHASE (Smart Ejection):")
+            logger.info(f"      Violated customers: {len(violated_ids)} → {violated_ids[:10]}")
+            if neighbors_added_ids:
+                logger.info(f"      Related neighbors: {len(neighbors_added_ids)} → {neighbors_added_ids[:10]}")
+            logger.info(f"      Total to eject: {len(customers_to_eject)}")
+        else:
+            logger.info(f"   💣 RUIN PHASE: Ejecting {len(violated_ids)} violated customers...")
+
         # EMERGENCY RESET LOGIC: If too many violations, reset ALL routes
-        # Tăng ngưỡng lên 100 để tránh reset solution có thể cứu được (64 violations)
         total_customers = sum(1 for route in current_routes for c in route if c != 0)
-        EMERGENCY_THRESHOLD = min(100, total_customers)  # Chỉ reset khi thực sự tuyệt vọng
+        EMERGENCY_THRESHOLD = min(100, total_customers)
 
-        if len(violated_ids) > EMERGENCY_THRESHOLD:
-            logger.warning(f"   🚨 EMERGENCY RESET: {len(violated_ids)}/{total_customers} violations (>{EMERGENCY_THRESHOLD})")
-            logger.warning(f"   Remaining {total_customers - len(violated_ids)} customers in wrong positions → Full Reset!")
+        if len(customers_to_eject) > EMERGENCY_THRESHOLD:
+            logger.warning(f"   🚨 EMERGENCY RESET: {len(customers_to_eject)}/{total_customers} to eject (>{EMERGENCY_THRESHOLD})")
+            logger.warning(f"   Full reset required!")
 
-            # Collect ALL customers (not just violated ones)
+            # Collect ALL customers
             all_customers = []
             for route in current_routes:
                 for cust_id in route:
-                    if cust_id != 0:  # Skip depot
+                    if cust_id != 0:
                         all_customers.append(cust_id)
 
-            # Reset all routes to empty [0, 0]
+            # Reset all routes to empty
             num_routes = len(current_routes)
             current_routes = [[0, 0] for _ in range(num_routes)]
 
             # Set all customers as unassigned
-            violated_ids = all_customers
-            logger.info(f"   Reset complete: {num_routes} empty routes, {len(violated_ids)} customers to rebuild")
+            customers_to_rebuild = all_customers
+            logger.info(f"   Reset complete: {num_routes} empty routes, {len(customers_to_rebuild)} customers to rebuild")
         else:
-            # Normal RUIN: Only eject violated customers
+            # Normal RUIN: Eject selected customers
             for route_idx in range(len(current_routes)):
                 current_routes[route_idx] = [c for c in current_routes[route_idx]
-                                             if c not in violated_ids]
+                                             if c not in customers_to_eject]
+            # Note: customers_to_eject includes violated + neighbors (if smart ejection active)
+            customers_to_rebuild = list(customers_to_eject)
 
-        logger.info(f"   🔨 RECREATE PHASE: Cheapest insertion (ALLOW TW violations during construction)")
+        logger.info(f"   🔨 RECREATE PHASE: Regret-2 insertion (SMART + ALLOW TW violations during construction)")
 
-        # --- PHASE 2: RECREATE (Relaxed Cheapest Insertion) ---
-        # Strategy: Insert ALL customers first (allow TW violations)
-        #          TW violations will be naturally minimized by choosing good positions
-        # This ensures all 100 customers are routed!
+        # --- PHASE 2: RECREATE (Regret-2 Insertion) ---
+        # Strategy: Use REGRET-2 heuristic instead of cheapest insertion
+        #          Regret = second_best_cost - best_cost
+        #          Insert customer with HIGHEST regret first (hardest to place)
+        #          This leaves flexibility for easy customers → Better solution quality!
+        # Reference: "The Vehicle Routing Problem" by Toth & Vigo (2002)
 
-        unassigned = list(violated_ids)
+        unassigned = list(customers_to_rebuild)
         insertions_made = 0
 
-        logger.info(f"   Inserting {len(unassigned)} customers (relaxed TW constraints)...")
+        logger.info(f"   Inserting {len(unassigned)} customers (Regret-2 heuristic)...")
 
         while unassigned:
-            best_customer = None
-            best_insertion = None  # (route_idx, pos, cost)
-            min_cost = float('inf')
+            # Calculate regret for each unassigned customer
+            customer_regrets = []
 
             for cust_id in unassigned:
-                # Find best insertion position (distance-based + check capacity only)
+                # Find ALL valid insertion positions for this customer
+                insertion_costs = []  # [(cost, route_idx, pos), ...]
+
                 for route_idx, route in enumerate(current_routes):
                     if not route or len(route) < 2:
                         continue
@@ -216,37 +258,91 @@ class StrongRepair:
                     if cust and route_demand + cust.demand > self.problem.vehicle_capacity:
                         continue  # Skip this route - capacity exceeded
 
-                    # Try each position
+                    # Try each position in this route
                     for pos in range(1, len(route)):
                         i = route[pos - 1]
                         j = route[pos]
                         u = cust_id
 
-                        # Calculate insertion cost (distance only)
+                        # Calculate insertion cost (distance increase)
                         d_iu = self.problem.get_distance(i, u)
                         d_uj = self.problem.get_distance(u, j)
                         d_ij = self.problem.get_distance(i, j)
-                        cost = d_iu + d_uj - d_ij  # Net distance increase
+                        cost = d_iu + d_uj - d_ij
 
-                        if cost < min_cost:
-                            min_cost = cost
-                            best_customer = cust_id
-                            best_insertion = (route_idx, pos)
+                        insertion_costs.append((cost, route_idx, pos))
 
-            # Insert the selected customer
-            if best_customer is not None:
+                # Calculate regret for this customer
+                if len(insertion_costs) == 0:
+                    # No valid insertion → CRITICAL, must insert somewhere
+                    regret = float('inf')
+                    best_cost = float('inf')
+                    best_insertion = None
+                elif len(insertion_costs) == 1:
+                    # Only one option → High regret (must take it!)
+                    regret = 1000.0  # Arbitrary high value
+                    best_cost = insertion_costs[0][0]
+                    best_insertion = (insertion_costs[0][1], insertion_costs[0][2])
+                else:
+                    # Sort by cost (ascending)
+                    insertion_costs.sort(key=lambda x: x[0])
+
+                    # Regret-2: difference between best and second-best
+                    best_cost = insertion_costs[0][0]
+                    second_best_cost = insertion_costs[1][0]
+                    regret = second_best_cost - best_cost
+
+                    best_insertion = (insertion_costs[0][1], insertion_costs[0][2])
+
+                customer_regrets.append({
+                    'customer_id': cust_id,
+                    'regret': regret,
+                    'best_cost': best_cost,
+                    'best_insertion': best_insertion
+                })
+
+            if not customer_regrets:
+                logger.error(f"   ❌ CRITICAL: No valid insertions for {len(unassigned)} customers!")
+                break
+
+            # Sort by regret (descending) - insert customer with HIGHEST regret first
+            customer_regrets.sort(key=lambda x: x['regret'], reverse=True)
+
+            # Insert the customer with highest regret
+            selected = customer_regrets[0]
+            cust_id = selected['customer_id']
+            best_insertion = selected['best_insertion']
+
+            # LOG: Show top 3 customers with highest regret (first iteration only)
+            if insertions_made == 0 and len(customer_regrets) >= 3:
+                logger.info(f"      Top 3 customers by regret:")
+                for i in range(min(3, len(customer_regrets))):
+                    c = customer_regrets[i]
+                    logger.info(f"        Customer {c['customer_id']}: regret={c['regret']:.1f}, best_cost={c['best_cost']:.1f}")
+
+            if best_insertion is not None:
                 route_idx, pos = best_insertion
-                current_routes[route_idx].insert(pos, best_customer)
-                unassigned.remove(best_customer)
+                current_routes[route_idx].insert(pos, cust_id)
+                unassigned.remove(cust_id)
                 insertions_made += 1
 
                 if insertions_made % 20 == 0:
-                    logger.debug(f"      Inserted {insertions_made}/{len(violated_ids)} customers, {len(unassigned)} remaining")
+                    logger.debug(f"      Inserted {insertions_made}/{len(customers_to_rebuild)} customers (regret={selected['regret']:.1f}), {len(unassigned)} remaining")
             else:
-                # This should never happen with relaxed insertion
-                logger.error(f"   ❌ CRITICAL: Cannot insert {len(unassigned)} customers even with relaxed constraints!")
-                logger.error(f"      This suggests a bug in the insertion logic or capacity constraints too tight")
-                break
+                # Fallback: insert in first available position (emergency)
+                logger.warning(f"   ⚠️  No valid insertion for customer {cust_id}, trying emergency insertion...")
+                inserted = False
+                for route_idx, route in enumerate(current_routes):
+                    if len(route) >= 2:
+                        current_routes[route_idx].insert(1, cust_id)  # Insert right after depot
+                        unassigned.remove(cust_id)
+                        insertions_made += 1
+                        inserted = True
+                        break
+
+                if not inserted:
+                    logger.error(f"   ❌ CRITICAL: Cannot insert customer {cust_id} even in emergency mode!")
+                    break
 
         # --- PHASE 2: VIOLATION REPAIR (Incremental Swap/Relocate) ---
         # Now that all 100 customers are routed, use Swap/Relocate to fix violations
@@ -261,7 +357,7 @@ class StrongRepair:
         # --- GATE 1: EVALUATION AFTER STANDARD REPAIR ---
         final_violations = self._count_violations(current_routes)
         logger.info(f"   ✅ GATE 1 complete: {initial_violations} → {final_violations} violations")
-        logger.info(f"      Successfully re-inserted: {insertions_made}/{len(violated_ids)} customers")
+        logger.info(f"      Successfully re-inserted: {insertions_made}/{len(customers_to_rebuild)} customers")
 
         if len(unassigned) > 0:
             logger.warning(f"      ⚠️  {len(unassigned)} customers remain unassigned: {unassigned[:10]}")
@@ -285,16 +381,17 @@ class StrongRepair:
                 logger.info(f"      Severity classification: {severity}")
 
                 # Adaptive restart count based on severity
+                # INCREASED from previous to ensure all 5 diversity strategies are tried
                 if severity == 'light':
-                    num_restarts = 3  # Light: quick attempt (1-9%)
+                    num_restarts = 10  # Light: try all 5 strategies twice (1-9%)
                 elif severity == 'moderate':
-                    num_restarts = 10  # Moderate: more attempts (10-49%)
+                    num_restarts = 15  # Moderate: more intensive (10-49%)
                 elif severity == 'severe':
-                    num_restarts = 15  # Severe: intensive (50-79%)
+                    num_restarts = 20  # Severe: very intensive (50-79%)
                 else:  # catastrophic
-                    num_restarts = 20  # Catastrophic: maximum effort (80%+)
+                    num_restarts = 25  # Catastrophic: maximum effort (80%+)
 
-                logger.info(f"      Activating MULTI-RESTART: {num_restarts} attempts")
+                logger.info(f"      Activating MULTI-RESTART: {num_restarts} attempts with 5 diverse strategies")
                 current_routes = self._repair_with_multi_restart(current_routes, num_restarts=num_restarts)
 
                 # Re-evaluate after multi-restart
@@ -1175,188 +1272,6 @@ class StrongRepair:
 
         return new_routes
 
-    def _find_valid_insertions(self, routes: List[List[int]], customer_id: int) -> List[Tuple[float, int, int]]:
-        """
-        Find all valid insertion positions for a customer using O(1) Vidal evaluator.
-
-        Args:
-            routes: Current routes
-            customer_id: Customer to insert
-
-        Returns:
-            List of valid insertions sorted by cost: [(cost, route_idx, pos), ...]
-            where cost = distance_delta (increase in route distance)
-        """
-        valid_insertions = []
-
-        # Try inserting in each route at each position
-        for route_idx, route in enumerate(routes):
-            if not route or len(route) < 2:
-                continue
-
-            # Try each position (skip depot at 0, can insert from position 1 to len-1)
-            for pos in range(1, len(route)):
-                # Check feasibility using O(1) Vidal concatenation
-                is_feasible, distance_delta = self._evaluate_insertion_feasibility(
-                    route, customer_id, pos
-                )
-
-                if is_feasible:
-                    # Use distance_delta as cost
-                    valid_insertions.append((distance_delta, route_idx, pos))
-
-        # Sort by cost (ascending - prefer insertions with least distance increase)
-        valid_insertions.sort(key=lambda x: x[0])
-
-        return valid_insertions
-
-    def _find_valid_insertions_i1(
-        self,
-        routes: List[List[int]],
-        customer_id: int,
-        alpha1: float,
-        alpha2: float,
-        mu: float,
-        avg_tw_width: float
-    ) -> List[Tuple[float, int, int]]:
-        """
-        Find all valid insertion positions using Solomon's I1 heuristic.
-
-        I1 formula:
-            c11(i,u,j) = d(i,u) + d(u,j) - μ × d(i,j)  [distance increase]
-            c12(i,u,j) = b(j|i,u) - b(j|i)              [time shift]
-            I1 cost = α1 × c11 + α2 × c12
-
-        Args:
-            routes: Current routes
-            customer_id: Customer to insert
-            alpha1: Distance weight
-            alpha2: Time urgency weight
-            mu: Route savings parameter
-            avg_tw_width: Average TW width for normalization
-
-        Returns:
-            List of valid insertions sorted by I1 cost: [(i1_cost, route_idx, pos), ...]
-        """
-        valid_insertions = []
-        customer = self.problem.get_customer_by_id(customer_id)
-        if not customer:
-            return valid_insertions
-
-        # Try inserting in each route at each position
-        for route_idx, route in enumerate(routes):
-            if not route or len(route) < 2:
-                continue
-
-            # Try each position (skip depot at 0, can insert from position 1 to len-1)
-            for pos in range(1, len(route)):
-                # Check basic feasibility first
-                is_feasible, distance_delta = self._evaluate_insertion_feasibility(
-                    route, customer_id, pos
-                )
-
-                if not is_feasible:
-                    continue
-
-                # Calculate I1 cost components
-                i = route[pos - 1]  # Customer before insertion point
-                j = route[pos]      # Customer after insertion point
-                u = customer_id     # Customer to insert
-
-                # c11: Distance increase (with route savings)
-                d_iu = self.problem.get_distance(i, u)
-                d_uj = self.problem.get_distance(u, j)
-                d_ij = self.problem.get_distance(i, j)
-                c11 = d_iu + d_uj - mu * d_ij
-
-                # c12: Time shift (push-forward effect)
-                # Calculate how much customer j is pushed forward in time
-                try:
-                    # Original arrival time at j (without u)
-                    forward_original = self.evaluator.compute_forward_sequence(route)
-                    original_idx = pos  # j is at position pos in original route
-                    b_j_original = forward_original[original_idx].TW_E
-
-                    # New arrival time at j (with u inserted)
-                    temp_route = route[:pos] + [u] + route[pos:]
-                    forward_new = self.evaluator.compute_forward_sequence(temp_route)
-                    new_idx = pos + 1  # j is now at position pos+1
-                    b_j_new = forward_new[new_idx].TW_E
-
-                    # Time shift (normalized by average TW width)
-                    c12 = (b_j_new - b_j_original) / avg_tw_width if avg_tw_width > 0 else 0.0
-
-                except (ValueError, IndexError):
-                    # If evaluation fails, use high penalty
-                    c12 = 1000.0
-
-                # I1 cost = weighted combination
-                i1_cost = alpha1 * c11 + alpha2 * c12
-
-                valid_insertions.append((i1_cost, route_idx, pos))
-
-        # Sort by I1 cost (ascending - prefer insertions with lowest I1 cost)
-        valid_insertions.sort(key=lambda x: x[0])
-
-        return valid_insertions
-
-    def _evaluate_insertion_feasibility(self, route: List[int], customer_id: int, position: int) -> Tuple[bool, float]:
-        """
-        Evaluate if inserting customer at position is feasible using O(1) Vidal concatenation.
-
-        Args:
-            route: The route to insert into [0, c1, c2, ..., cn, 0]
-            customer_id: Customer to insert
-            position: Position to insert at (1 <= position <= len(route)-1)
-
-        Returns:
-            (is_feasible, distance_delta):
-                - is_feasible: True if insertion maintains TW feasibility AND capacity
-                - distance_delta: Change in route distance (positive = increase)
-        """
-        # Build temporary route with insertion
-        temp_route = route[:position] + [customer_id] + route[position:]
-
-        # CAPACITY CHECK: Ensure route doesn't exceed vehicle capacity
-        route_demand = 0
-        for cust_id in temp_route:
-            if cust_id != 0:  # Skip depot
-                customer = self.problem.get_customer_by_id(cust_id)
-                if customer:
-                    route_demand += customer.demand
-
-        if route_demand > self.problem.vehicle_capacity:
-            return False, 0.0  # Capacity violation
-
-        # Check feasibility using Vidal forward sequence
-        try:
-            forward = self.evaluator.compute_forward_sequence(temp_route)
-
-            # Check if any customer violates time windows
-            for i in range(1, len(temp_route) - 1):  # Skip depots
-                node = forward[i]
-                if node.TW_E > node.TW_L:  # Late arrival
-                    return False, 0.0
-
-            # Feasible! Calculate distance delta
-            distance_before = sum(
-                self.problem.get_distance(route[i], route[i+1])
-                for i in range(len(route)-1)
-            )
-
-            distance_after = sum(
-                self.problem.get_distance(temp_route[i], temp_route[i+1])
-                for i in range(len(temp_route)-1)
-            )
-
-            distance_delta = distance_after - distance_before
-
-            return True, distance_delta
-
-        except (ValueError, IndexError) as e:
-            # Evaluation failed (e.g., invalid route structure)
-            return False, 0.0
-
     def get_statistics(self, routes: List[List[int]]) -> Dict[str, any]:
         """Get repair statistics."""
         violations = self._get_violated_customers(routes)
@@ -1377,10 +1292,19 @@ class StrongRepair:
 
     def _repair_with_multi_restart(self, routes: List[List[int]], num_restarts: int = 5) -> List[List[int]]:
         """
-        Multi-restart repair strategy with random customer orderings.
+        Multi-restart repair strategy with DIVERSE customer ordering strategies.
 
-        This escapes local minima by trying multiple random orderings of customers
-        during the reconstruction phase.
+        Uses proven construction heuristics to provide diversity:
+        1. Random shuffle (baseline)
+        2. Time urgency - earliest deadline first (Solomon 1987)
+        3. Nearest neighbor - spatial clustering (classic heuristic)
+        4. Farthest insertion - spread customers (Rosenkrantz 1977)
+        5. Regret-based - hardest customers first (Toth & Vigo 2002)
+
+        References:
+            - Solomon, M. M. (1987). "Algorithms for the VRP with Time Windows"
+            - Rosenkrantz et al. (1977). "An Analysis of Several Heuristics for TSP"
+            - Toth & Vigo (2002). "The Vehicle Routing Problem"
 
         Args:
             routes: Input routes with violations
@@ -1389,14 +1313,19 @@ class StrongRepair:
         Returns:
             Best repaired routes found across all restarts
         """
-        logger.info(f"   🔄 MULTI-RESTART: Trying {num_restarts} different reconstruction orderings...")
+        logger.info(f"   🔄 MULTI-RESTART: Trying {num_restarts} different reconstruction strategies...")
 
         best_routes = None
         best_violations = float('inf')
         best_distance = float('inf')
 
+        # Define ordering strategies (cycle through them)
+        strategies = ['random', 'time_urgency', 'nearest', 'farthest', 'regret']
+
         for attempt in range(num_restarts):
-            logger.info(f"      Attempt {attempt + 1}/{num_restarts}...")
+            # Select strategy for this attempt (cycle through)
+            strategy = strategies[attempt % len(strategies)]
+            logger.info(f"      🔄 Attempt {attempt + 1}/{num_restarts}: Using '{strategy}' ordering strategy")
 
             # Deep copy to avoid contamination between attempts
             attempt_routes = copy.deepcopy(routes)
@@ -1410,14 +1339,17 @@ class StrongRepair:
                 attempt_routes[route_idx] = [c for c in attempt_routes[route_idx]
                                               if c not in violated_ids]
 
-            # Phase 2: RECREATE with RANDOM SHUFFLE (key difference!)
+            # Phase 2: RECREATE with STRATEGY-SPECIFIC ORDERING
             unassigned = list(violated_ids)
 
-            # Use different random seed for each attempt
-            random.seed(hash(time.time() + attempt) % 10000)
-            random.shuffle(unassigned)
+            # Apply ordering strategy
+            unassigned_ordered = self._apply_ordering_strategy(unassigned, strategy, attempt)
 
-            logger.debug(f"         Reinserting {len(unassigned)} customers (shuffled order)...")
+            # LOG: Show first 5 customers in the ordering (to see diversity)
+            if len(unassigned_ordered) >= 5:
+                logger.info(f"         First 5 customers in order: {unassigned_ordered[:5]}")
+
+            unassigned = unassigned_ordered
 
             # Relaxed cheapest insertion (same as original logic)
             while unassigned:
@@ -1478,8 +1410,6 @@ class StrongRepair:
                 for route in attempt_routes if len(route) > 1
             )
 
-            logger.info(f"         Result: {attempt_violations} violations, {attempt_distance:.2f} km")
-
             # Update best solution (hierarchical: violations > distance)
             is_better = False
             if best_routes is None:
@@ -1493,7 +1423,9 @@ class StrongRepair:
                 best_routes = attempt_routes
                 best_violations = attempt_violations
                 best_distance = attempt_distance
-                logger.info(f"         ✅ New best! {best_violations} violations, {best_distance:.2f} km")
+                logger.info(f"         ✅ Result: {attempt_violations} violations, {attempt_distance:.2f} km (NEW BEST!)")
+            else:
+                logger.info(f"         Result: {attempt_violations} violations, {attempt_distance:.2f} km (current best: {best_violations} viol)")
 
             # Early exit if perfect solution found
             if best_violations == 0:
@@ -1502,6 +1434,79 @@ class StrongRepair:
 
         logger.info(f"   Multi-restart complete: Best = {best_violations} violations, {best_distance:.2f} km")
         return best_routes if best_routes is not None else routes
+
+    def _apply_ordering_strategy(self, customer_ids: List[int], strategy: str, seed: int = 0) -> List[int]:
+        """
+        Apply proven ordering strategy to customer list.
+
+        Strategies (all from academic literature):
+        1. 'random': Random shuffle (baseline)
+        2. 'time_urgency': Earliest deadline first (Solomon 1987)
+        3. 'nearest': Nearest neighbor from depot (classic)
+        4. 'farthest': Farthest customer first (Rosenkrantz 1977)
+        5. 'regret': Sorted by insertion regret (Toth & Vigo 2002)
+
+        Args:
+            customer_ids: List of customer IDs to order
+            strategy: Strategy name
+            seed: Random seed for reproducibility
+
+        Returns:
+            Ordered list of customer IDs
+        """
+        if strategy == 'random':
+            # Random shuffle (baseline)
+            random.seed(hash(time.time() + seed) % 10000)
+            ordered = list(customer_ids)
+            random.shuffle(ordered)
+            return ordered
+
+        elif strategy == 'time_urgency':
+            # Sort by earliest deadline first (Solomon 1987)
+            # Rationale: Customers with tight time windows should be inserted first
+            ordered = sorted(
+                customer_ids,
+                key=lambda cid: self.problem.get_customer_by_id(cid).due_date
+                if self.problem.get_customer_by_id(cid) else float('inf')
+            )
+            return ordered
+
+        elif strategy == 'nearest':
+            # Nearest neighbor from depot (classic construction heuristic)
+            # Rationale: Spatial clustering reduces travel distance
+            ordered = sorted(
+                customer_ids,
+                key=lambda cid: self.problem.get_distance(0, cid)  # Distance from depot
+            )
+            return ordered
+
+        elif strategy == 'farthest':
+            # Farthest customer first (Rosenkrantz 1977)
+            # Rationale: Place difficult (far) customers first, leave flexibility for close ones
+            ordered = sorted(
+                customer_ids,
+                key=lambda cid: self.problem.get_distance(0, cid),
+                reverse=True  # Descending - farthest first
+            )
+            return ordered
+
+        elif strategy == 'regret':
+            # Sorted by time window slack (tighter windows first)
+            # Rationale: Customers with less flexibility should be placed first
+            # Slack = due_date - ready_time (smaller = tighter window)
+            ordered = sorted(
+                customer_ids,
+                key=lambda cid: (
+                    self.problem.get_customer_by_id(cid).due_date -
+                    self.problem.get_customer_by_id(cid).ready_time
+                ) if self.problem.get_customer_by_id(cid) else float('inf')
+            )
+            return ordered
+
+        else:
+            # Fallback to random
+            logger.warning(f"Unknown strategy '{strategy}', using random")
+            return self._apply_ordering_strategy(customer_ids, 'random', seed)
 
     def _load_bks_data(self) -> Dict:
         """Load BKS data from file."""
