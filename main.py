@@ -7,7 +7,15 @@ import argparse
 import sys
 import os
 import time
+import logging
 from typing import Dict, Optional
+
+# Configure root logger to INFO level FIRST (before any other imports)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s - %(name)s - %(message)s',
+    force=True
+)
 
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))

@@ -5,6 +5,14 @@ Main Streamlit application entry point for VRP-GA Web Application.
 import streamlit as st
 import sys
 import os
+import logging
+
+# Configure logging FIRST - enable INFO level for all loggers
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s - %(name)s - %(message)s',
+    force=True  # Override any existing configuration
+)
 
 # Add parent directory to path to import from optimize codebase
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
