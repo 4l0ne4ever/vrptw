@@ -58,7 +58,7 @@ with tab1:
             with col2:
                 filter_type = st.selectbox(
                     "Filter by type",
-                    options=["All", "solomon", "hanoi", "hanoi_mockup"],
+                    options=["All", "hanoi", "hanoi_mockup"],
                     index=0,
                     key="best_filter"
                 )

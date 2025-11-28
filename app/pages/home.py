@@ -31,7 +31,6 @@ using advanced **Genetic Algorithms (GA)** with the following features:
 
 1. **Choose Your Mode**:
    - **Hanoi Mode**: Real-world delivery optimization with actual coordinates
-   - **Solomon Mode**: Academic benchmarking with standard datasets
 
 2. **Upload or Load Data**:
    - Upload JSON dataset files
@@ -56,7 +55,6 @@ using advanced **Genetic Algorithms (GA)** with the following features:
 
 Use the sidebar to navigate between:
 - **Home**: This page
-- **Solomon Mode**: Academic benchmark optimization
 - **Hanoi Mode**: Real-world delivery optimization
 - **History**: View past optimization runs
 - **Datasets**: Manage your datasets
@@ -64,15 +62,8 @@ Use the sidebar to navigate between:
 
 ---
 
-**Ready to get started?** Choose a mode from the sidebar or use the buttons below!
+**Ready to get started?** Use the button below or navigate from the sidebar!
 """)
 
-col1, col2 = st.columns(2)
-
-with col1:
-    if st.button("Start Hanoi Optimization", use_container_width=True, type="primary"):
-        st.switch_page("pages/hanoi_mode.py")
-
-with col2:
-    if st.button("Start Solomon Optimization", use_container_width=True, type="primary"):
-        st.switch_page("pages/solomon_mode.py")
+if st.button("Start Hanoi Optimization", use_container_width=True, type="primary"):
+    st.switch_page("pages/hanoi_mode.py")

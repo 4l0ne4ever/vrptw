@@ -21,7 +21,6 @@ st.markdown("""
 
 1. **Choose Your Mode**
    - Select Hanoi Mode for real-world optimization
-   - Select Solomon Mode for academic benchmarking
 
 2. **Prepare Your Data**
    - Upload JSON dataset files

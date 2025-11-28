@@ -46,33 +46,20 @@ def main():
     
     **Features:**
     - Optimize delivery routes for Hanoi (real coordinates)
-    - Benchmark with Solomon datasets (academic)
     - View interactive maps and detailed analytics
     - Save and compare optimization results
     """)
     
     st.markdown("### Get Started")
-    col1, col2 = st.columns(2)
     
-    with col1:
-        st.markdown("""
-        **Hanoi Mode**
-        - Real-world coordinates
-        - Interactive Folium maps
-        - Ahamove shipping cost calculation
-        """)
-        if st.button("Start Hanoi Optimization", use_container_width=True):
-            st.switch_page("pages/hanoi_mode.py")
-    
-    with col2:
-        st.markdown("""
-        **Solomon Mode**
-        - Academic benchmarks
-        - BKS validation
-        - Performance charts
-        """)
-        if st.button("Start Solomon Optimization", use_container_width=True):
-            st.switch_page("pages/solomon_mode.py")
+    st.markdown("""
+    **Hanoi Mode**
+    - Real-world coordinates
+    - Interactive Folium maps
+    - Ahamove shipping cost calculation
+    """)
+    if st.button("Start Hanoi Optimization", use_container_width=True, type="primary"):
+        st.switch_page("pages/hanoi_mode.py")
     
     st.markdown("---")
     st.markdown("### Quick Links")
