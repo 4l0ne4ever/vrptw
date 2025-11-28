@@ -16,13 +16,14 @@ class JSONDatasetLoader:
     def __init__(self, datasets_dir: str = "data/datasets"):
         """
         Initialize JSON dataset loader.
-        
+
         Args:
             datasets_dir: Directory containing JSON datasets
         """
         self.datasets_dir = datasets_dir
         self.solomon_dir = os.path.join(datasets_dir, "solomon")
         self.mockup_dir = os.path.join(datasets_dir, "mockup")
+        self.test_dir = "data/test_datasets"  # Test datasets directory
     
     def load_dataset(self, dataset_name: str, dataset_type: str = None) -> Dict:
         """
@@ -49,12 +50,18 @@ class JSONDatasetLoader:
                 if os.path.exists(filepath):
                     dataset_type = "mockup"
                 else:
-                    raise FileNotFoundError(f"Dataset not found: {dataset_name}")
+                    filepath = os.path.join(self.test_dir, dataset_name)
+                    if os.path.exists(filepath):
+                        dataset_type = "test"
+                    else:
+                        raise FileNotFoundError(f"Dataset not found: {dataset_name}")
         else:
             if dataset_type == "solomon":
                 filepath = os.path.join(self.solomon_dir, dataset_name)
             elif dataset_type == "mockup":
                 filepath = os.path.join(self.mockup_dir, dataset_name)
+            elif dataset_type == "test":
+                filepath = os.path.join(self.test_dir, dataset_name)
             else:
                 raise ValueError(f"Invalid dataset type: {dataset_type}")
         

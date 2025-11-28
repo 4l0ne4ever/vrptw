@@ -134,11 +134,9 @@ class VidalEvaluator:
             # New latest arrival
             new_TW_L = min(prev_node.TW_L - travel_time - customer.service_time,
                           customer.due_date)
-            
-            # === FIX BUG SOLOMON: Clamp TW_L ===
-            # Đảm bảo thời gian đến muộn nhất không được nhỏ hơn thời gian mở cửa
-            # Điều này ngăn chặn số âm lan truyền ngược
-            new_TW_L = max(new_TW_L, customer.ready_time)
+
+            # NO CLAMPING! If TW_L < ready_time, the route is INFEASIBLE
+            # The clamping was hiding violations by making infeasible routes appear feasible
 
             # New load
             new_Q = prev_node.Q + customer.demand
@@ -205,11 +203,9 @@ class VidalEvaluator:
         # Latest arrival at end of segment B
         new_TW_L = min(node_a.TW_L - travel_time, due_date) - service_time + \
                   (node_b.TW_L - due_date)
-        
-        # === FIX BUG SOLOMON: Clamp TW_L ===
-        # Logic tương tự: không để TW_L trôi xuống vô cực âm
-        # Kẹp với ready_time của node_b để đảm bảo không âm và hợp lý
-        new_TW_L = max(new_TW_L, ready_time)
+
+        # NO CLAMPING! If TW_L becomes negative or < TW_E, it means infeasible
+        # The feasibility check below will catch this correctly
 
         # Load
         new_Q = node_a.Q + node_b.Q

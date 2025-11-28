@@ -1,0 +1,929 @@
+{
+  "metadata": {
+    "name": "hanoi_normal_100_customers",
+    "source": "data/test_datasets/hanoi_normal_100_customers.csv",
+    "format": "hanoi_csv",
+    "description": "Hanoi VRP dataset with normal time window distribution",
+    "num_customers": 100,
+    "vehicle_capacity": 200,
+    "num_vehicles": 13,
+    "distribution": "normal"
+  },
+  "depot": {
+    "id": 0,
+    "x": 105.864567,
+    "y": 20.996789,
+    "demand": 0.0,
+    "ready_time": 0.0,
+    "due_date": 1440.0,
+    "service_time": 0.0
+  },
+  "customers": [
+    {
+      "id": 1,
+      "x": 105.861234,
+      "y": 20.992345,
+      "demand": 13.0,
+      "ready_time": 853.62,
+      "due_date": 1031.73,
+      "service_time": 10.0
+    },
+    {
+      "id": 2,
+      "x": 105.863456,
+      "y": 20.998901,
+      "demand": 9.0,
+      "ready_time": 1030.32,
+      "due_date": 1113.43,
+      "service_time": 10.0
+    },
+    {
+      "id": 3,
+      "x": 105.874567,
+      "y": 20.98789,
+      "demand": 9.0,
+      "ready_time": 1080.0,
+      "due_date": 1140.0,
+      "service_time": 10.0
+    },
+    {
+      "id": 4,
+      "x": 105.872345,
+      "y": 20.984567,
+      "demand": 15.0,
+      "ready_time": 821.79,
+      "due_date": 996.2,
+      "service_time": 10.0
+    },
+    {
+      "id": 5,
+      "x": 105.878901,
+      "y": 20.991234,
+      "demand": 26.0,
+      "ready_time": 873.72,
+      "due_date": 987.58,
+      "service_time": 10.0
+    },
+    {
+      "id": 6,
+      "x": 105.875678,
+      "y": 20.982345,
+      "demand": 19.0,
+      "ready_time": 815.03,
+      "due_date": 935.38,
+      "service_time": 10.0
+    },
+    {
+      "id": 7,
+      "x": 105.881234,
+      "y": 20.982345,
+      "demand": 5.0,
+      "ready_time": 769.28,
+      "due_date": 956.76,
+      "service_time": 10.0
+    },
+    {
+      "id": 8,
+      "x": 105.884567,
+      "y": 20.976789,
+      "demand": 6.0,
+      "ready_time": 882.84,
+      "due_date": 993.2,
+      "service_time": 10.0
+    },
+    {
+      "id": 9,
+      "x": 105.878901,
+      "y": 20.981234,
+      "demand": 17.0,
+      "ready_time": 947.95,
+      "due_date": 1108.32,
+      "service_time": 10.0
+    },
+    {
+      "id": 10,
+      "x": 105.851234,
+      "y": 20.986789,
+      "demand": 27.0,
+      "ready_time": 937.54,
+      "due_date": 1114.02,
+      "service_time": 10.0
+    },
+    {
+      "id": 11,
+      "x": 105.848901,
+      "y": 20.991234,
+      "demand": 17.0,
+      "ready_time": 740.52,
+      "due_date": 857.51,
+      "service_time": 10.0
+    },
+    {
+      "id": 12,
+      "x": 105.846789,
+      "y": 20.993456,
+      "demand": 21.0,
+      "ready_time": 929.68,
+      "due_date": 1105.19,
+      "service_time": 10.0
+    },
+    {
+      "id": 13,
+      "x": 105.845678,
+      "y": 20.984567,
+      "demand": 6.0,
+      "ready_time": 837.49,
+      "due_date": 988.36,
+      "service_time": 10.0
+    },
+    {
+      "id": 14,
+      "x": 105.852344,
+      "y": 20.98334,
+      "demand": 29.0,
+      "ready_time": 993.32,
+      "due_date": 1108.74,
+      "service_time": 10.0
+    },
+    {
+      "id": 15,
+      "x": 105.840323,
+      "y": 20.982301,
+      "demand": 13.0,
+      "ready_time": 905.65,
+      "due_date": 1040.54,
+      "service_time": 10.0
+    },
+    {
+      "id": 16,
+      "x": 105.843456,
+      "y": 20.975678,
+      "demand": 18.0,
+      "ready_time": 813.88,
+      "due_date": 1013.82,
+      "service_time": 10.0
+    },
+    {
+      "id": 17,
+      "x": 105.832345,
+      "y": 20.964567,
+      "demand": 5.0,
+      "ready_time": 939.05,
+      "due_date": 1124.73,
+      "service_time": 10.0
+    },
+    {
+      "id": 18,
+      "x": 105.828901,
+      "y": 20.962345,
+      "demand": 16.0,
+      "ready_time": 996.66,
+      "due_date": 1142.71,
+      "service_time": 10.0
+    },
+    {
+      "id": 19,
+      "x": 105.825678,
+      "y": 20.960123,
+      "demand": 23.0,
+      "ready_time": 921.83,
+      "due_date": 1051.32,
+      "service_time": 10.0
+    },
+    {
+      "id": 20,
+      "x": 105.838901,
+      "y": 20.958901,
+      "demand": 6.0,
+      "ready_time": 878.9,
+      "due_date": 1017.39,
+      "service_time": 10.0
+    },
+    {
+      "id": 21,
+      "x": 105.845678,
+      "y": 20.954567,
+      "demand": 11.0,
+      "ready_time": 851.64,
+      "due_date": 1026.4,
+      "service_time": 10.0
+    },
+    {
+      "id": 22,
+      "x": 105.852345,
+      "y": 20.946789,
+      "demand": 14.0,
+      "ready_time": 741.81,
+      "due_date": 991.43,
+      "service_time": 10.0
+    },
+    {
+      "id": 23,
+      "x": 105.864567,
+      "y": 20.948901,
+      "demand": 6.0,
+      "ready_time": 719.28,
+      "due_date": 803.57,
+      "service_time": 10.0
+    },
+    {
+      "id": 24,
+      "x": 105.891234,
+      "y": 20.962345,
+      "demand": 24.0,
+      "ready_time": 978.97,
+      "due_date": 1163.56,
+      "service_time": 10.0
+    },
+    {
+      "id": 25,
+      "x": 105.888901,
+      "y": 20.901678,
+      "demand": 30.0,
+      "ready_time": 914.89,
+      "due_date": 1091.31,
+      "service_time": 10.0
+    },
+    {
+      "id": 26,
+      "x": 105.832345,
+      "y": 20.950119,
+      "demand": 15.0,
+      "ready_time": 838.53,
+      "due_date": 938.67,
+      "service_time": 10.0
+    },
+    {
+      "id": 27,
+      "x": 105.810678,
+      "y": 20.948901,
+      "demand": 9.0,
+      "ready_time": 849.1,
+      "due_date": 960.24,
+      "service_time": 10.0
+    },
+    {
+      "id": 28,
+      "x": 105.798901,
+      "y": 20.961234,
+      "demand": 29.0,
+      "ready_time": 957.01,
+      "due_date": 1094.66,
+      "service_time": 10.0
+    },
+    {
+      "id": 29,
+      "x": 105.801234,
+      "y": 20.96789,
+      "demand": 10.0,
+      "ready_time": 740.94,
+      "due_date": 869.87,
+      "service_time": 10.0
+    },
+    {
+      "id": 30,
+      "x": 105.794567,
+      "y": 20.964567,
+      "demand": 6.0,
+      "ready_time": 889.55,
+      "due_date": 1006.37,
+      "service_time": 10.0
+    },
+    {
+      "id": 31,
+      "x": 105.786789,
+      "y": 20.962345,
+      "demand": 13.0,
+      "ready_time": 741.33,
+      "due_date": 898.52,
+      "service_time": 10.0
+    },
+    {
+      "id": 32,
+      "x": 105.782345,
+      "y": 20.958901,
+      "demand": 16.0,
+      "ready_time": 869.4,
+      "due_date": 989.05,
+      "service_time": 10.0
+    },
+    {
+      "id": 33,
+      "x": 105.785678,
+      "y": 20.955678,
+      "demand": 7.0,
+      "ready_time": 783.48,
+      "due_date": 940.08,
+      "service_time": 10.0
+    },
+    {
+      "id": 34,
+      "x": 105.778901,
+      "y": 20.95789,
+      "demand": 30.0,
+      "ready_time": 666.23,
+      "due_date": 740.86,
+      "service_time": 10.0
+    },
+    {
+      "id": 35,
+      "x": 105.776789,
+      "y": 20.965678,
+      "demand": 7.0,
+      "ready_time": 753.79,
+      "due_date": 888.11,
+      "service_time": 10.0
+    },
+    {
+      "id": 36,
+      "x": 105.774567,
+      "y": 20.968901,
+      "demand": 8.0,
+      "ready_time": 877.31,
+      "due_date": 1096.08,
+      "service_time": 10.0
+    },
+    {
+      "id": 37,
+      "x": 105.772345,
+      "y": 20.966789,
+      "demand": 30.0,
+      "ready_time": 942.92,
+      "due_date": 1079.92,
+      "service_time": 10.0
+    },
+    {
+      "id": 38,
+      "x": 105.768901,
+      "y": 20.963456,
+      "demand": 24.0,
+      "ready_time": 837.72,
+      "due_date": 932.59,
+      "service_time": 10.0
+    },
+    {
+      "id": 39,
+      "x": 105.765678,
+      "y": 20.959012,
+      "demand": 10.0,
+      "ready_time": 837.78,
+      "due_date": 968.35,
+      "service_time": 10.0
+    },
+    {
+      "id": 40,
+      "x": 105.762345,
+      "y": 20.956789,
+      "demand": 17.0,
+      "ready_time": 878.73,
+      "due_date": 982.36,
+      "service_time": 10.0
+    },
+    {
+      "id": 41,
+      "x": 105.754977,
+      "y": 20.952345,
+      "demand": 12.0,
+      "ready_time": 902.32,
+      "due_date": 1123.96,
+      "service_time": 10.0
+    },
+    {
+      "id": 42,
+      "x": 105.758901,
+      "y": 20.974567,
+      "demand": 17.0,
+      "ready_time": 826.95,
+      "due_date": 992.03,
+      "service_time": 10.0
+    },
+    {
+      "id": 43,
+      "x": 105.761234,
+      "y": 20.971234,
+      "demand": 28.0,
+      "ready_time": 922.82,
+      "due_date": 1047.76,
+      "service_time": 10.0
+    },
+    {
+      "id": 44,
+      "x": 105.752345,
+      "y": 20.976789,
+      "demand": 15.0,
+      "ready_time": 866.89,
+      "due_date": 1012.52,
+      "service_time": 10.0
+    },
+    {
+      "id": 45,
+      "x": 105.764567,
+      "y": 20.980123,
+      "demand": 15.0,
+      "ready_time": 851.72,
+      "due_date": 958.07,
+      "service_time": 10.0
+    },
+    {
+      "id": 46,
+      "x": 105.770123,
+      "y": 20.984567,
+      "demand": 6.0,
+      "ready_time": 842.94,
+      "due_date": 1012.84,
+      "service_time": 10.0
+    },
+    {
+      "id": 47,
+      "x": 105.786789,
+      "y": 20.978901,
+      "demand": 19.0,
+      "ready_time": 1014.14,
+      "due_date": 1200.0,
+      "service_time": 10.0
+    },
+    {
+      "id": 48,
+      "x": 105.784567,
+      "y": 20.975678,
+      "demand": 7.0,
+      "ready_time": 1080.0,
+      "due_date": 1186.63,
+      "service_time": 10.0
+    },
+    {
+      "id": 49,
+      "x": 105.792345,
+      "y": 20.982345,
+      "demand": 20.0,
+      "ready_time": 944.68,
+      "due_date": 1098.85,
+      "service_time": 10.0
+    },
+    {
+      "id": 50,
+      "x": 105.782345,
+      "y": 20.985678,
+      "demand": 10.0,
+      "ready_time": 1080.0,
+      "due_date": 1184.59,
+      "service_time": 10.0
+    },
+    {
+      "id": 51,
+      "x": 105.786789,
+      "y": 20.988299,
+      "demand": 12.0,
+      "ready_time": 739.23,
+      "due_date": 854.26,
+      "service_time": 10.0
+    },
+    {
+      "id": 52,
+      "x": 105.786789,
+      "y": 20.997567,
+      "demand": 25.0,
+      "ready_time": 585.13,
+      "due_date": 703.84,
+      "service_time": 10.0
+    },
+    {
+      "id": 53,
+      "x": 105.758901,
+      "y": 20.995589,
+      "demand": 29.0,
+      "ready_time": 748.9,
+      "due_date": 901.42,
+      "service_time": 10.0
+    },
+    {
+      "id": 54,
+      "x": 105.754567,
+      "y": 20.998901,
+      "demand": 6.0,
+      "ready_time": 881.01,
+      "due_date": 1119.82,
+      "service_time": 10.0
+    },
+    {
+      "id": 55,
+      "x": 105.780567,
+      "y": 21.008901,
+      "demand": 10.0,
+      "ready_time": 954.05,
+      "due_date": 1070.21,
+      "service_time": 10.0
+    },
+    {
+      "id": 56,
+      "x": 105.781234,
+      "y": 21.011234,
+      "demand": 30.0,
+      "ready_time": 732.19,
+      "due_date": 901.79,
+      "service_time": 10.0
+    },
+    {
+      "id": 57,
+      "x": 105.778901,
+      "y": 21.015678,
+      "demand": 8.0,
+      "ready_time": 681.57,
+      "due_date": 918.14,
+      "service_time": 10.0
+    },
+    {
+      "id": 58,
+      "x": 105.776789,
+      "y": 21.013456,
+      "demand": 11.0,
+      "ready_time": 981.53,
+      "due_date": 1103.07,
+      "service_time": 10.0
+    },
+    {
+      "id": 59,
+      "x": 105.766789,
+      "y": 21.00789,
+      "demand": 10.0,
+      "ready_time": 634.42,
+      "due_date": 847.12,
+      "service_time": 10.0
+    },
+    {
+      "id": 60,
+      "x": 105.768901,
+      "y": 21.022345,
+      "demand": 6.0,
+      "ready_time": 826.26,
+      "due_date": 1033.15,
+      "service_time": 10.0
+    },
+    {
+      "id": 61,
+      "x": 105.764567,
+      "y": 21.034567,
+      "demand": 28.0,
+      "ready_time": 648.67,
+      "due_date": 763.7,
+      "service_time": 10.0
+    },
+    {
+      "id": 62,
+      "x": 105.761234,
+      "y": 21.028901,
+      "demand": 19.0,
+      "ready_time": 840.63,
+      "due_date": 987.98,
+      "service_time": 10.0
+    },
+    {
+      "id": 63,
+      "x": 105.76789,
+      "y": 21.036789,
+      "demand": 20.0,
+      "ready_time": 785.99,
+      "due_date": 962.13,
+      "service_time": 10.0
+    },
+    {
+      "id": 64,
+      "x": 105.773456,
+      "y": 21.031234,
+      "demand": 21.0,
+      "ready_time": 711.89,
+      "due_date": 849.77,
+      "service_time": 10.0
+    },
+    {
+      "id": 65,
+      "x": 105.776789,
+      "y": 21.035678,
+      "demand": 28.0,
+      "ready_time": 854.44,
+      "due_date": 1025.16,
+      "service_time": 10.0
+    },
+    {
+      "id": 66,
+      "x": 105.771234,
+      "y": 21.026789,
+      "demand": 11.0,
+      "ready_time": 925.39,
+      "due_date": 1014.16,
+      "service_time": 10.0
+    },
+    {
+      "id": 67,
+      "x": 105.774567,
+      "y": 21.018901,
+      "demand": 25.0,
+      "ready_time": 655.91,
+      "due_date": 864.79,
+      "service_time": 10.0
+    },
+    {
+      "id": 68,
+      "x": 105.782345,
+      "y": 21.054567,
+      "demand": 22.0,
+      "ready_time": 879.88,
+      "due_date": 987.45,
+      "service_time": 10.0
+    },
+    {
+      "id": 69,
+      "x": 105.791234,
+      "y": 21.04789,
+      "demand": 6.0,
+      "ready_time": 1026.14,
+      "due_date": 1176.92,
+      "service_time": 10.0
+    },
+    {
+      "id": 70,
+      "x": 105.788901,
+      "y": 21.051234,
+      "demand": 9.0,
+      "ready_time": 981.52,
+      "due_date": 1129.89,
+      "service_time": 10.0
+    },
+    {
+      "id": 71,
+      "x": 105.785678,
+      "y": 21.056789,
+      "demand": 21.0,
+      "ready_time": 1080.0,
+      "due_date": 1200.0,
+      "service_time": 10.0
+    },
+    {
+      "id": 72,
+      "x": 105.792345,
+      "y": 21.064567,
+      "demand": 14.0,
+      "ready_time": 810.12,
+      "due_date": 1003.7,
+      "service_time": 10.0
+    },
+    {
+      "id": 73,
+      "x": 105.801234,
+      "y": 21.068901,
+      "demand": 23.0,
+      "ready_time": 917.45,
+      "due_date": 1130.88,
+      "service_time": 10.0
+    },
+    {
+      "id": 74,
+      "x": 105.812345,
+      "y": 21.068903,
+      "demand": 9.0,
+      "ready_time": 724.21,
+      "due_date": 903.51,
+      "service_time": 10.0
+    },
+    {
+      "id": 75,
+      "x": 105.808901,
+      "y": 21.062345,
+      "demand": 6.0,
+      "ready_time": 967.01,
+      "due_date": 1027.01,
+      "service_time": 10.0
+    },
+    {
+      "id": 76,
+      "x": 105.805678,
+      "y": 21.065678,
+      "demand": 19.0,
+      "ready_time": 698.01,
+      "due_date": 758.01,
+      "service_time": 10.0
+    },
+    {
+      "id": 77,
+      "x": 105.823456,
+      "y": 21.072545,
+      "demand": 6.0,
+      "ready_time": 807.67,
+      "due_date": 988.55,
+      "service_time": 10.0
+    },
+    {
+      "id": 78,
+      "x": 105.834567,
+      "y": 21.054567,
+      "demand": 21.0,
+      "ready_time": 1020.28,
+      "due_date": 1168.99,
+      "service_time": 10.0
+    },
+    {
+      "id": 79,
+      "x": 105.83982,
+      "y": 21.048901,
+      "demand": 28.0,
+      "ready_time": 1035.43,
+      "due_date": 1111.43,
+      "service_time": 10.0
+    },
+    {
+      "id": 80,
+      "x": 105.836789,
+      "y": 21.043978,
+      "demand": 11.0,
+      "ready_time": 635.59,
+      "due_date": 777.82,
+      "service_time": 10.0
+    },
+    {
+      "id": 81,
+      "x": 105.839012,
+      "y": 21.038901,
+      "demand": 6.0,
+      "ready_time": 886.09,
+      "due_date": 1029.45,
+      "service_time": 10.0
+    },
+    {
+      "id": 82,
+      "x": 105.841234,
+      "y": 21.03789,
+      "demand": 10.0,
+      "ready_time": 591.91,
+      "due_date": 732.45,
+      "service_time": 10.0
+    },
+    {
+      "id": 83,
+      "x": 105.840123,
+      "y": 21.035678,
+      "demand": 28.0,
+      "ready_time": 683.46,
+      "due_date": 861.95,
+      "service_time": 10.0
+    },
+    {
+      "id": 84,
+      "x": 105.838901,
+      "y": 21.032345,
+      "demand": 11.0,
+      "ready_time": 883.99,
+      "due_date": 982.0,
+      "service_time": 10.0
+    },
+    {
+      "id": 85,
+      "x": 105.836789,
+      "y": 21.031234,
+      "demand": 19.0,
+      "ready_time": 778.34,
+      "due_date": 870.38,
+      "service_time": 10.0
+    },
+    {
+      "id": 86,
+      "x": 105.828901,
+      "y": 21.029012,
+      "demand": 25.0,
+      "ready_time": 832.48,
+      "due_date": 1025.24,
+      "service_time": 10.0
+    },
+    {
+      "id": 87,
+      "x": 105.825678,
+      "y": 21.026789,
+      "demand": 29.0,
+      "ready_time": 721.71,
+      "due_date": 891.92,
+      "service_time": 10.0
+    },
+    {
+      "id": 88,
+      "x": 105.821554,
+      "y": 21.02789,
+      "demand": 26.0,
+      "ready_time": 776.37,
+      "due_date": 881.73,
+      "service_time": 10.0
+    },
+    {
+      "id": 89,
+      "x": 105.813456,
+      "y": 21.034567,
+      "demand": 5.0,
+      "ready_time": 827.16,
+      "due_date": 920.39,
+      "service_time": 10.0
+    },
+    {
+      "id": 90,
+      "x": 105.815678,
+      "y": 21.036789,
+      "demand": 5.0,
+      "ready_time": 773.56,
+      "due_date": 858.67,
+      "service_time": 10.0
+    },
+    {
+      "id": 91,
+      "x": 105.822345,
+      "y": 21.035678,
+      "demand": 19.0,
+      "ready_time": 1075.77,
+      "due_date": 1200.0,
+      "service_time": 10.0
+    },
+    {
+      "id": 92,
+      "x": 105.810123,
+      "y": 21.034567,
+      "demand": 16.0,
+      "ready_time": 756.03,
+      "due_date": 911.73,
+      "service_time": 10.0
+    },
+    {
+      "id": 93,
+      "x": 105.808901,
+      "y": 21.032345,
+      "demand": 16.0,
+      "ready_time": 826.52,
+      "due_date": 960.47,
+      "service_time": 10.0
+    },
+    {
+      "id": 94,
+      "x": 105.801234,
+      "y": 21.033456,
+      "demand": 6.0,
+      "ready_time": 913.7,
+      "due_date": 1096.58,
+      "service_time": 10.0
+    },
+    {
+      "id": 95,
+      "x": 105.784567,
+      "y": 21.036789,
+      "demand": 21.0,
+      "ready_time": 776.34,
+      "due_date": 892.55,
+      "service_time": 10.0
+    },
+    {
+      "id": 96,
+      "x": 105.776789,
+      "y": 21.038901,
+      "demand": 14.0,
+      "ready_time": 806.99,
+      "due_date": 866.99,
+      "service_time": 10.0
+    },
+    {
+      "id": 97,
+      "x": 105.798901,
+      "y": 21.042345,
+      "demand": 23.0,
+      "ready_time": 658.18,
+      "due_date": 871.52,
+      "service_time": 10.0
+    },
+    {
+      "id": 98,
+      "x": 105.796789,
+      "y": 21.039012,
+      "demand": 9.0,
+      "ready_time": 1037.4,
+      "due_date": 1169.94,
+      "service_time": 10.0
+    },
+    {
+      "id": 99,
+      "x": 105.794567,
+      "y": 21.044567,
+      "demand": 19.0,
+      "ready_time": 909.19,
+      "due_date": 1069.75,
+      "service_time": 10.0
+    },
+    {
+      "id": 100,
+      "x": 105.818901,
+      "y": 21.029501,
+      "demand": 10.0,
+      "ready_time": 1080.0,
+      "due_date": 1200.0,
+      "service_time": 10.0
+    }
+  ],
+  "problem_config": {
+    "vehicle_capacity": 200,
+    "num_vehicles": 13,
+    "traffic_factor": 1.0,
+    "penalty_weight": 1000
+  }
+}
