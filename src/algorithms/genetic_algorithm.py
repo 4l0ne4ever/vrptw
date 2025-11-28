@@ -7,6 +7,7 @@ import random
 import numpy as np
 from typing import List, Dict, Optional, Tuple
 import time
+import logging
 from src.models.solution import Individual, Population
 from src.models.vrp_model import VRPProblem
 from src.algorithms.operators import (
@@ -30,7 +31,19 @@ class GeneticAlgorithm:
         """
         self.problem = problem
         self.config = config or GA_CONFIG.copy()
-        
+
+        # ADAPTIVE SIZING: Apply evidence-based parameter adaptation
+        # Based on: Potvin (1996), Braysy (2005), Homberger (2005)
+        if self.config.get('use_adaptive_sizing', False):
+            from src.utils.adaptive_sizing import get_adaptive_parameters, get_config_summary
+            self.config = get_adaptive_parameters(problem, self.config)
+            # Log adaptive configuration
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info("=== ADAPTIVE PARAMETER SIZING ===")
+            logger.info(get_config_summary(self.config))
+            logger.info("=" * 50)
+
         # Get penalty_weight from config (can be in GA config or VRP config)
         penalty_weight = self.config.get('penalty_weight')
         if penalty_weight is None:
@@ -60,7 +73,20 @@ class GeneticAlgorithm:
             'diversity_history': [],
             'convergence_generation': None
         }
-    
+
+        # Patience tracking for early stopping
+        self.best_fitness_seen = float('-inf')
+        self.generations_without_improvement = 0
+
+        # Calculate adaptive patience based on max generations
+        max_gens = self.config.get('generations', 1000)
+        patience_ratio = self.config.get('patience_ratio', 0.10)
+        self.patience_threshold = max(100, int(max_gens * patience_ratio))
+
+        self.min_improvement = self.config.get('min_improvement_threshold', 0.001)
+
+        logger.info(f"Early stopping enabled: patience={self.patience_threshold} generations ({patience_ratio:.1%} of {max_gens})")
+
     def initialize_population(self, population_size: Optional[int] = None) -> Population:
         """
         Initialize population with diverse individuals.
@@ -733,32 +759,58 @@ class GeneticAlgorithm:
                 pass
     
     def _update_statistics(self):
-        """Update GA statistics."""
+        """Update population statistics and track improvements for patience."""
+        logger = logging.getLogger(__name__)
         stats = self.population.get_statistics()
-        
+
         self.stats['best_fitness_history'].append(stats['best_fitness'])
         self.stats['avg_fitness_history'].append(stats['avg_fitness'])
         self.stats['diversity_history'].append(stats['diversity'])
+
+        # Track improvements for patience-based early stopping
+        current_fitness = stats['best_fitness']
+
+        # Calculate relative improvement (handles different fitness scales)
+        if abs(self.best_fitness_seen) > 1e-10:
+            improvement = current_fitness - self.best_fitness_seen
+            relative_improvement = abs(improvement / self.best_fitness_seen)
+        else:
+            # For very small or zero fitness, use absolute improvement
+            improvement = current_fitness - self.best_fitness_seen
+            relative_improvement = abs(improvement)
+
+        # Check if improvement exceeds minimum threshold
+        if relative_improvement > self.min_improvement:
+            # Significant improvement found - reset patience counter
+            self.best_fitness_seen = current_fitness
+            self.generations_without_improvement = 0
+            logger.debug(f"Improvement: {relative_improvement:.4%} (reset patience counter)")
+        else:
+            # No significant improvement - increment patience counter
+            self.generations_without_improvement += 1
     
     def _check_convergence(self) -> bool:
         """
         Check if GA has converged.
-        
+
         Returns:
             True if converged, False otherwise
         """
+        logger = logging.getLogger(__name__)
+
         if self.config.get('force_full_generations'):
             return False
         current_gen = len(self.stats['best_fitness_history'])
         max_gen = self.config.get('generations', 1000)
-        
-        # CRITICAL: Never converge before running at least 90% of target generations
-        # This prevents premature stopping when fitness is stuck at low values
-        # Increased from 75% to 90% to ensure full exploration
-        min_required_generations = max_gen * 0.90
-        if current_gen < min_required_generations:
-            return False  # Don't even check convergence until we've run enough
-        
+
+        # EARLY STOPPING: Patience-based termination (PRIMARY criterion)
+        patience = self.config.get('patience_ratio')
+        if patience is not None and patience > 0:  # Only if explicitly enabled
+            if self.generations_without_improvement >= self.patience_threshold:
+                logger.info(f"✓ CONVERGENCE: Patience exceeded ({self.patience_threshold} generations without ≥{self.min_improvement:.3%} improvement)")
+                logger.info(f"  Last improvement at generation {current_gen - self.patience_threshold}")
+                return True
+
         # Don't check convergence until we have enough history
         # Use stagnation_limit as minimum history required
         min_history = max(self.config.get('stagnation_limit', 50), 100)
@@ -778,16 +830,14 @@ class GeneticAlgorithm:
         # Use relative threshold for more robust convergence detection
         if fitness_mean > 0:
             relative_std = fitness_std / fitness_mean
-            # Relaxed threshold: 0.3% instead of 0.5% to prevent premature convergence
-            # For loose TW instances with high violations, fitness can be very stable
-            # but solution quality (violations) can still improve
-            # Only converge if truly stable (0.3% variation)
-            if relative_std < 0.003:
-                # We already checked min_required_generations above, so safe to converge
+            # Use configurable CV threshold (relaxed to 0.5% from 0.3%)
+            cv_threshold = self.config.get('convergence_threshold', 0.005)
+            if relative_std < cv_threshold:
+                logger.info(f"✓ CONVERGENCE: CV threshold reached ({relative_std:.4%} < {cv_threshold:.4%})")
                 return True
         
         # Keep absolute threshold as backup (only if fitness is meaningful)
-        # But still require 90% of generations and stricter threshold
+        # Stricter threshold for absolute convergence detection
         if fitness_mean > 0.0001 and fitness_std < self.config['convergence_threshold'] * 0.5:
             return True
         

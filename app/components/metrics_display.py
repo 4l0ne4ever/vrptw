@@ -227,7 +227,7 @@ def render_metrics_panel(
         st.metric(
             "Compliance Rate",
             f"{compliance:.1f}%",
-            help="Percentage of customers served within their time windows"
+            help="Percentage of customers served within time windows (early arrivals count as compliant, only late = violation)"
         )
         if compliance == 100.0:
             st.success("Perfect compliance!")
@@ -250,10 +250,10 @@ def render_metrics_panel(
             col1, col2 = st.columns(2)
             
             with col1:
-                st.write("**Violations Breakdown**")
-                st.write(f"- Late arrivals: {tw_metrics['late_arrivals']}")
-                st.write(f"- Early arrivals: {tw_metrics['early_arrivals']}")
-                st.write(f"- On-time arrivals: {tw_metrics['on_time_arrivals']}")
+                st.write("**Time Window Analysis**")
+                st.write(f"- Late arrivals (violations): {tw_metrics['late_arrivals']} ✗")
+                st.write(f"- Early arrivals (compliant): {tw_metrics['early_arrivals']} ✓")
+                st.write(f"- On-time arrivals (compliant): {tw_metrics['on_time_arrivals']} ✓")
                 if tw_metrics['max_lateness'] > 0:
                     st.write(f"- Max lateness: {tw_metrics['max_lateness']:.2f}")
             
@@ -386,7 +386,9 @@ def _calculate_vrptw_metrics(solution: Individual, problem: VRPProblem) -> Dict:
     # Calculate averages
     num_customers = solution.get_customer_count()
     avg_service_time = total_service_time / num_customers if num_customers > 0 else 0.0
-    compliance_rate = (on_time_arrivals / num_customers * 100) if num_customers > 0 else 100.0
+    # Early arrivals are compliant (they wait until ready_time, no violation)
+    # Only late arrivals (after due_date) are violations
+    compliance_rate = ((on_time_arrivals + early_arrivals) / num_customers * 100) if num_customers > 0 else 100.0
     avg_route_duration = sum(route_durations) / len(route_durations) if route_durations else 0.0
     max_route_duration = max(route_durations) if route_durations else 0.0
     

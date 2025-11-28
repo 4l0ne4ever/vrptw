@@ -177,9 +177,13 @@ if st.session_state.hanoi_dataset:
     
     # Optimization section
     if st.session_state.hanoi_problem:
-        # Parameter configuration
+        # Parameter configuration with adaptive sizing
         dataset_size = len(st.session_state.hanoi_problem.customers)
-        ga_config = render_parameter_config(dataset_size=dataset_size, dataset_type="hanoi")
+        ga_config = render_parameter_config(
+            dataset_size=dataset_size,
+            dataset_type="hanoi",
+            problem=st.session_state.hanoi_problem  # Pass problem for adaptive sizing
+        )
         
         if ga_config:
             st.markdown("---")

@@ -222,6 +222,8 @@ class HistoryService:
                 statistics['time_window_violations'] = time_window_violations
             
             # Calculate compliance rate
+            # Formula: (total - violations) / total = (on_time + early) / total
+            # Note: time_window_violations only counts late arrivals (not early)
             total_customers = len(solution.chromosome) if hasattr(solution, 'chromosome') else 0
             if total_customers > 0:
                 compliance_rate = max(0.0, min(100.0, ((total_customers - time_window_violations) / total_customers) * 100))

@@ -211,9 +211,13 @@ if st.session_state.solomon_dataset:
     
     # Optimization section
     if st.session_state.solomon_problem:
-        # Parameter configuration
+        # Parameter configuration with adaptive sizing
         dataset_size = len(st.session_state.solomon_problem.customers)
-        ga_config = render_parameter_config(dataset_size=dataset_size, dataset_type="solomon")
+        ga_config = render_parameter_config(
+            dataset_size=dataset_size,
+            dataset_type="solomon",
+            problem=st.session_state.solomon_problem  # Pass problem for adaptive sizing
+        )
         
         if ga_config:
             st.markdown("---")

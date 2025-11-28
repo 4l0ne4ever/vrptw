@@ -186,10 +186,13 @@ class TwoOptOptimizer:
                     # Create new route by reversing segment
                     new_route = self._reverse_segment(current_route, i, j)
                     new_distance = self._calculate_route_distance(new_route)
-                    
-                    # Check if improvement and capacity constraints are maintained
-                    if (new_distance < best_distance and 
-                        self._check_route_capacity(new_route)):
+
+                    # TW-AWARE 2-OPT: Check feasibility BEFORE accepting (Potvin 1996)
+                    # CRITICAL FIX: Previous version only checked capacity, not time windows!
+                    # This caused: GA(371km) -> 2-opt(270km) -> TW-repair(479km) disaster
+                    if (new_distance < best_distance and
+                        self._check_route_capacity(new_route) and
+                        self._check_route_tw_feasibility(new_route)):  # NEW: TW check!
                         current_route = new_route
                         best_distance = new_distance
                         improved = True
@@ -281,7 +284,63 @@ class TwoOptOptimizer:
                     pass
         
         return total_load <= self.problem.vehicle_capacity
-    
+
+    def _check_route_tw_feasibility(self, route: List[int]) -> bool:
+        """
+        Check if route respects time window constraints.
+
+        CRITICAL METHOD: Implements TW-aware 2-opt (Potvin 1996)
+        This prevents 2-opt from breaking time windows and causing
+        the post-processing disaster: GA -> 2-opt -> TW-repair cycle
+
+        Args:
+            route: Route to check
+
+        Returns:
+            True if route has 0 time window violations, False otherwise
+        """
+        if len(route) < 2:
+            return True
+
+        current_time = 0.0
+        depot_id = 0
+
+        # Start from depot
+        for idx in range(1, len(route)):
+            prev_id = route[idx - 1]
+            curr_id = route[idx]
+
+            # Skip depot to depot (shouldn't happen in valid routes)
+            if curr_id == depot_id and idx < len(route) - 1:
+                continue
+
+            # Get customer
+            if curr_id == depot_id:
+                # Return to depot - no TW constraint for depot
+                continue
+
+            customer = self.problem.get_customer_by_id(curr_id)
+            if customer is None:
+                # Invalid customer - reject route
+                return False
+
+            # Calculate arrival time
+            travel_time = self.problem.get_distance(prev_id, curr_id)
+            arrival_time = current_time + travel_time
+
+            # Wait if arriving before ready time
+            if arrival_time < customer.ready_time:
+                arrival_time = customer.ready_time
+
+            # Check if violates due date (CRITICAL CHECK!)
+            if arrival_time > customer.due_date:
+                return False  # TW violation - reject this route
+
+            # Update current time after service
+            current_time = arrival_time + customer.service_time
+
+        return True  # No violations - route is TW-feasible
+
     def _inter_route_optimization(self, routes: List[List[int]], 
                                  max_iterations: int = 100) -> List[List[int]]:
         """

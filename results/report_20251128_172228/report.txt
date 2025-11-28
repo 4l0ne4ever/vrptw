@@ -1,0 +1,75 @@
+================================================================================
+VRP-GA SYSTEM COMPREHENSIVE REPORT
+================================================================================
+Generated: 2025-11-28 17:23:10
+
+PROBLEM INFORMATION
+----------------------------------------
+Number of Customers: 20
+Vehicle Capacity: 200.0
+Number of Vehicles: 4
+Total Demand: 326.0
+Minimum Vehicles Needed: 2
+Problem Feasible: True
+
+GENETIC ALGORITHM SOLUTION
+----------------------------------------
+Total Distance: 118.89
+Number of Routes: 4
+Total Cost: 2188726.65
+Average Utilization: 40.8%
+Load Balance Index: 0.570
+Efficiency Score: 0.448
+Feasible: False
+Fitness: -203.575226
+
+NEAREST NEIGHBOR SOLUTION
+----------------------------------------
+Total Distance: 68.61
+Number of Routes: 2
+Total Cost: 1421027.66
+Average Utilization: 81.5%
+Load Balance Index: 0.804
+Efficiency Score: 0.500
+Feasible: False
+Fitness: 0.014366
+
+COMPARISON ANALYSIS
+----------------------------------------
+Distance Improvement: 50.28 (42.3%)
+Cost Improvement: 747348.31 (34.2%)
+Efficiency Improvement: 0.052 (11.5%)
+Overall Improved: True
+
+GENETIC ALGORITHM STATISTICS
+----------------------------------------
+Generations: 1000
+Total Evaluations: 84100
+Execution Time: 149.62 seconds
+Convergence Generation: None
+Best Fitness: -203.575226
+Average Fitness: -1016.686687
+Diversity: 0.682
+
+ROUTE DETAILS
+----------------------------------------
+GA Routes:
+  Route 1: 6 -> 13 -> 9 -> 14 -> 20 -> 18 -> 2 -> 1 (Load: 116.0)
+  Route 2: 7 -> 17 -> 4 -> 11 (Load: 75.0)
+  Route 3: 16 -> 5 -> 12 -> 19 -> 15 -> 3 (Load: 108.0)
+  Route 4: 10 -> 8 (Load: 27.0)
+
+Nearest Neighbor Routes:
+  Route 1: 1 -> 2 -> 3 -> 4 -> 6 -> 8 -> 12 -> 13 -> 14 -> 9 -> 7 -> 17 (Load: 195.0)
+  Route 2: 5 -> 11 -> 10 -> 15 -> 16 -> 19 -> 20 -> 18 (Load: 131.0)
+
+RECOMMENDATIONS
+----------------------------------------
+✓ GA solution shows improvement over Nearest Neighbor
+⚠ Low vehicle utilization - consider reducing number of vehicles
+⚠ GA solution has constraint violations
+⚠ Nearest Neighbor solution has constraint violations
+
+================================================================================
+END OF REPORT
+================================================================================
