@@ -161,7 +161,7 @@ class SolomonCacheWarmer:
 
                     calculator.calculate_distance_matrix(coordinates, use_cache=True)
                     warmed.append(dataset_name)
-                    logger.info("Warm cache ✅ %s", dataset_name)
+                    logger.info("Warm cache %s", dataset_name)
                 except Exception as exc:  # pylint: disable=broad-except
                     logger.warning("Warm cache failed for %s: %s", dataset_name, exc)
                     failed.append(dataset_name)

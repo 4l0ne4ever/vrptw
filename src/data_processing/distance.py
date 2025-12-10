@@ -134,7 +134,7 @@ class DistanceCalculator:
                         if cached_matrix is not None:
                             import logging
                             logger = logging.getLogger(__name__)
-                            logger.info(f"✅ Loaded distance matrix from file cache for {n_points} locations (dataset_type={self.dataset_type}, use_real_routes={self.use_real_routes})")
+                            logger.info(f"Loaded distance matrix from file cache for {n_points} locations (dataset_type={self.dataset_type}, use_real_routes={self.use_real_routes})")
                             self.distance_matrix = cached_matrix
                             self.coordinates = coordinates
                             return self.distance_matrix
@@ -144,7 +144,7 @@ class DistanceCalculator:
                         if cached_matrix is not None:
                             import logging
                             logger = logging.getLogger(__name__)
-                            logger.info(f"✅ Loaded distance matrix from database cache for {n_points} locations (dataset_type={self.dataset_type}, use_real_routes={self.use_real_routes})")
+                            logger.info(f"Loaded distance matrix from database cache for {n_points} locations (dataset_type={self.dataset_type}, use_real_routes={self.use_real_routes})")
                             self.distance_matrix = cached_matrix
                             self.coordinates = coordinates
                             # Also save to file cache for faster access next time
@@ -154,7 +154,7 @@ class DistanceCalculator:
                     # Cache miss
                     import logging
                     logger = logging.getLogger(__name__)
-                    logger.info(f"⚠️ Cache miss for {n_points} locations (dataset_type={self.dataset_type}, use_real_routes={self.use_real_routes}) - will calculate new matrix")
+                    logger.info(f"Cache miss for {n_points} locations (dataset_type={self.dataset_type}, use_real_routes={self.use_real_routes}) - will calculate new matrix")
                 
                 # Calculate new matrix
                 self.distance_matrix = np.zeros((n_points, n_points))
@@ -472,7 +472,7 @@ class DistanceCalculator:
                 return None
             
             # All checks passed - return cached matrix
-            logger.info(f"✅ Cache hit! Loaded matrix for {len(coordinates)} locations")
+            logger.info(f"Cache hit! Loaded matrix for {len(coordinates)} locations")
             return cache_data['distance_matrix']
             
         except (pickle.PickleError, KeyError, EOFError) as e:
@@ -714,7 +714,7 @@ class DistanceCalculator:
                 for i in range(n_points):
                     self.distance_matrix[i, i] = 0.0
         
-        logger.info(f"✅ Completed OSRM Table Service calculation for {n_points} locations")
+        logger.info(f"Completed OSRM Table Service calculation for {n_points} locations")
     
     def _calculate_osrm_table_batch(self, source_coords: List[Tuple[float, float]], 
                                     num_sources: int, source_start_idx: int, 
@@ -950,8 +950,8 @@ class DistanceCalculator:
                 break
         
         # All retries exhausted or unexpected error - use haversine fallback
-        logger.warning("⚠️ OSRM Table Service unavailable (rate limited or timeout). Using Haversine fallback...")
-        logger.info("💡 Tip: Haversine provides good approximations for Hanoi coordinates and avoids API rate limits.")
+        logger.warning("OSRM Table Service unavailable (rate limited or timeout). Using Haversine fallback...")
+        logger.info("Tip: Haversine provides good approximations for Hanoi coordinates and avoids API rate limits.")
         # Fallback to haversine
         with pipeline_profiler.profile(
             "distance.osrm_fallback",
@@ -1068,7 +1068,7 @@ class DistanceCalculator:
                         if completed % 100 == 0:
                             print(f"Progress: {completed}/{total_pairs} pairs calculated ({completed*100/total_pairs:.1f}%)...")
         
-        logger.info(f"✅ Completed OSRM calculation for {n_points} locations, {total_pairs} pairs")
+        logger.info(f"Completed OSRM calculation for {n_points} locations, {total_pairs} pairs")
     
     def _get_osrm_distance(self, point1: Tuple[float, float], point2: Tuple[float, float]) -> float:
         """

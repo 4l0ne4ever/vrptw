@@ -7,7 +7,7 @@ Implements PHASE 4: LNS POST-OPTIMIZATION
 - Simulated Annealing acceptance
 - Global best tracking
 
-Expected: Reduce distance from ~650km → ~600km (close to BKS 588km)
+Expected: Reduce distance from ~650km -> ~600km (close to BKS 588km)
 """
 
 import numpy as np
@@ -174,7 +174,7 @@ class LNSOptimizer:
 
         # Final summary
         elapsed = time.time() - start_time
-        logger.info(f"✅ LNS completed in {elapsed:.1f}s")
+        logger.info(f" LNS completed in {elapsed:.1f}s")
         logger.info(f"   Initial: {self._calculate_cost(initial_routes):.2f} km")
         logger.info(f"   Final: {best_cost:.2f} km")
         logger.info(f"   Improvement: {self._calculate_cost(initial_routes) - best_cost:.2f} km")

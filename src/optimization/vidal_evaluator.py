@@ -325,13 +325,13 @@ class VidalEvaluator:
 
         # Calculate cost delta
         if is_feasible:
-            # Old cost: before → after
+            # Old cost: before -> after
             old_cost = self._get_distance(
                 route[insert_pos - 1],
                 route[insert_pos]
             )
 
-            # New cost: before → inserted → after
+            # New cost: before -> inserted -> after
             new_cost = (
                 self._get_distance(route[insert_pos - 1], customer_id) +
                 self._get_distance(customer_id, route[insert_pos])

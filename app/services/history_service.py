@@ -154,7 +154,7 @@ class HistoryService:
             
             from app.config.database import SessionLocal
             db = SessionLocal()
-            logger.info(f"✅ Database connection established")
+            logger.info(f" Database connection established")
             
             # Extract metrics
             total_distance = solution.total_distance
@@ -174,12 +174,12 @@ class HistoryService:
             if 'time_window_violations' in statistics:
                 raw_value = statistics['time_window_violations']
                 time_window_violations = int(raw_value)
-                logger.info(f"✅ Found time_window_violations in statistics: {raw_value} -> {time_window_violations}")
+                logger.info(f" Found time_window_violations in statistics: {raw_value} -> {time_window_violations}")
                 
                 # SANITY CHECK: Violations should be reasonable (not penalty value)
                 # Penalty values are typically millions/billions, violations should be < 10000
                 if time_window_violations > 10000:
-                    logger.error(f"❌ SANITY CHECK FAILED: violations={time_window_violations} looks like penalty, not count!")
+                    logger.error(f" SANITY CHECK FAILED: violations={time_window_violations} looks like penalty, not count!")
                     logger.error(f"   This is likely a bug - violations should be < 10000 for typical problems")
                     # Try to get from constraint_violations instead
                     if 'constraint_violations' in statistics:
@@ -200,14 +200,14 @@ class HistoryService:
                 if isinstance(violations_data, dict):
                     raw_value = violations_data.get('time_window_violations', 0)
                     time_window_violations = int(raw_value)
-                    logger.info(f"✅ Found time_window_violations in constraint_violations: {raw_value} -> {time_window_violations}")
+                    logger.info(f" Found time_window_violations in constraint_violations: {raw_value} -> {time_window_violations}")
                 else:
                     time_window_violations = 0
-                    logger.warning("⚠️  constraint_violations exists but is not a dict")
+                    logger.warning("  constraint_violations exists but is not a dict")
             else:
                 # WARNING: Violations not found in statistics!
                 # This should NOT happen if optimization_service calculated KPIs correctly
-                logger.warning("❌ Time window violations not found in statistics - defaulting to 0. "
+                logger.warning(" Time window violations not found in statistics - defaulting to 0. "
                              "This may indicate optimization_service didn't calculate KPIs properly.")
                 logger.warning(f"   Available statistics keys: {list(statistics.keys())}")
                 time_window_violations = 0
@@ -287,24 +287,24 @@ class HistoryService:
                             problem_for_kpis = data_service.create_vrp_problem(dataset_data, calculate_distance=True, dataset_type=dataset_type)
                             
                             if problem_for_kpis:
-                                logger.info("✅ Problem reconstructed from database")
+                                logger.info(" Problem reconstructed from database")
                             else:
-                                logger.warning("⚠️  Problem reconstruction returned None, using basic metrics only")
+                                logger.warning("  Problem reconstruction returned None, using basic metrics only")
                         else:
-                            logger.warning("⚠️  Dataset data not available, using basic metrics only")
+                            logger.warning("  Dataset data not available, using basic metrics only")
                     except Exception as e:
-                        logger.warning(f"⚠️  Could not reconstruct problem from dataset: {e}, using basic metrics only")
+                        logger.warning(f"  Could not reconstruct problem from dataset: {e}, using basic metrics only")
                         import traceback
                         traceback.print_exc()
                 else:
-                    logger.info("✅ Using problem object from runtime (avoids data sync issues)")
+                    logger.info(" Using problem object from runtime (avoids data sync issues)")
                 
                 if problem_for_kpis:
                     kpi_calculator = KPICalculator(problem_for_kpis)
                     kpis = kpi_calculator.calculate_kpis(solution, execution_time=execution_time)
-                    logger.info(f"✅ Calculated comprehensive KPIs: {len(kpis)} metrics")
+                    logger.info(f" Calculated comprehensive KPIs: {len(kpis)} metrics")
             except Exception as e:
-                logger.warning(f"⚠️  Failed to calculate KPIs: {e}, using basic metrics only")
+                logger.warning(f"  Failed to calculate KPIs: {e}, using basic metrics only")
                 import traceback
                 traceback.print_exc()
             
@@ -417,8 +417,8 @@ class HistoryService:
                 
                 # Commit run immediately to ensure it's saved (CRITICAL)
                 db.commit()
-                logger.info(f"✅ Optimization run created and committed: run_id={run_id}, dataset={dataset_name}")
-                print(f"✅ [HISTORY] Run saved successfully: run_id={run_id}, distance={total_distance:.2f}km, violations={time_window_violations}")
+                logger.info(f" Optimization run created and committed: run_id={run_id}, dataset={dataset_name}")
+                print(f" [HISTORY] Run saved successfully: run_id={run_id}, distance={total_distance:.2f}km, violations={time_window_violations}")
                 
                 # Verify run was saved
                 db_verify = SessionLocal()
@@ -426,17 +426,17 @@ class HistoryService:
                     from app.database.crud import get_optimization_run
                     verified_run = get_optimization_run(db_verify, run_id)
                     if verified_run:
-                        logger.info(f"✅ Run verification successful: run_id={run_id} exists in database")
-                        print(f"✅ [HISTORY] Run verified in database: run_id={run_id}")
+                        logger.info(f" Run verification successful: run_id={run_id} exists in database")
+                        print(f" [HISTORY] Run verified in database: run_id={run_id}")
                     else:
-                        logger.error(f"❌ Run verification failed: run_id={run_id} not found in database!")
-                        print(f"❌ [HISTORY] Run NOT found in database after save!")
+                        logger.error(f" Run verification failed: run_id={run_id} not found in database!")
+                        print(f" [HISTORY] Run NOT found in database after save!")
                 finally:
                     db_verify.close()
                     
             except Exception as run_error:
-                logger.error(f"❌ CRITICAL: Failed to create optimization run: {run_error}", exc_info=True)
-                print(f"❌ [HISTORY] Failed to create run: {run_error}")
+                logger.error(f" CRITICAL: Failed to create optimization run: {run_error}", exc_info=True)
+                print(f" [HISTORY] Failed to create run: {run_error}")
                 import traceback
                 traceback.print_exc()
                 db.rollback()
@@ -495,21 +495,21 @@ class HistoryService:
                 verified_result = get_best_result(db, dataset_id)
                 
                 if verified_result and verified_result.run_id == run_id:
-                    logger.info(f"✅ Best result updated: distance={verified_result.total_distance:.2f}, "
+                    logger.info(f" Best result updated: distance={verified_result.total_distance:.2f}, "
                               f"violations={verified_result.time_window_violations}, run_id={verified_result.run_id}")
                 else:
-                    logger.warning(f"⚠️  Best result update verification failed (but run is saved): "
+                    logger.warning(f"  Best result update verification failed (but run is saved): "
                                  f"expected run_id={run_id}, got={verified_result.run_id if verified_result else None}")
             except Exception as best_result_error:
                 # Best result update failed, but run is already saved - just log warning
-                logger.warning(f"⚠️  Best result update failed (but run {run_id} is saved): {best_result_error}")
+                logger.warning(f"  Best result update failed (but run {run_id} is saved): {best_result_error}")
                 # Don't rollback - run is already committed
                 # Don't re-raise - run saving is more important
             
             db.close()
             
-            logger.info(f"✅ save_result completed: run_id={run_id}, is_new_best={is_new_best}")
-            print(f"✅ Result saved successfully: run_id={run_id}, distance={total_distance:.2f}km, violations={time_window_violations}")
+            logger.info(f" save_result completed: run_id={run_id}, is_new_best={is_new_best}")
+            print(f" Result saved successfully: run_id={run_id}, distance={total_distance:.2f}km, violations={time_window_violations}")
             
             return run_id, is_new_best
             

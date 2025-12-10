@@ -78,7 +78,7 @@ def render_parameter_config(
                 default_config = adaptive_config
 
                 st.info(f"""
-                📊 **Recommended Parameters** (based on {tightness_metrics['n_customers']} customers, {tightness_metrics['tight_ratio']:.1%} tight):
+                 **Recommended Parameters** (based on {tightness_metrics['n_customers']} customers, {tightness_metrics['tight_ratio']:.1%} tight):
                 - Population: **{adaptive_config['population_size']}** (adapted from base)
                 - Generations: **{adaptive_config['generations']}** (adapted from base)
                 - Mutation: **{adaptive_config['mutation_prob']:.3f}** (adjusted for tightness)

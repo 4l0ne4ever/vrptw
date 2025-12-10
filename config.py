@@ -18,7 +18,7 @@ GA_CONFIG = {
 
     # ADAPTIVE PARAMETERS (auto-adjust in runtime)
     'adaptive_mutation': True,   # Enable adaptive mutation based on TW tightness
-    'convergence_threshold': 0.005,  # UPDATED from 0.001 (0.3% → 0.5% CV for convergence)
+    'convergence_threshold': 0.005,  # UPDATED from 0.001 (0.3% -> 0.5% CV for convergence)
     'stagnation_limit': 50,      # Stop if no improvement for 50 generations
     'use_split_algorithm': True, # Enable Split Algorithm (Prins 2004)
     'local_search_prob': 0.3,    # Probability of applying local search
@@ -31,9 +31,9 @@ GA_CONFIG = {
     'patience_ratio': 0.10,  # 10% of max generations (adjustable: 0.05-0.20)
     'min_improvement_threshold': 0.001,  # 0.1% relative improvement to count as progress
     # NOTE: Patience is calculated dynamically based on max generations
-    # Example: 1500 gens → patience = 150, 3000 gens → patience = 300
+    # Example: 1500 gens -> patience = 150, 3000 gens -> patience = 300
     'tw_repair': {
-        'enabled': False,  # ❌ DISABLED: Let Strong Repair (Phase 3) handle violations!
+        'enabled': False,  #  DISABLED: Let Strong Repair (Phase 3) handle violations!
         'max_iterations': 100,  # Not used (GA doesn't repair)
         'max_iterations_soft': 10,  # Not used
         'violation_weight': 50.0,
@@ -44,16 +44,16 @@ GA_CONFIG = {
         'max_routes_soft_limit': 5,
         'lateness_soft_threshold': float('inf'),
         'lateness_skip_threshold': float('inf'),
-        'apply_in_decoder': False,  # ❌ DISABLED: GA evolves freely
-        'apply_in_decoder_solomon': False,  # ❌ DISABLED: Penalty guides, not repair
-        'apply_after_genetic_operators': False,  # ❌ DISABLED: No repair during evolution
-        'apply_after_genetic_operators_prob': 0.0,  # ❌ DISABLED: Pure GA
-        'apply_after_local_search': False,  # ❌ DISABLED
-        'apply_post_generation': False,  # ❌ DISABLED
+        'apply_in_decoder': False,  #  DISABLED: GA evolves freely
+        'apply_in_decoder_solomon': False,  #  DISABLED: Penalty guides, not repair
+        'apply_after_genetic_operators': False,  #  DISABLED: No repair during evolution
+        'apply_after_genetic_operators_prob': 0.0,  #  DISABLED: Pure GA
+        'apply_after_local_search': False,  #  DISABLED
+        'apply_post_generation': False,  #  DISABLED
         'apply_post_generation_prob': 0.0,
         'post_generation_top_k_ratio': 0.0,
         'apply_after_local_search_solomon': False,
-        'apply_on_final_solution': False  # ❌ DISABLED: Strong Repair will fix everything!
+        'apply_on_final_solution': False  #  DISABLED: Strong Repair will fix everything!
     }
 }
 

@@ -714,7 +714,7 @@ def run_optimization(problem, args, mode_name):
         # Apply Strong Repair as final post-processing step to achieve 0 violations
         # This is the "Super Weapon" that transforms duck into swan
         try:
-            logger.info("🔧 Starting Strong Repair Pipeline (Post-Process)...")
+            logger.info(" Starting Strong Repair Pipeline (Post-Process)...")
             print("Applying Strong Repair Pipeline (Relaxed Construction + Violation Repair + LNS)...")
             
             from src.optimization.matrix_preprocessor import MatrixPreprocessor
@@ -742,7 +742,7 @@ def run_optimization(problem, args, mode_name):
             )
             
             # Apply Strong Repair to final solution
-            # This includes: Relaxed Construction → Violation Repair → LNS (if 0 violations)
+            # This includes: Relaxed Construction -> Violation Repair -> LNS (if 0 violations)
             if ga_solution.routes:
                 repaired_routes = strong_repair.repair_routes(ga_solution.routes)
                 ga_solution.routes = repaired_routes
@@ -1112,15 +1112,15 @@ def run_optimization(problem, args, mode_name):
         
         if run_id:
             logger.info(f"Saved optimization run to database: {run_id}")
-            print(f"✅ Saved optimization run to database (Run ID: {run_id})")
+            print(f" Saved optimization run to database (Run ID: {run_id})")
             if is_new_best:
                 print(f"   This is a new best result for this dataset!")
         else:
             logger.warning("Failed to save to database: run_id is None")
-            print("⚠️  Failed to save to database")
+            print("  Failed to save to database")
     except Exception as e:
         logger.error(f"Failed to save to database: {e}", exc_info=True)
-        print(f"⚠️  Failed to save to database: {e}")
+        print(f"  Failed to save to database: {e}")
     
     print(f"\nOptimization completed successfully!")
     print(f"Results saved in: {args.output}")

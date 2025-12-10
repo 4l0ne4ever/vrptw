@@ -27,29 +27,29 @@ def clear_history():
         print(f"Optimization runs to delete: {runs_count}")
         
         if best_results_count == 0 and runs_count == 0:
-            print("\n✅ Database is already empty. Nothing to delete.")
+            print("\n Database is already empty. Nothing to delete.")
             return
         
         # Delete best results
         if best_results_count > 0:
             deleted_best = db.query(BestResult).delete()
-            print(f"\n✅ Deleted {deleted_best} best result(s)")
+            print(f"\n Deleted {deleted_best} best result(s)")
         
         # Delete optimization runs
         if runs_count > 0:
             deleted_runs = db.query(OptimizationRun).delete()
-            print(f"✅ Deleted {deleted_runs} optimization run(s)")
+            print(f" Deleted {deleted_runs} optimization run(s)")
         
         # Commit changes
         db.commit()
         
         print("\n" + "=" * 80)
-        print("✅ History cleared successfully!")
+        print(" History cleared successfully!")
         print("=" * 80)
         print("\nYou can now run new optimizations and they will be saved fresh.")
         
     except Exception as e:
-        print(f"\n❌ Error clearing history: {e}")
+        print(f"\n Error clearing history: {e}")
         import traceback
         traceback.print_exc()
         db.rollback()
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     
     if not args.yes:
         # Confirm before deletion
-        print("⚠️  WARNING: This will delete ALL optimization history!")
+        print("  WARNING: This will delete ALL optimization history!")
         print("   - All best results will be deleted")
         print("   - All optimization runs will be deleted")
         print("\nThis action cannot be undone.")
@@ -75,10 +75,10 @@ if __name__ == "__main__":
         try:
             response = input("\nAre you sure you want to continue? (yes/no): ")
             if response.lower() not in ['yes', 'y']:
-                print("\n❌ Operation cancelled.")
+                print("\n Operation cancelled.")
                 sys.exit(0)
         except EOFError:
-            print("\n❌ Cannot read input. Use --yes flag: python3 clear_history.py --yes")
+            print("\n Cannot read input. Use --yes flag: python3 clear_history.py --yes")
             sys.exit(1)
     
     clear_history()

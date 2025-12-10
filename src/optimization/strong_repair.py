@@ -7,7 +7,7 @@ Implements PHASE 3: STRONG REPAIR (Feasibility Enforcer)
 - Best-improvement (scan all candidates, pick best)
 - O(1) feasibility checks via VidalEvaluator
 
-Expected: Reduce distance from ~1066km → ~650km while maintaining 0 violations
+Expected: Reduce distance from ~1066km -> ~650km while maintaining 0 violations
 """
 
 import logging
@@ -86,7 +86,7 @@ class StrongRepair:
                - Solomon: Multi-restart for moderate/severe violations
             4. GATE 3: LNS Post-Optimization (if 0 violations)
         """
-        logger.info("🔧 Strong Repair: Starting ADAPTIVE repair...")
+        logger.info("Strong Repair: Starting ADAPTIVE repair...")
         logger.info(f"   Mode: {self.dataset_mode}")
         logger.info(f"   Max iterations: {self.max_iterations}")
         logger.info(f"   Swap enabled: {self.enable_swap}")
@@ -103,7 +103,7 @@ class StrongRepair:
         logger.info(f"   Initial violations: {initial_violations}")
 
         if initial_violations == 0:
-            logger.info("   ✅ No violations! Returning original routes")
+            logger.info("   No violations! Returning original routes")
             return current_routes
 
         # NOTE: Fix 1 (mode-specific counting) đã align Strong Repair với ConstraintHandler
@@ -117,7 +117,7 @@ class StrongRepair:
         severity = self._classify_severity(initial_violations, total_customers)
         avg_tw_width = self._analyze_time_window_tightness()
 
-        logger.info(f"   📊 Problem Analysis:")
+        logger.info(f"   Problem Analysis:")
         logger.info(f"      Capacity utilization: {capacity_util*100:.1f}%")
         logger.info(f"      Violation severity: {severity} ({initial_violations}/{total_customers} = {initial_violations/total_customers*100:.1f}%)")
         logger.info(f"      Avg TW width: {avg_tw_width:.1f} time units")
@@ -125,9 +125,9 @@ class StrongRepair:
         # Determine root cause
         capacity_is_tight = capacity_util >= 0.90  # 90% threshold
         if capacity_is_tight:
-            logger.info(f"   ⚠️  Capacity is TIGHT (>90%) → Capacity-constrained problem")
+            logger.info(f"   Capacity is TIGHT (>90%) - Capacity-constrained problem")
         else:
-            logger.info(f"   ✅ Capacity is OK (<90%) → Time Window problem, NOT capacity!")
+            logger.info(f"   Capacity is OK (<90%) - Time Window problem, NOT capacity!")
 
         # Get BKS info for Solomon mode
         instance_name = getattr(self.problem, 'name', None)
@@ -184,9 +184,9 @@ class StrongRepair:
                                     break
 
             logger.info(f"   💣 RUIN PHASE (Smart Ejection):")
-            logger.info(f"      Violated customers: {len(violated_ids)} → {violated_ids[:10]}")
+            logger.info(f"      Violated customers: {len(violated_ids)} -> {violated_ids[:10]}")
             if neighbors_added_ids:
-                logger.info(f"      Related neighbors: {len(neighbors_added_ids)} → {neighbors_added_ids[:10]}")
+                logger.info(f"      Related neighbors: {len(neighbors_added_ids)} -> {neighbors_added_ids[:10]}")
             logger.info(f"      Total to eject: {len(customers_to_eject)}")
         else:
             logger.info(f"   💣 RUIN PHASE: Ejecting {len(violated_ids)} violated customers...")
@@ -235,8 +235,8 @@ class StrongRepair:
         # CRITICAL: Only consider FEASIBLE positions - never create violations
         # Strategy:
         #   1. Find ALL feasible positions for each customer
-        #   2. If has feasible positions → use Regret-2 to choose
-        #   3. If NO feasible positions → create new route (if under vehicle limit)
+        #   2. If has feasible positions -> use Regret-2 to choose
+        #   3. If NO feasible positions -> create new route (if under vehicle limit)
         #   4. Result: ALWAYS 0 violations (worst case: 1 customer per route)
         # Reference: "The Vehicle Routing Problem" by Toth & Vigo (2002)
 
@@ -294,17 +294,17 @@ class StrongRepair:
 
                 # Calculate regret based on FEASIBLE positions only
                 if len(feasible_insertions) == 0:
-                    # NO feasible position → will need to create route
+                    # NO feasible position -> will need to create route
                     regret = float('inf')  # Highest priority
                     best_cost = float('inf')
                     best_insertion = None
                 elif len(feasible_insertions) == 1:
-                    # Only one feasible option → high regret
+                    # Only one feasible option -> high regret
                     regret = 1000.0
                     best_cost = feasible_insertions[0][0]
                     best_insertion = (feasible_insertions[0][1], feasible_insertions[0][2])
                 else:
-                    # Multiple feasible options → calculate regret
+                    # Multiple feasible options -> calculate regret
                     feasible_insertions.sort(key=lambda x: x[0])
                     best_cost = feasible_insertions[0][0]
                     second_best_cost = feasible_insertions[1][0]
@@ -320,7 +320,7 @@ class StrongRepair:
                 })
 
             if not customer_regrets:
-                logger.error(f"   ❌ CRITICAL: No customers to insert!")
+                logger.error(f"    CRITICAL: No customers to insert!")
                 break
 
             # Sort by regret (descending) - prioritize hardest to place
@@ -339,7 +339,7 @@ class StrongRepair:
                     logger.info(f"        Customer {c['customer_id']}: regret={c['regret']:.1f}, feasible_pos={c['num_feasible']}")
 
             if best_insertion is not None:
-                # Has feasible position → insert there
+                # Has feasible position -> insert there
                 route_idx, pos = best_insertion
                 current_routes[route_idx].insert(pos, cust_id)
                 unassigned.remove(cust_id)
@@ -349,24 +349,24 @@ class StrongRepair:
                     logger.debug(f"      Inserted {insertions_made}/{len(customers_to_rebuild)}, {len(unassigned)} remaining")
 
             else:
-                # NO feasible position → CREATE NEW ROUTE
+                # NO feasible position -> CREATE NEW ROUTE
                 if len(current_routes) < max_vehicles:
-                    # Under vehicle limit → create route and VERIFY feasibility
+                    # Under vehicle limit -> create route and VERIFY feasibility
                     new_route = [0, cust_id, 0]
 
                     # CRITICAL: Check if single-customer route is feasible
                     route_eval = self.evaluator.evaluate_route(new_route)
 
                     if route_eval['violations'] == 0:
-                        # New route is FEASIBLE → use it
+                        # New route is FEASIBLE -> use it
                         current_routes.append(new_route)
                         unassigned.remove(cust_id)
                         insertions_made += 1
-                        logger.info(f"      ✅ Created feasible route for customer {cust_id} (total: {len(current_routes)} routes)")
+                        logger.info(f"       Created feasible route for customer {cust_id} (total: {len(current_routes)} routes)")
                     else:
                         # Even single-customer route is INFEASIBLE!
                         # This means customer's time window is impossible to satisfy alone
-                        logger.warning(f"      ⚠️  Customer {cust_id}: Single-customer route has {route_eval['violations']} violations!")
+                        logger.warning(f"        Customer {cust_id}: Single-customer route has {route_eval['violations']} violations!")
                         logger.warning(f"         Will try force-inserting into existing route (may reduce violation)")
 
                         # Try force insert into best position in existing routes
@@ -389,16 +389,16 @@ class StrongRepair:
                             current_routes[route_idx].insert(pos, cust_id)
                             unassigned.remove(cust_id)
                             insertions_made += 1
-                            logger.warning(f"         → Force-inserted at route {route_idx}, pos {pos} ({min_violations} violations)")
+                            logger.warning(f"         -> Force-inserted at route {route_idx}, pos {pos} ({min_violations} violations)")
                         else:
                             # Can't even force insert - create route anyway
                             current_routes.append(new_route)
                             unassigned.remove(cust_id)
                             insertions_made += 1
-                            logger.error(f"         → Created infeasible route anyway (last resort)")
+                            logger.error(f"         -> Created infeasible route anyway (last resort)")
                 else:
-                    # Over vehicle limit → FORCE INSERT (last resort)
-                    logger.warning(f"      ❌ Customer {cust_id}: No feasible position AND at vehicle limit ({max_vehicles})")
+                    # Over vehicle limit -> FORCE INSERT (last resort)
+                    logger.warning(f"       Customer {cust_id}: No feasible position AND at vehicle limit ({max_vehicles})")
                     logger.warning(f"         FORCE INSERTING (will create violation)")
 
                     # Force insert at cheapest position (accept violation)
@@ -422,12 +422,12 @@ class StrongRepair:
                         unassigned.remove(cust_id)
                         insertions_made += 1
                     else:
-                        logger.error(f"      ❌ Cannot force insert customer {cust_id}")
+                        logger.error(f"       Cannot force insert customer {cust_id}")
                         break
 
         # --- PHASE 2: VIOLATION REPAIR (Incremental Swap/Relocate) ---
         # Now that all 100 customers are routed, use Swap/Relocate to fix violations
-        logger.info("   🔧 PHASE 2: Starting Violation Repair (Swap/Relocate)...")
+        logger.info("    PHASE 2: Starting Violation Repair (Swap/Relocate)...")
         
         violations_after_construction = self._count_violations(current_routes)
         logger.info(f"      Violations after construction: {violations_after_construction}")
@@ -437,11 +437,11 @@ class StrongRepair:
 
         # --- GATE 1: EVALUATION AFTER STANDARD REPAIR ---
         final_violations = self._count_violations(current_routes)
-        logger.info(f"   ✅ GATE 1 complete: {initial_violations} → {final_violations} violations")
+        logger.info(f"    GATE 1 complete: {initial_violations} -> {final_violations} violations")
         logger.info(f"      Successfully re-inserted: {insertions_made}/{len(customers_to_rebuild)} customers")
 
         if len(unassigned) > 0:
-            logger.warning(f"      ⚠️  {len(unassigned)} customers remain unassigned: {unassigned[:10]}")
+            logger.warning(f"        {len(unassigned)} customers remain unassigned: {unassigned[:10]}")
 
         # =============================================================================
         # GATE 2: MODE-DEPENDENT DEEP REPAIR STRATEGY
@@ -522,18 +522,18 @@ class StrongRepair:
 
                 if lns_violations == 0:
                     improvement = current_cost - lns_cost
-                    logger.info(f"      ✅ LNS completed: {current_cost:.2f} → {lns_cost:.2f} km "
+                    logger.info(f"       LNS completed: {current_cost:.2f} -> {lns_cost:.2f} km "
                               f"(improvement: {improvement:+.2f} km)")
                     current_routes = optimized_routes
                 else:
-                    logger.warning(f"      ⚠️  LNS created {lns_violations} violations, keeping solution")
+                    logger.warning(f"        LNS created {lns_violations} violations, keeping solution")
                     logger.info(f"      Keeping current solution: {current_cost:.2f} km")
 
             except Exception as e:
-                logger.warning(f"      ⚠️  LNS optimization failed: {e}, keeping current solution")
+                logger.warning(f"        LNS optimization failed: {e}, keeping current solution")
                 # Continue with current solution if LNS fails
         else:
-            logger.warning(f"   ⚠️  Still have {final_violations} violations after all repair attempts")
+            logger.warning(f"     Still have {final_violations} violations after all repair attempts")
             logger.warning(f"      This problem may be infeasible with current vehicle count")
 
         return current_routes
@@ -572,11 +572,11 @@ class StrongRepair:
         # We want energy to DECREASE, so negate it
         delta_energy = -(violation_reduction * VIOLATION_WEIGHT) + distance_delta
 
-        # 1. Good move (Energy decreases) → Always Accept
+        # 1. Good move (Energy decreases) -> Always Accept
         if delta_energy < 0:
             return True
 
-        # 2. Bad move (Energy increases) → Probabilistic Accept based on temperature
+        # 2. Bad move (Energy increases) -> Probabilistic Accept based on temperature
         if temperature < 0.001:  # Too cold, reject bad moves
             return False
 
@@ -617,7 +617,7 @@ class StrongRepair:
 
             # Validate route structure
             if route[0] != 0 or route[-1] != 0:
-                logger.warning(f"⚠️  Route {route_idx} doesn't start/end with depot")
+                logger.warning(f"  Route {route_idx} doesn't start/end with depot")
                 continue
 
             # Manual forward calculation (SAME as _count_violations)
@@ -817,7 +817,7 @@ class StrongRepair:
             current_violations = self._count_violations(current_routes)
             
             if current_violations == 0:
-                logger.info(f"      ✅ All violations fixed after {iterations} iterations!")
+                logger.info(f"       All violations fixed after {iterations} iterations!")
                 break
             
             # Get violated customers sorted by worst lateness first
@@ -869,15 +869,15 @@ class StrongRepair:
                 no_improvement_count = 0
                 new_violations = self._count_violations(current_routes)
                 if iterations % 10 == 0 or new_violations == 0:
-                    logger.debug(f"      Iteration {iterations}: {current_violations} → {new_violations} violations")
+                    logger.debug(f"      Iteration {iterations}: {current_violations} -> {new_violations} violations")
             else:
                 no_improvement_count += 1
                 if no_improvement_count >= max_no_improvement:
-                    logger.warning(f"      ⚠️  No improvement for {max_no_improvement} iterations, stopping")
+                    logger.warning(f"        No improvement for {max_no_improvement} iterations, stopping")
                     break
         
         final_violations = self._count_violations(current_routes)
-        logger.info(f"      Incremental repair complete: {initial_violations} → {final_violations} violations ({iterations} iterations)")
+        logger.info(f"      Incremental repair complete: {initial_violations} -> {final_violations} violations ({iterations} iterations)")
         
         return current_routes
 
@@ -1032,7 +1032,7 @@ class StrongRepair:
                     best_position = (target_route_idx, target_pos)
 
             if best_position is not None:
-                logger.debug(f"   ✅ PANIC MODE found solution: viol_reduction={best_violation_reduction}, dist_delta={best_distance_delta:.1f}")
+                logger.debug(f"    PANIC MODE found solution: viol_reduction={best_violation_reduction}, dist_delta={best_distance_delta:.1f}")
 
         # Apply best move if any candidate found
         # Use Simulated Annealing to decide acceptance
@@ -1263,7 +1263,7 @@ class StrongRepair:
 
         # Apply best swap if found (with SA acceptance)
         if best_swap is not None:
-            logger.debug(f"   ✅ PANIC SWAP found solution: viol_red={best_violation_reduction}, dist_delta={best_distance_delta:.1f}")
+            logger.debug(f"    PANIC SWAP found solution: viol_red={best_violation_reduction}, dist_delta={best_distance_delta:.1f}")
 
             accept = self._accept_move_sa(
                 best_violation_reduction,
@@ -1470,7 +1470,7 @@ class StrongRepair:
                     attempt_routes[route_idx].insert(pos, best_customer)
                     unassigned.remove(best_customer)
                 else:
-                    logger.warning(f"         ⚠️  Cannot insert {len(unassigned)} customers")
+                    logger.warning(f"           Cannot insert {len(unassigned)} customers")
                     break
 
             # Phase 3: Incremental repair (increased iterations for better quality)
@@ -1504,7 +1504,7 @@ class StrongRepair:
                 best_routes = attempt_routes
                 best_violations = attempt_violations
                 best_distance = attempt_distance
-                logger.info(f"         ✅ Result: {attempt_violations} violations, {attempt_distance:.2f} km (NEW BEST!)")
+                logger.info(f"          Result: {attempt_violations} violations, {attempt_distance:.2f} km (NEW BEST!)")
             else:
                 logger.info(f"         Result: {attempt_violations} violations, {attempt_distance:.2f} km (current best: {best_violations} viol)")
 
@@ -1773,8 +1773,8 @@ class StrongRepair:
                 fixed_routes.append(fixed_route)
             else:
                 # Empty route - skip
-                logger.warning(f"⚠️  Route {route_idx} has no customers, skipping")
+                logger.warning(f"  Route {route_idx} has no customers, skipping")
 
-        logger.info(f"   Validated {len(routes)} routes → {len(fixed_routes)} valid routes")
+        logger.info(f"   Validated {len(routes)} routes -> {len(fixed_routes)} valid routes")
 
         return fixed_routes

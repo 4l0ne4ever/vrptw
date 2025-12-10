@@ -292,7 +292,7 @@ if st.session_state.hanoi_dataset:
                             # PHASE 3: STRONG REPAIR PIPELINE (Post-Process)
                             # =============================================================================
                             try:
-                                logger.info("🔧 Starting Strong Repair Pipeline (Post-Process)...")
+                                logger.info(" Starting Strong Repair Pipeline (Post-Process)...")
                                 from src.optimization.matrix_preprocessor import MatrixPreprocessor
                                 from src.optimization.neighbor_lists import NeighborListBuilder
                                 from src.optimization.vidal_evaluator import VidalEvaluator
@@ -350,7 +350,7 @@ if st.session_state.hanoi_dataset:
                                     violations_post = kpis_post_repair['constraint_violations']
                                     statistics['time_window_violations'] = violations_post.get('time_window_violations', 0)
                                     statistics['constraint_violations'] = violations_post
-                                    logger.info(f"✅ Statistics updated after all repairs: violations={statistics['time_window_violations']}")
+                                    logger.info(f" Statistics updated after all repairs: violations={statistics['time_window_violations']}")
                             except Exception as kpi_err:
                                 logger.warning(f"Failed to recalculate KPIs after repair: {kpi_err}")
 
@@ -376,7 +376,7 @@ if st.session_state.hanoi_dataset:
                             # Ensure we have a valid dataset
                             if not st.session_state.hanoi_dataset:
                                 logger.warning("Cannot save to history: hanoi_dataset is None")
-                                st.warning("⚠️ Không thể lưu vào history: Dataset không tồn tại")
+                                st.warning(" Không thể lưu vào history: Dataset không tồn tại")
                             else:
                                 # Try to find existing dataset or create new one
                                 from app.config.database import SessionLocal
@@ -436,25 +436,25 @@ if st.session_state.hanoi_dataset:
                                     )
                                     
                                     if run_id:
-                                        logger.info(f"✅ Saved optimization run to history: run_id={run_id}")
-                                        print(f"✅ [HANOI] Run saved: run_id={run_id}")
+                                        logger.info(f" Saved optimization run to history: run_id={run_id}")
+                                        print(f" [HANOI] Run saved: run_id={run_id}")
                                         if is_new_best:
                                             st.session_state['new_best_result'] = True
-                                            st.success(f"✅ Đã lưu vào history và đây là kết quả tốt nhất! (Run ID: {run_id})")
+                                            st.success(f" Đã lưu vào history và đây là kết quả tốt nhất! (Run ID: {run_id})")
                                         else:
-                                            st.success(f"✅ Đã lưu vào history (Run ID: {run_id})")
+                                            st.success(f" Đã lưu vào history (Run ID: {run_id})")
                                     else:
-                                        logger.error("❌ CRITICAL: Failed to save to history: run_id is None")
-                                        print(f"❌ [HANOI] save_result returned None - check logs for errors")
-                                        st.error(f"❌ Không thể lưu vào history - run_id is None. Kiểm tra logs để xem lỗi.")
+                                        logger.error(" CRITICAL: Failed to save to history: run_id is None")
+                                        print(f" [HANOI] save_result returned None - check logs for errors")
+                                        st.error(f" Không thể lưu vào history - run_id is None. Kiểm tra logs để xem lỗi.")
                                 except Exception as db_error:
                                     logger.error(f"Database error saving to history: {db_error}", exc_info=True)
-                                    st.error(f"❌ Lỗi khi lưu vào history: {str(db_error)}")
+                                    st.error(f" Lỗi khi lưu vào history: {str(db_error)}")
                                 finally:
                                     db.close()
                         except Exception as e:
                             logger.error(f"Failed to save to history: {e}", exc_info=True)
-                            st.error(f"❌ Lỗi khi lưu vào history: {str(e)}")
+                            st.error(f" Lỗi khi lưu vào history: {str(e)}")
 
                         st.rerun()
 

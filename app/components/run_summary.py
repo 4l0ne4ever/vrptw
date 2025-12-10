@@ -115,7 +115,7 @@ def _render_dataset_snapshot(dataset_info: Dict):
         tw_end_min = int(tw_end % 60)
         st.metric(
             "Time Window Range",
-            f"{tw_start_hour:02d}:{tw_start_min:02d} → {tw_end_hour:02d}:{tw_end_min:02d}"
+            f"{tw_start_hour:02d}:{tw_start_min:02d} -> {tw_end_hour:02d}:{tw_end_min:02d}"
         )
 
 
@@ -257,22 +257,22 @@ def _render_result_snapshot(solution: Individual, kpis: Dict):
     if not kpis.get("is_feasible", True):
         violations = kpis.get('constraint_violations', {})
         if violations:
-            with st.expander("⚠️ Constraint Violations Details", expanded=True):
+            with st.expander(" Constraint Violations Details", expanded=True):
                 st.warning("Solution has constraint violations. Details below:")
                 
                 col1, col2 = st.columns(2)
                 with col1:
                     st.write("**Violation Types:**")
                     if violations.get('capacity_violations'):
-                        st.error("❌ Capacity Violations")
+                        st.error(" Capacity Violations")
                     if violations.get('vehicle_count_violations'):
-                        st.error("❌ Vehicle Count Violations")
+                        st.error(" Vehicle Count Violations")
                     if violations.get('customer_visit_violations'):
-                        st.error("❌ Customer Visit Violations")
+                        st.error(" Customer Visit Violations")
                     if violations.get('depot_violations'):
-                        st.error("❌ Depot Violations")
+                        st.error(" Depot Violations")
                     if violations.get('time_window_violations'):
-                        st.error("❌ Time Window Violations")
+                        st.error(" Time Window Violations")
                 
                 with col2:
                     total_violations = violations.get('total_violations', 0)

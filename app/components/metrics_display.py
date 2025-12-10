@@ -151,9 +151,9 @@ def render_metrics_panel(
                         st.success(f"✓ Distance: {improvement:.2f}% better")
                     elif improvement < 0:
                         st.error(f"✗ Distance: {abs(improvement):.2f}% worse")
-                        st.caption("💡 For small datasets (≤20 customers), NN can be competitive. GA may need more generations or prioritize feasibility over pure distance.")
+                        st.caption(" For small datasets (≤20 customers), NN can be competitive. GA may need more generations or prioritize feasibility over pure distance.")
                     else:
-                        st.info("→ Distance: Same")
+                        st.info("-> Distance: Same")
                     
                     route_diff = ga_routes - nn_routes
                     if route_diff < 0:
@@ -161,7 +161,7 @@ def render_metrics_panel(
                     elif route_diff > 0:
                         st.warning(f"⚠ Routes: {route_diff} more")
                     else:
-                        st.info("→ Routes: Same")
+                        st.info("-> Routes: Same")
                     
                     violation_diff = ga_tw_metrics['num_violations'] - nn_tw_metrics['num_violations']
                     if violation_diff < 0:
@@ -169,7 +169,7 @@ def render_metrics_panel(
                     elif violation_diff > 0:
                         st.error(f"✗ Violations: {violation_diff} more")
                     else:
-                        st.info("→ Violations: Same")
+                        st.info("-> Violations: Same")
                 
                 comparison_data.append({
                     'Metric': 'vs Nearest Neighbor',

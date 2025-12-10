@@ -178,7 +178,7 @@ class ResultExporter:
             
             for route in route_details:
                 f.write(f"Xe {route['vehicle_id']}:\n")
-                f.write(f"  Lộ trình: {' → '.join(route['customers'])}\n")
+                f.write(f"  Lộ trình: {' -> '.join(route['customers'])}\n")
                 f.write(f"  Quãng đường: {route['distance']:.2f} km\n")
                 f.write(f"  Tải trọng: {route['load']:.1f}/{route['capacity']} ({route['utilization']:.1f}%)\n")
                 f.write(f"  Phí giao hàng: {route['shipping_cost']:,.0f} VND\n\n")

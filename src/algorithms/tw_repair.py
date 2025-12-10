@@ -97,7 +97,7 @@ class TWRepairOperator:
         weight_escalation_count = 0
 
         # Pass 1: GREEDY search (fast)
-        logger.info("🔧 TW repair Pass 1: Greedy search (first-improvement)")
+        logger.info(" TW repair Pass 1: Greedy search (first-improvement)")
         best_routes, best_score, stats = self._repair_pass(
             best_routes,
             best_score,
@@ -120,7 +120,7 @@ class TWRepairOperator:
         if current_lateness <= 1.0:
             total_time = time.perf_counter() - start_time
             logger.info(
-                "TW repair: ✅ 0 violations achieved in Pass 1 (greedy), "
+                "TW repair:  0 violations achieved in Pass 1 (greedy), "
                 "%.1fms, %d iterations",
                 total_time * 1000,
                 stats['iterations']
@@ -129,7 +129,7 @@ class TWRepairOperator:
 
         # Pass 2: EXHAUSTIVE search (thorough, best-improvement)
         if self.enable_exhaustive_search:
-            logger.info("🔧 TW repair Pass 2: Exhaustive search (best-improvement)")
+            logger.info(" TW repair Pass 2: Exhaustive search (best-improvement)")
             best_routes, best_score, stats = self._repair_pass(
                 best_routes,
                 best_score,
@@ -151,7 +151,7 @@ class TWRepairOperator:
             if current_lateness <= 1.0:
                 total_time = time.perf_counter() - start_time
                 logger.info(
-                    "TW repair: ✅ 0 violations achieved in Pass 2 (exhaustive), "
+                    "TW repair:  0 violations achieved in Pass 2 (exhaustive), "
                     "%.1fms, total iterations: %d",
                     total_time * 1000,
                     stats['iterations']
@@ -160,7 +160,7 @@ class TWRepairOperator:
 
         # Pass 3: RESTART with shuffle (if stuck and enabled)
         if self.enable_restart and current_lateness > 1.0:
-            logger.info("🔧 TW repair Pass 3: Restart with shuffle")
+            logger.info(" TW repair Pass 3: Restart with shuffle")
 
             for restart_attempt in range(5):  # Try 5 restarts for stubborn cases
                 # Shuffle the route with most violations
@@ -192,7 +192,7 @@ class TWRepairOperator:
                 if current_lateness <= 1.0:
                     total_time = time.perf_counter() - start_time
                     logger.info(
-                        "TW repair: ✅ 0 violations achieved after %d restart(s), "
+                        "TW repair:  0 violations achieved after %d restart(s), "
                         "%.1fms",
                         restart_attempt + 1,
                         total_time * 1000
@@ -201,7 +201,7 @@ class TWRepairOperator:
 
         # Pass 4: ADAPTIVE WEIGHT escalation (if still stuck)
         if current_lateness > 1.0 and self.adaptive_weight_multiplier > 1.0:
-            logger.info("🔧 TW repair Pass 4: Adaptive weight escalation")
+            logger.info(" TW repair Pass 4: Adaptive weight escalation")
 
             # Escalate violation_weight
             original_weight = self.violation_weight
@@ -209,7 +209,7 @@ class TWRepairOperator:
             weight_escalation_count += 1
 
             logger.info(
-                "TW repair: Escalating violation_weight: %.1f → %.1f",
+                "TW repair: Escalating violation_weight: %.1f -> %.1f",
                 original_weight,
                 self.violation_weight
             )
@@ -246,7 +246,7 @@ class TWRepairOperator:
         if total_time > 0.05 or final_lateness > 1.0:
             mode_label = "soft" if soft_mode else "full"
             logger.info(
-                "TW repair (%s): lateness %.2f → %.2f, %.1fms total "
+                "TW repair (%s): lateness %.2f -> %.2f, %.1fms total "
                 "(reloc %.1fms, swap %.1fms), %d routes, %d customers, "
                 "restarts=%d, weight_escalations=%d",
                 mode_label,

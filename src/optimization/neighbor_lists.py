@@ -24,8 +24,8 @@ class NeighborListBuilder:
     Instead, only search within the K closest neighbors.
 
     This reduces:
-    - Relocate search: O(N²) → O(K·N)
-    - Swap search: O(N²) → O(K·N)
+    - Relocate search: O(N2) -> O(K*N)
+    - Swap search: O(N2) -> O(K*N)
     - Overall speedup: 96% reduction when K=40, N=1000
     """
 
@@ -54,7 +54,7 @@ class NeighborListBuilder:
         Build neighbor lists for all customers.
 
         Returns:
-            Dictionary mapping customer_id → [list of K closest neighbor IDs]
+            Dictionary mapping customer_id -> [list of K closest neighbor IDs]
 
         Process:
             1. For each customer i (and depot if included):
@@ -67,7 +67,7 @@ class NeighborListBuilder:
         Example:
             neighbor_lists[5] = [12, 7, 23, 15, ...] (40 closest customers to customer 5)
         """
-        logger.info("🔧 Neighbor List Builder: Building neighbor lists...")
+        logger.info("Neighbor List Builder: Building neighbor lists...")
 
         N = len(self.time_matrix)
         self.neighbor_lists = {}
@@ -85,7 +85,7 @@ class NeighborListBuilder:
             # Get matrix index for this customer
             idx = self.problem.id_to_index.get(customer_id)
             if idx is None:
-                logger.warning(f"   ⚠️  Customer ID {customer_id} not in id_to_index mapping, skipping")
+                logger.warning(f"   Customer ID {customer_id} not in id_to_index mapping, skipping")
                 continue
 
             # Extract row i (times from i to all others)
@@ -113,7 +113,7 @@ class NeighborListBuilder:
             if customer_id in [0, 2, 3]:  # Depot and first 2 customers
                 logger.debug(f"   Customer {customer_id}: neighbors = {neighbor_ids[:5]}... ({len(neighbor_ids)} total)")
 
-        logger.info(f"✅ Neighbor List Builder: Built {len(self.neighbor_lists)} neighbor lists")
+        logger.info(f"Neighbor List Builder: Built {len(self.neighbor_lists)} neighbor lists")
         logger.info(f"   Average neighbors per node: {np.mean([len(v) for v in self.neighbor_lists.values()]):.1f}")
         logger.info(f"   Search space reduction: {(1 - self.k/N)*100:.1f}% (from {N} to {self.k} per node)")
 
@@ -152,7 +152,7 @@ class NeighborListBuilder:
             raise ValueError("Neighbor lists not built yet. Call build_neighbor_lists() first")
 
         if customer_id not in self.neighbor_lists:
-            logger.warning(f"⚠️  Customer {customer_id} not in neighbor lists, returning empty list")
+            logger.warning(f"Customer {customer_id} not in neighbor lists, returning empty list")
             return []
 
         return self.neighbor_lists[customer_id]
@@ -162,7 +162,7 @@ class NeighborListBuilder:
         Get all neighbor lists.
 
         Returns:
-            Dictionary mapping customer_id → [neighbor IDs]
+            Dictionary mapping customer_id -> [neighbor IDs]
 
         Raises:
             ValueError: If neighbor lists not built yet
@@ -186,10 +186,10 @@ class NeighborListBuilder:
             True if validation passes, False otherwise
         """
         if self.neighbor_lists is None:
-            logger.error("❌ Validation failed: Neighbor lists not built")
+            logger.error("Validation failed: Neighbor lists not built")
             return False
 
-        logger.info("🔍 Validating neighbor lists...")
+        logger.info("Validating neighbor lists...")
 
         all_customer_ids = [c.id for c in self.problem.customers]
         if self.include_depot:
@@ -221,12 +221,12 @@ class NeighborListBuilder:
                 issues.append(f"Customer {customer_id} has invalid neighbors: {invalid_neighbors}")
 
         if issues:
-            logger.error(f"❌ Validation failed with {len(issues)} issues:")
+            logger.error(f"Validation failed with {len(issues)} issues:")
             for issue in issues[:10]:  # Show first 10 issues
                 logger.error(f"   - {issue}")
             return False
 
-        logger.info("✅ Validation passed: All neighbor lists are correct")
+        logger.info("Validation passed: All neighbor lists are correct")
         return True
 
     def update_k(self, new_k: int) -> Dict[int, List[int]]:
@@ -239,7 +239,7 @@ class NeighborListBuilder:
         Returns:
             Updated neighbor lists
         """
-        logger.info(f"🔧 Updating K from {self.k} to {new_k}")
+        logger.info(f"Updating K from {self.k} to {new_k}")
         self.k = new_k
         return self.build_neighbor_lists()
 

@@ -22,7 +22,7 @@ class MatrixPreprocessor:
 
     Key Principles:
     1. Matrix-First: All cost queries must use matrix lookup (no formulas)
-    2. Asymmetry: Assume cost(A→B) ≠ cost(B→A) for generalization to Hanoi
+    2. Asymmetry: Assume cost(A->B) ≠ cost(B->A) for generalization to Hanoi
     3. Normalization: Ensure diagonal = 0 for consistency
     """
 
@@ -52,7 +52,7 @@ class MatrixPreprocessor:
             4. Validate matrices
             5. Check for asymmetry
         """
-        logger.info("🔧 Matrix Preprocessor: Starting normalization...")
+        logger.info(" Matrix Preprocessor: Starting normalization...")
 
         # Get raw distance matrix
         if self.problem.distance_matrix is None:
@@ -85,7 +85,7 @@ class MatrixPreprocessor:
         # STEP 5: Check asymmetry
         self._check_asymmetry()
 
-        logger.info(f"✅ Matrix Preprocessor: Normalization complete")
+        logger.info(f" Matrix Preprocessor: Normalization complete")
         logger.info(f"   Distance matrix: shape={self.dist_matrix.shape}, dtype={self.dist_matrix.dtype}")
         logger.info(f"   Time matrix: shape={self.time_matrix.shape}, dtype={self.time_matrix.dtype}")
         logger.info(f"   Symmetry: {'Symmetric' if self.is_symmetric else 'Asymmetric (Hanoi mode)'}")
@@ -105,13 +105,13 @@ class MatrixPreprocessor:
         diagonal_time = np.diag(self.time_matrix)
 
         if not np.allclose(diagonal_dist, 0.0):
-            logger.warning(f"⚠️  Distance matrix diagonal not all zeros: {diagonal_dist[:5]}...")
+            logger.warning(f"  Distance matrix diagonal not all zeros: {diagonal_dist[:5]}...")
             # Fix it
             np.fill_diagonal(self.dist_matrix, 0.0)
             logger.info("   Fixed diagonal to 0")
 
         if not np.allclose(diagonal_time, 0.0):
-            logger.warning(f"⚠️  Time matrix diagonal not all zeros: {diagonal_time[:5]}...")
+            logger.warning(f"  Time matrix diagonal not all zeros: {diagonal_time[:5]}...")
             # Fix it
             np.fill_diagonal(self.time_matrix, 0.0)
             logger.info("   Fixed diagonal to 0")
@@ -126,7 +126,7 @@ class MatrixPreprocessor:
         assert not np.any(np.isnan(self.time_matrix)), "Time matrix contains NaN"
         assert not np.any(np.isinf(self.time_matrix)), "Time matrix contains Inf"
 
-        logger.info("   ✅ Matrix validation passed")
+        logger.info("    Matrix validation passed")
 
     def _check_asymmetry(self):
         """
@@ -142,9 +142,9 @@ class MatrixPreprocessor:
         self.is_symmetric = is_symmetric_dist and is_symmetric_time
 
         if not self.is_symmetric:
-            logger.warning("⚠️  ASYMMETRIC matrices detected (Hanoi mode)")
+            logger.warning("  ASYMMETRIC matrices detected (Hanoi mode)")
             logger.warning("   IMPORTANT: When reversing segments (2-opt), must re-query matrix!")
-            logger.warning("   Never assume cost(A→B) == cost(B→A)")
+            logger.warning("   Never assume cost(A->B) == cost(B->A)")
 
             # Log some examples of asymmetry
             N = min(5, len(self.dist_matrix))
@@ -153,7 +153,7 @@ class MatrixPreprocessor:
                     forward = self.dist_matrix[i, j]
                     backward = self.dist_matrix[j, i]
                     if abs(forward - backward) > 0.01:
-                        logger.info(f"   Example: dist[{i}→{j}]={forward:.2f}, dist[{j}→{i}]={backward:.2f}")
+                        logger.info(f"   Example: dist[{i}->{j}]={forward:.2f}, dist[{j}->{i}]={backward:.2f}")
                         break
 
     def get_distance(self, from_id: int, to_id: int) -> float:

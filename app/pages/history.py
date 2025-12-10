@@ -220,7 +220,7 @@ with tab2:
 # Show run details if selected
 if 'selected_run_id' in st.session_state:
     st.markdown("---")
-    st.markdown("### 📊 Run Details")
+    st.markdown("###  Run Details")
     
     try:
         db = SessionLocal()
@@ -263,13 +263,13 @@ if 'selected_run_id' in st.session_state:
                 # Display violations count (not penalty)
                 if violations > 1000000 or violations < 0:
                     # Still looks wrong - show as N/A with warning
-                    st.metric("⚠️ Violations", "N/A", 
+                    st.metric(" Violations", "N/A", 
                              help="Violations data may be incorrect (showing penalty value instead of count)")
                 else:
-                    st.metric("⚠️ Violations", int(violations))
+                    st.metric(" Violations", int(violations))
             with col4:
                 compliance = results_data.get('compliance_rate', 0)
-                st.metric("✅ Compliance Rate", f"{compliance:.1f}%")
+                st.metric(" Compliance Rate", f"{compliance:.1f}%")
             
             # Additional Metrics
             st.markdown("#### 📈 Additional Metrics")
@@ -331,7 +331,7 @@ if 'selected_run_id' in st.session_state:
                              help="Runtime data not available")
             
             # Comparison with Nearest Neighbor Baseline
-            st.markdown("#### 📊 Comparison with Baseline")
+            st.markdown("####  Comparison with Baseline")
             try:
                 from app.database.crud import get_dataset
                 db = SessionLocal()
@@ -407,7 +407,7 @@ if 'selected_run_id' in st.session_state:
             
             # Statistics Section (if available)
             if 'statistics' in results_data and results_data['statistics']:
-                with st.expander("📊 Detailed Statistics", expanded=False):
+                with st.expander(" Detailed Statistics", expanded=False):
                     stats = results_data['statistics']
                     stats_cols = st.columns(2)
                     with stats_cols[0]:
@@ -425,11 +425,11 @@ if 'selected_run_id' in st.session_state:
                             st.write(f"- Population Diversity: {stats['diversity']:.4f}")
             
             # Raw JSON (for technical users)
-            with st.expander("🔧 Raw JSON Data (Technical)", expanded=False):
+            with st.expander(" Raw JSON Data (Technical)", expanded=False):
                 st.json(results_data)
             
             # Close button
-            if st.button("❌ Close Details", use_container_width=True):
+            if st.button(" Close Details", use_container_width=True):
                 del st.session_state['selected_run_id']
                 st.rerun()
         else:

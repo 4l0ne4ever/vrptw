@@ -85,7 +85,7 @@ def convert_hanoi_csv_to_json(csv_file: str, output_file: str = None):
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(json_data, f, indent=2, ensure_ascii=False)
 
-    print(f"✅ Converted: {csv_file} → {output_file}")
+    print(f"Converted: {csv_file} -> {output_file}")
     return output_file
 
 def convert_all_hanoi_datasets(directory: str = "data/test_datasets"):
@@ -121,11 +121,11 @@ def convert_all_hanoi_datasets(directory: str = "data/test_datasets"):
                 convert_hanoi_csv_to_json(csv_path)
                 converted_count += 1
             except Exception as e:
-                print(f"❌ Error converting {csv_file}: {e}")
+                print(f"Error converting {csv_file}: {e}")
         else:
-            print(f"⚠️  File not found: {csv_path}")
+            print(f"File not found: {csv_path}")
 
-    print(f"\n📊 Converted {converted_count} datasets to JSON format")
+    print(f"\nConverted {converted_count} datasets to JSON format")
 
 if __name__ == "__main__":
     convert_all_hanoi_datasets()
