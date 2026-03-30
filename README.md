@@ -1,209 +1,67 @@
-# VRP-GA System: Vehicle Routing Problem Optimization
+# VRPTW Fullstack (FastAPI + React + Kafka)
 
-A comprehensive system for solving Vehicle Routing Problem with Time Windows (VRPTW) using Genetic Algorithms and advanced optimization techniques.
+This repository now runs in fullstack mode only (no Streamlit fallback):
+
+- Backend API + WebSocket: `backend/main.py`
+- Frontend SPA (Vite + React): `frontend/`
+- Solver core: `src/`
+- Messaging/replay: `src/messaging`, `src/simulation`
 
 ## Quick Start
 
-### Prerequisites
-
-- Python 3.8+
-- pip package manager
-
-### Installation
+### 1) Python backend
 
 ```bash
-# Clone or navigate to project directory
-cd optimize
-
-# Create virtual environment
 python3 -m venv venv
-source venv/bin/activate  # macOS/Linux
-# or: venv\Scripts\activate  # Windows
-
-# Install dependencies
+source venv/bin/activate
 pip install -r requirements.txt
+uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### Usage
+### 2) Local Kafka broker
 
-#### 1. CLI Mode (Command Line)
+Use a locally running Kafka broker at `localhost:9092`.
+
+Default env:
 
 ```bash
-# Solve Solomon dataset
-python main.py --mode solomon --dataset C101 --ga-population 100 --ga-generations 200
-
-# Solve with Hanoi mockup data
-python main.py --mode hanoi --dataset hanoi_lognormal_50_customers.json
-
-# Available datasets: C101, C201, R101, R201, RC101, RC201, etc.
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 ```
 
-#### 2. Web UI (Streamlit)
+See `.env.example` for all backend env keys.
+
+### 3) Frontend
 
 ```bash
-streamlit run app/streamlit_app.py
+cd frontend
+npm install
+npm run dev
 ```
 
-Open browser at `http://localhost:8501` for interactive interface.
+Open `http://localhost:5173`.
 
-## Features
+## API Endpoints
 
-- **Genetic Algorithm**: Main optimization engine with customizable parameters
-- **Local Search**: 2-opt optimization for route improvement
-- **Constraint Handling**: Automatic repair of capacity and time window violations
-- **Distance Calculation**: OSRM API integration with Haversine fallback
-- **Multi-mode Support**:
-  - Solomon benchmark datasets
-  - Hanoi city logistics (with real coordinates)
-  - Custom mockup data
-- **Visualization**: Interactive maps and performance reports
-- **Shipping Cost**: Ahamove-based cost calculation
-- **BKS Validation**: Compare results with Best-Known Solutions
+- `GET /health`
+- `GET /instances`
+- `POST /upload`
+- `POST /run`
+- `GET /result/{run_id}`
+- `POST /compare/quick`
+- `POST /monitor/start`
+- `POST /monitor/stop`
+- `GET /monitor/context`
+- `POST /monitor/replan`
+- `POST /monitor/traffic/inject`
+- `WS /ws`
 
-## Project Structure
+## Notes
 
-```
-optimize/
-├── main.py                 # CLI entry point
-├── config.py              # Global configuration
-├── requirements.txt       # Python dependencies
-├── app/                   # Web UI (Streamlit)
-│   ├── streamlit_app.py
-│   ├── components/        # UI components
-│   ├── pages/            # App pages (home, datasets, results)
-│   └── services/         # Business logic
-├── src/                  # Core algorithms
-│   ├── algorithms/       # GA, local search, heuristics
-│   ├── optimization/     # Repair, preprocessing
-│   ├── data_processing/  # Data loading, distance calc
-│   ├── evaluation/       # Metrics, validation
-│   ├── models/           # VRP problem models
-│   ├── visualization/    # Maps and reports
-│   └── core/            # Logger, exceptions
-├── data/                # Datasets (Solomon, Hanoi)
-├── results/             # Output files
-├── docs/                # Architecture & guides
-└── tests/               # Unit tests
-```
-
-## Configuration
-
-Edit `config.py` to customize:
-
-```python
-GA_CONFIG = {
-    'population_size': 100,
-    'generations': 200,
-    'mutation_rate': 0.1,
-    'crossover_rate': 0.8
-}
-
-VRP_CONFIG = {
-    'vehicle_capacity': 1000,
-    'speed': 50,  # km/h
-}
-```
-
-## Key Algorithms
-
-| Algorithm             | Purpose                                   |
-| --------------------- | ----------------------------------------- |
-| **Genetic Algorithm** | Population-based optimization             |
-| **Split Algorithm**   | Route partition optimization (Prins 2004) |
-| **2-opt**             | Local search improvement                  |
-| **Nearest Neighbor**  | Fast baseline solution                    |
-| **Constraint Repair** | Fix violations automatically              |
-
-## Data Formats
-
-### Input
-
-- **Solomon CSV**: Standard VRPTW benchmark format
-- **JSON**: Custom format with location coordinates and time windows
-- **Hanoi Dataset**: Optimized for Vietnamese logistics
-
-### Output
-
-- Route assignments and distances
-- Performance metrics (KPIs)
-- Interactive maps
-- PDF reports
-- JSON results for integration
-
-## Example: Solving a Problem
-
-```bash
-# 1. Using CLI
-python main.py --mode solomon --dataset C101 --ga-population 150
-
-# 2. Using Streamlit UI
-streamlit run app/streamlit_app.py
-# Then upload data and configure parameters in browser
-
-# 3. Results saved to: results/
-```
-
-## Performance
-
-- **Solomon C101**: Near-optimal solutions found in < 5 minutes
-- **Hanoi 50 customers**: < 3 minutes for ~350km routes
-- **Hanoi 100 customers**: < 10 minutes
-- Configurable time/quality tradeoff
-
-## Testing
-
-```bash
-pytest tests/
-```
-
-## Troubleshooting
-
-**Issue**: OSRM API timeout
-
-- **Solution**: Automatic fallback to Haversine distance
-
-**Issue**: Out of memory with large datasets
-
-- **Solution**: Reduce population size or use nearest-neighbor mode
-
-**Issue**: Import errors
-
-- **Solution**: Ensure virtual environment activated and all packages installed
-
-## Documentation
-
-- `HUONG_DAN_CHAY.md`: Vietnamese user guide
-- `docs/ARCHITECTURE.md`: Detailed system architecture
-- `docs/`: Additional technical documentation
-
-## Language Support
-
-- **Code**: English (clean, maintainable)
-- **UI**: Both English and Vietnamese
-- **Documentation**: Vietnamese and English
-
-## Key Dependencies
-
-- `numpy`, `pandas`: Data processing
-- `matplotlib`, `plotly`: Visualization
-- `scikit-learn`: Utilities
-- `streamlit`: Web interface
-- `sqlalchemy`: Database ORM
-- `folium`: Maps
-
-## Project Status
-
-✅ Core algorithms implemented
-✅ Solomon dataset support
-✅ Hanoi data integration
-✅ Web UI complete
-✅ Multi-mode optimization
-⏳ Real-time OSRM routing (optional)
-
-## License
-
-See LICENSE file
-
-## Authors
-
-4l0ne4ever
+- Realtime flow: solver/replay emit Kafka -> backend forwarder -> websocket broadcast.
+- Replan supports cooldown (`REPLAN_COOLDOWN_S`).
+- Quick benchmark endpoint (`/compare/quick`) provides lightweight comparisons:
+  - HGA vs GA vs NN
+  - adaptive traffic vs static traffic
+  - re-plan vs no re-plan (actual when available, otherwise quick simulated pair)
+  - monitoring-like vs static optimization
+- Run artifacts are stored in `results/runs/<run_id>/artifacts.pkl`.

@@ -21,3 +21,4 @@ venv/
 logs/
 docs/
 .claude/
+node_modules/

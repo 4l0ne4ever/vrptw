@@ -11,7 +11,7 @@ import requests
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import VRP_CONFIG
-from app.config.settings import (
+from src.runtime_settings import (
     OSRM_BASE_URL,
     OSRM_TIMEOUT,
     OSRM_MAX_BATCH_SIZE,

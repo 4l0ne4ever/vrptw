@@ -17,6 +17,8 @@ from src.algorithms.fitness import FitnessEvaluator
 from src.core.pipeline_profiler import pipeline_profiler
 from config import GA_CONFIG
 
+logger = logging.getLogger(__name__)
+
 
 class GeneticAlgorithm:
     """Main Genetic Algorithm engine for VRP optimization."""
@@ -38,8 +40,6 @@ class GeneticAlgorithm:
             from src.utils.adaptive_sizing import get_adaptive_parameters, get_config_summary
             self.config = get_adaptive_parameters(problem, self.config)
             # Log adaptive configuration
-            import logging
-            logger = logging.getLogger(__name__)
             logger.info("=== ADAPTIVE PARAMETER SIZING ===")
             logger.info(get_config_summary(self.config))
             logger.info("=" * 50)
@@ -826,29 +826,24 @@ class GeneticAlgorithm:
         
         fitness_std = np.std(recent_fitness)
         fitness_mean = np.mean(recent_fitness) if recent_fitness else 0.0
-        
+        conv_thr = float(self.config.get("convergence_threshold", 0.005))
+
         # Use relative threshold for more robust convergence detection
         if fitness_mean > 0:
             relative_std = fitness_std / fitness_mean
-            # Use configurable CV threshold (relaxed to 0.5% from 0.3%)
-            cv_threshold = self.config.get('convergence_threshold', 0.005)
-            if relative_std < cv_threshold:
-                logger.info(f"✓ CONVERGENCE: CV threshold reached ({relative_std:.4%} < {cv_threshold:.4%})")
+            if relative_std < conv_thr:
+                logger.info(f"✓ CONVERGENCE: CV threshold reached ({relative_std:.4%} < {conv_thr:.4%})")
                 return True
-        
+
         # Keep absolute threshold as backup (only if fitness is meaningful)
-        # Stricter threshold for absolute convergence detection
-        if fitness_mean > 0.0001 and fitness_std < self.config['convergence_threshold'] * 0.5:
+        if fitness_mean > 0.0001 and fitness_std < conv_thr * 0.5:
             return True
-        
-        # Check stagnation limit (only if we've run enough generations)
-        # Require longer stagnation period before considering converged
+
         if len(self.stats['best_fitness_history']) >= stagnation_window * 2:
             recent_best = self.stats['best_fitness_history'][-stagnation_window * 2:]
             if len(recent_best) >= stagnation_window * 2:
                 best_range = max(recent_best) - min(recent_best)
-                # Only consider converged if range is very small AND we've run enough generations
-                if best_range < self.config['convergence_threshold'] * 0.5:
+                if best_range < conv_thr * 0.5:
                     return True
         
         return False

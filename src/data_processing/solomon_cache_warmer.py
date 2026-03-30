@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
-from app.config.settings import (
+from src.runtime_settings import (
     SOLOMON_WARM_CACHE_ENABLED,
     SOLOMON_WARM_CACHE_ASYNC,
     SOLOMON_WARM_CACHE_LIMIT,
