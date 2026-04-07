@@ -22,3 +22,7 @@ logs/
 docs/
 .claude/
 node_modules/
+.streamlit/
+results/
+tests/
+scripts/
